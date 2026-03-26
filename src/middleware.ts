@@ -15,9 +15,15 @@ export async function middleware(request: NextRequest) {
     path.startsWith("/api/debug-");
 
   // JWT check (no DB access needed — runs on Edge)
+  // NextAuth v5 uses "authjs" cookie prefix, not "next-auth"
   const token = await getToken({
     req: request,
     secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET,
+    cookieName: "__Secure-authjs.session-token",
+  }) || await getToken({
+    req: request,
+    secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET,
+    cookieName: "authjs.session-token",
   });
 
   if (!token && !isPublic) {
