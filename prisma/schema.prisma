@@ -303,6 +303,7 @@ model PosInventoryItem {
   reorder_point       Int?
   safety_stock        Int      @default(0)
   active              Boolean  @default(true)
+  lendable            Boolean  @default(false)
   created_at          DateTime @default(now()) @db.Timestamptz()
   updated_at          DateTime @default(now()) @db.Timestamptz()
 
