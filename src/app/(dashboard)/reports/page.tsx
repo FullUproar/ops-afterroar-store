@@ -6,7 +6,7 @@ export default async function EventROIPage() {
   const supabase = await createClient();
 
   const { data: events } = await supabase
-    .from("game_events")
+    .from("events")
     .select("*")
     .order("date", { ascending: false });
 

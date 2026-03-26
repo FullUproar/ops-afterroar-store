@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
   }
 
   const { data, error } = await supabase
-    .from("inventory")
+    .from("inventory_items")
     .select("*")
     .eq("store_id", staff.store_id)
     .or(`name.ilike.%${q}%,barcode.eq.${q},sku.ilike.%${q}%`)

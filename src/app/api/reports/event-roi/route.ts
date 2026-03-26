@@ -5,7 +5,7 @@ export async function GET() {
   const supabase = await createClient();
 
   const { data: events, error: eventsError } = await supabase
-    .from("game_events")
+    .from("events")
     .select("*")
     .order("date", { ascending: false });
 

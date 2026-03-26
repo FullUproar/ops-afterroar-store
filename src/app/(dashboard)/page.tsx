@@ -12,8 +12,7 @@ export default async function DashboardPage() {
         .select("id", { count: "exact", head: true }),
       supabase
         .from("customers")
-        .select("id", { count: "exact", head: true })
-        .eq("active", true),
+        .select("id", { count: "exact", head: true }),
       supabase
         .from("ledger_entries")
         .select("id", { count: "exact", head: true })
@@ -23,9 +22,9 @@ export default async function DashboardPage() {
           new Date(new Date().setHours(0, 0, 0, 0)).toISOString()
         ),
       supabase
-        .from("game_events")
+        .from("events")
         .select("id", { count: "exact", head: true })
-        .gte("date", new Date().toISOString()),
+        .gte("starts_at", new Date().toISOString()),
       supabase
         .from("ledger_entries")
         .select("*")

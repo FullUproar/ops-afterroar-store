@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
   const to = from + limit - 1;
 
   const { data, error } = await supabase
-    .from("inventory")
+    .from("inventory_items")
     .select("*")
     .eq("store_id", staff.store_id)
     .order("name")
@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
   }
 
   const { data, error } = await supabase
-    .from("inventory")
+    .from("inventory_items")
     .insert({
       store_id: staff.store_id,
       name: name.trim(),
@@ -154,7 +154,7 @@ export async function PATCH(request: NextRequest) {
   }
 
   const { data, error } = await supabase
-    .from("inventory")
+    .from("inventory_items")
     .update(sanitized)
     .eq("id", id)
     .eq("store_id", staff.store_id)

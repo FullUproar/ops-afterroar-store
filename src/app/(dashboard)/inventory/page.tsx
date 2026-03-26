@@ -76,7 +76,7 @@ export default function InventoryPage() {
         if (!staff) return;
 
         const { data } = await supabase
-          .from("inventory")
+          .from("inventory_items")
           .select("*")
           .eq("store_id", staff.store_id)
           .order("name")
@@ -134,7 +134,7 @@ export default function InventoryPage() {
         if (!staff) return;
 
         const { data } = await supabase
-          .from("inventory")
+          .from("inventory_items")
           .select("*")
           .eq("store_id", staff.store_id)
           .order("name")
