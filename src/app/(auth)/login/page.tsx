@@ -1,10 +1,19 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, Suspense } from "react";
 import { signIn } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
 
+// Wrap in Suspense for useSearchParams
 export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginContent />
+    </Suspense>
+  );
+}
+
+function LoginContent() {
   const [isSignUp, setIsSignUp] = useState(false);
   const [error, setError] = useState("");
   const searchParams = useSearchParams();
