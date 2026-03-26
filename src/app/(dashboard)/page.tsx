@@ -5,6 +5,19 @@ import type { LedgerEntry } from "@/lib/types";
 export default async function DashboardPage() {
   const supabase = await createClient();
 
+  // Check auth first
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center">
+        <p className="text-zinc-400">Not authenticated. Please sign in.</p>
+      </div>
+    );
+  }
+
   const [inventoryRes, customersRes, tradeInsRes, eventsRes, ledgerRes] =
     await Promise.all([
       supabase
@@ -32,6 +45,19 @@ export default async function DashboardPage() {
         .limit(10),
     ]);
 
+  // Log any errors for debugging
+  const errors = [
+    inventoryRes.error,
+    customersRes.error,
+    tradeInsRes.error,
+    eventsRes.error,
+    ledgerRes.error,
+  ].filter(Boolean);
+
+  if (errors.length > 0) {
+    console.error("Dashboard query errors:", errors);
+  }
+
   const stats = [
     {
       label: "Total Inventory Items",
@@ -56,6 +82,12 @@ export default async function DashboardPage() {
   return (
     <div className="space-y-8">
       <h1 className="text-2xl font-bold text-white">Welcome back</h1>
+
+      {errors.length > 0 && (
+        <div className="rounded-lg border border-yellow-800 bg-yellow-950/50 p-4 text-sm text-yellow-400">
+          Some data failed to load: {errors.map((e) => e?.message).join(", ")}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map((stat) => (
