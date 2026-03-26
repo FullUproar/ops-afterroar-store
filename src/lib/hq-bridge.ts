@@ -234,6 +234,121 @@ export async function linkCustomerToAfterroar(
 }
 
 // ============================================================
+// Earn points from purchase → HQ PointsLedger
+// ============================================================
+
+export async function earnPointsFromPurchase(params: {
+  userId: string;
+  points: number;
+  storeId: string;
+  transactionId: string;
+  amountSpentCents: number;
+}) {
+  const { default: cuid } = await import("cuid");
+
+  return prisma.$queryRawUnsafe(
+    `INSERT INTO "PointsLedger" (
+      id, "userId", action, category, points, description, metadata, "createdAt"
+    ) VALUES (
+      $1, $2, 'STORE_PURCHASE', 'engagement', $3, $4,
+      $5::jsonb, NOW()
+    ) RETURNING id, points, action`,
+    cuid(),
+    params.userId,
+    params.points,
+    `Earned ${params.points} points on store purchase`,
+    JSON.stringify({
+      storeId: params.storeId,
+      transactionId: params.transactionId,
+      amountSpent: params.amountSpentCents,
+    })
+  );
+}
+
+// ============================================================
+// Migrate POS loyalty points to HQ PointsLedger
+// ============================================================
+
+export async function migratePointsToHQ(params: {
+  userId: string;
+  points: number;
+  storeId: string;
+}) {
+  const { default: cuid } = await import("cuid");
+
+  return prisma.$queryRawUnsafe(
+    `INSERT INTO "PointsLedger" (
+      id, "userId", action, category, points, description, metadata, "createdAt"
+    ) VALUES (
+      $1, $2, 'LOYALTY_MIGRATION', 'engagement', $3, $4,
+      $5::jsonb, NOW()
+    ) RETURNING id, points, action`,
+    cuid(),
+    params.userId,
+    params.points,
+    `Migrated ${params.points} loyalty points from POS`,
+    JSON.stringify({ storeId: params.storeId, source: "pos_loyalty_migration" })
+  );
+}
+
+// ============================================================
+// Venue search (read-only)
+// ============================================================
+
+export async function searchVenues(query: string) {
+  return prisma.$queryRawUnsafe<
+    Array<{
+      id: string;
+      name: string;
+      slug: string;
+      city: string | null;
+      state: string | null;
+    }>
+  >(
+    `SELECT id, name, slug, city, state
+     FROM "Venue"
+     WHERE LOWER(name) LIKE LOWER($1)
+     ORDER BY name ASC
+     LIMIT 10`,
+    `%${query}%`
+  );
+}
+
+export async function getVenueById(venueId: string) {
+  const rows = await prisma.$queryRawUnsafe<
+    Array<{
+      id: string;
+      name: string;
+      slug: string;
+      city: string | null;
+      state: string | null;
+      claimedBy: string | null;
+    }>
+  >(
+    `SELECT id, name, slug, city, state, "claimedBy"
+     FROM "Venue"
+     WHERE id = $1
+     LIMIT 1`,
+    venueId
+  );
+  return rows[0] || null;
+}
+
+export async function getGroupForVenue(venueId: string) {
+  const rows = await prisma.$queryRawUnsafe<
+    Array<{ id: string; name: string; slug: string }>
+  >(
+    `SELECT g.id, g.name, g.slug
+     FROM "GameGroup" g
+     JOIN "Venue" v ON v."claimedBy" = g."createdById"
+     WHERE v.id = $1 AND g."groupType" = 'venue'
+     LIMIT 1`,
+    venueId
+  );
+  return rows[0] || null;
+}
+
+// ============================================================
 // Trust badge helpers
 // ============================================================
 

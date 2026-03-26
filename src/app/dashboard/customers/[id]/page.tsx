@@ -14,10 +14,30 @@ interface LoyaltyEntry {
   created_at: string;
 }
 
+interface AfterroarProfile {
+  id: string;
+  email: string;
+  displayName: string | null;
+  avatarUrl: string | null;
+  reputationScore: number;
+  identityVerified: boolean;
+  trustBadge: { level: 'green' | 'yellow' | 'red'; label: string };
+}
+
 interface CustomerDetail extends Customer {
   ledger_entries: LedgerEntry[];
   trade_ins: any[];
   loyalty_entries?: LoyaltyEntry[];
+  afterroar_user_id?: string | null;
+}
+
+function trustBadgeClasses(level: 'green' | 'yellow' | 'red') {
+  const map = {
+    green: 'text-green-400 bg-green-900/30',
+    yellow: 'text-yellow-400 bg-yellow-900/30',
+    red: 'text-red-400 bg-red-900/30',
+  };
+  return map[level];
 }
 
 export default function CustomerDetailPage() {
@@ -33,6 +53,15 @@ export default function CustomerDetailPage() {
   const [creditForm, setCreditForm] = useState({ amount: '', type: 'issue' as 'issue' | 'deduct', description: '' });
   const [showLoyaltyAdjust, setShowLoyaltyAdjust] = useState(false);
   const [loyaltyAdjust, setLoyaltyAdjust] = useState({ points: '', type: 'add' as 'add' | 'deduct', description: '' });
+
+  // Afterroar linking state
+  const [showLinkForm, setShowLinkForm] = useState(false);
+  const [linkEmail, setLinkEmail] = useState('');
+  const [linking, setLinking] = useState(false);
+  const [linkError, setLinkError] = useState('');
+  const [linkedProfile, setLinkedProfile] = useState<AfterroarProfile | null>(null);
+  const [migrating, setMigrating] = useState(false);
+  const [migrateSuccess, setMigrateSuccess] = useState('');
 
   const loadCustomer = useCallback(async () => {
     try {
@@ -98,8 +127,56 @@ export default function CustomerDetailPage() {
     }
   }
 
+  async function handleLinkAfterroar(e: React.FormEvent) {
+    e.preventDefault();
+    setLinking(true);
+    setLinkError('');
+    try {
+      const res = await fetch('/api/afterroar/link-customer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ customer_id: id, user_email: linkEmail }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setLinkedProfile(data.user);
+        setShowLinkForm(false);
+        setLinkEmail('');
+        loadCustomer();
+      } else {
+        setLinkError(data.error || 'Failed to link account');
+      }
+    } catch {
+      setLinkError('Failed to link account');
+    } finally {
+      setLinking(false);
+    }
+  }
+
+  async function handleMigratePoints() {
+    setMigrating(true);
+    setMigrateSuccess('');
+    try {
+      const res = await fetch('/api/afterroar/migrate-points', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ customer_id: id }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setMigrateSuccess(`${data.migrated_points} points migrated to Afterroar`);
+        loadCustomer();
+      }
+    } finally {
+      setMigrating(false);
+    }
+  }
+
   if (loading) return <p className="text-zinc-400">Loading customer...</p>;
   if (!customer) return <p className="text-zinc-400">Customer not found.</p>;
+
+  const isLinked = Boolean(customer.afterroar_user_id);
+  const hasLocalPoints = (customer.loyalty_points ?? 0) > 0;
 
   return (
     <div className="space-y-6">
@@ -176,6 +253,12 @@ export default function CustomerDetailPage() {
                 <span className="px-3 py-1 rounded text-sm bg-purple-900 text-purple-300 font-medium">
                   Loyalty: {customer.loyalty_points ?? 0} pts
                 </span>
+                {isLinked && (
+                  <span className="px-3 py-1 rounded text-sm bg-indigo-900/40 text-indigo-400 border border-indigo-800/30 font-medium flex items-center gap-1.5">
+                    <span className="h-2 w-2 rounded-full bg-indigo-400" />
+                    Afterroar Linked
+                  </span>
+                )}
               </div>
             </div>
             <div className="flex gap-2">
@@ -192,6 +275,114 @@ export default function CustomerDetailPage() {
                 Adjust Credit
               </button>
             </div>
+          </div>
+        )}
+      </div>
+
+      {/* Afterroar Account Section */}
+      <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-6">
+        <h2 className="text-sm font-semibold text-white mb-3">Afterroar Account</h2>
+        {isLinked ? (
+          <div className="space-y-3">
+            {linkedProfile ? (
+              <div className="flex items-center gap-3">
+                {linkedProfile.avatarUrl ? (
+                  <img src={linkedProfile.avatarUrl} alt="" className="h-10 w-10 rounded-full" />
+                ) : (
+                  <div className="h-10 w-10 rounded-full bg-zinc-700 flex items-center justify-center text-lg text-zinc-400">
+                    {(linkedProfile.displayName || '?').charAt(0).toUpperCase()}
+                  </div>
+                )}
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-white font-medium">{linkedProfile.displayName || linkedProfile.email}</span>
+                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${trustBadgeClasses(linkedProfile.trustBadge.level)}`}>
+                      {linkedProfile.trustBadge.label}
+                    </span>
+                    {linkedProfile.identityVerified && (
+                      <span className="px-1.5 py-0.5 rounded text-[10px] bg-blue-900/30 text-blue-400 font-medium">
+                        Verified
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-zinc-400">{linkedProfile.email}</p>
+                  <p className="text-xs text-zinc-500">Reputation: {linkedProfile.reputationScore}</p>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 text-sm text-zinc-300">
+                <span className="h-2 w-2 rounded-full bg-green-500" />
+                Linked to Afterroar account
+              </div>
+            )}
+
+            {/* Migrate points button */}
+            {hasLocalPoints && (
+              <div className="flex items-center gap-3 bg-purple-900/20 border border-purple-800/30 rounded px-3 py-2">
+                <div className="flex-1">
+                  <p className="text-sm text-purple-300">
+                    This customer has {customer.loyalty_points} POS loyalty points that can be migrated to their Afterroar wallet.
+                  </p>
+                </div>
+                <button
+                  onClick={handleMigratePoints}
+                  disabled={migrating}
+                  className="px-3 py-1.5 bg-purple-700 hover:bg-purple-600 disabled:opacity-50 text-white rounded text-xs font-medium whitespace-nowrap"
+                >
+                  {migrating ? 'Migrating...' : `Migrate ${customer.loyalty_points} pts`}
+                </button>
+              </div>
+            )}
+            {migrateSuccess && (
+              <p className="text-xs text-green-400">{migrateSuccess}</p>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <p className="text-sm text-zinc-400">
+              Link this customer to an Afterroar account to sync loyalty points, enable QR check-in, and view trust scores.
+            </p>
+            {!showLinkForm ? (
+              <button
+                onClick={() => setShowLinkForm(true)}
+                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-sm font-medium"
+              >
+                Link Afterroar Account
+              </button>
+            ) : (
+              <form onSubmit={handleLinkAfterroar} className="space-y-3">
+                <div>
+                  <label className="mb-1 block text-xs text-zinc-400">Afterroar account email</label>
+                  <input
+                    required
+                    type="email"
+                    placeholder="player@example.com"
+                    value={linkEmail}
+                    onChange={(e) => { setLinkEmail(e.target.value); setLinkError(''); }}
+                    className="w-full max-w-md bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-white text-sm"
+                  />
+                </div>
+                {linkError && (
+                  <p className="text-xs text-red-400">{linkError}</p>
+                )}
+                <div className="flex gap-2">
+                  <button
+                    type="submit"
+                    disabled={linking}
+                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded text-sm font-medium"
+                  >
+                    {linking ? 'Searching...' : 'Link Account'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setShowLinkForm(false); setLinkEmail(''); setLinkError(''); }}
+                    className="px-4 py-2 bg-zinc-700 hover:bg-zinc-600 text-white rounded text-sm font-medium"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         )}
       </div>
@@ -363,6 +554,9 @@ export default function CustomerDetailPage() {
             <div>
               <div className="text-sm text-zinc-400">Loyalty Points Balance</div>
               <div className="text-2xl font-bold text-purple-400">{customer.loyalty_points ?? 0} pts</div>
+              {isLinked && (
+                <p className="text-xs text-zinc-500 mt-1">Points now sync to Afterroar wallet on purchases</p>
+              )}
             </div>
             {can('staff.manage') && (
               <button

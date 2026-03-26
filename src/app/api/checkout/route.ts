@@ -5,6 +5,7 @@ import { formatCents } from "@/lib/types";
 import { getStoreSettings } from "@/lib/store-settings";
 import { requireStaff, handleAuthError } from "@/lib/require-staff";
 import { calculatePurchasePoints, earnPoints, redeemPoints, calculateRedemptionDiscount } from "@/lib/loyalty";
+import { earnPointsFromPurchase } from "@/lib/hq-bridge";
 import { calculateTaxFromSettings } from "@/lib/tax";
 
 interface CheckoutItem {
@@ -305,15 +306,34 @@ export async function POST(request: NextRequest) {
           staffWithStore?.store?.settings as Record<string, unknown> ?? null
         );
         if (earnablePoints > 0) {
-          const loyaltyResult = await earnPoints(tx, {
-            storeId,
-            customerId: customer_id,
-            type: "earn_purchase",
-            points: earnablePoints,
-            description: `Earned on purchase of ${formatCents(subtotal_cents)}`,
-            referenceId: ledgerEntry.id,
+          // Check if customer is linked to Afterroar
+          const custRecord = await tx.posCustomer.findUnique({
+            where: { id: customer_id },
+            select: { afterroar_user_id: true },
           });
-          pointsEarned = loyaltyResult.points_earned;
+
+          if (custRecord?.afterroar_user_id) {
+            // Write to HQ PointsLedger for linked customers
+            await earnPointsFromPurchase({
+              userId: custRecord.afterroar_user_id,
+              points: earnablePoints,
+              storeId,
+              transactionId: ledgerEntry.id,
+              amountSpentCents: subtotal_cents,
+            });
+            pointsEarned = earnablePoints;
+          } else {
+            // POS-local loyalty points for unlinked customers
+            const loyaltyResult = await earnPoints(tx, {
+              storeId,
+              customerId: customer_id,
+              type: "earn_purchase",
+              points: earnablePoints,
+              description: `Earned on purchase of ${formatCents(subtotal_cents)}`,
+              referenceId: ledgerEntry.id,
+            });
+            pointsEarned = loyaltyResult.points_earned;
+          }
         }
       }
 
