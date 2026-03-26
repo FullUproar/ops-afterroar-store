@@ -18,7 +18,7 @@ export function Sidebar() {
   const visibleNav = NAV_ITEMS.filter((item) => can(item.permission));
 
   return (
-    <aside className="flex h-screen w-56 flex-col border-r border-zinc-800 bg-zinc-950">
+    <aside className="hidden md:flex h-screen w-56 flex-col border-r border-zinc-800 bg-zinc-950">
       <div className="border-b border-zinc-800 px-4 py-4">
         <h1 className="text-lg font-bold text-white">Afterroar</h1>
         {store && (

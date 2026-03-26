@@ -722,12 +722,14 @@ export default function CheckoutPage() {
       `}</style>
 
       <div className="relative mx-auto max-w-7xl h-full flex flex-col">
-        <h1 className="mb-4 text-2xl font-bold text-white">Register</h1>
+        <h1 className="mb-3 md:mb-4 text-xl md:text-2xl font-bold text-white">Register</h1>
 
-        <div className="flex-1 grid gap-6 lg:grid-cols-2 min-h-0">
+        <div className="flex-1 flex flex-col md:grid md:grid-cols-2 gap-4 md:gap-6 min-h-0">
           {/* ============ LEFT: Search + Results ============ */}
-          <div className="flex flex-col gap-4">
-            <div className="relative">
+          <div className="flex flex-col gap-3 md:gap-4">
+            {/* Search bar — sticky on mobile, full width, large tap target */}
+            <div className="sticky top-0 z-10 bg-zinc-950 -mx-4 px-4 md:mx-0 md:px-0 py-1 md:py-0 md:static">
+              <div className="relative">
               <input
                 ref={searchRef}
                 autoFocus
@@ -738,24 +740,24 @@ export default function CheckoutPage() {
                 onKeyDown={handleSearchKeyDown}
                 onFocus={() => searchResults.length > 0 && setShowResults(true)}
                 placeholder="Scan barcode or search...  (F2)"
-                className="w-full rounded-lg border border-zinc-800 bg-zinc-900 px-4 py-4 text-lg text-white placeholder-zinc-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-full rounded-lg border border-zinc-800 bg-zinc-900 px-4 py-3 md:py-4 text-base md:text-lg text-white placeholder-zinc-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 h-12 md:h-auto"
               />
 
               {/* Search results dropdown */}
               {showResults && searchResults.length > 0 && (
-                <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-80 overflow-y-auto rounded-lg border border-zinc-800 bg-zinc-900 shadow-xl">
+                <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-[60vh] md:max-h-80 overflow-y-auto rounded-lg border border-zinc-800 bg-zinc-900 shadow-xl">
                   {searchResults.map((item, idx) => (
                     <button
                       key={item.id}
                       onClick={() => addToCart(item)}
-                      className={`flex w-full items-center justify-between px-4 py-3 text-left transition-colors ${
+                      className={`flex w-full items-center justify-between px-4 py-3 md:py-3 min-h-13 text-left transition-colors ${
                         idx === selectedIndex
                           ? "bg-zinc-800 text-white"
-                          : "text-zinc-300 hover:bg-zinc-800"
+                          : "text-zinc-300 hover:bg-zinc-800 active:bg-zinc-800"
                       }`}
                     >
-                      <div>
-                        <div className="font-medium">{item.name}</div>
+                      <div className="min-w-0 flex-1 mr-3">
+                        <div className="font-medium truncate">{item.name}</div>
                         <div className="text-xs text-zinc-500">
                           {item.category} &middot;{" "}
                           <span
@@ -772,7 +774,7 @@ export default function CheckoutPage() {
                           {item.barcode && ` \u00b7 ${item.barcode}`}
                         </div>
                       </div>
-                      <div className="text-sm font-semibold text-emerald-400">
+                      <div className="text-sm font-semibold text-emerald-400 shrink-0">
                         {formatCents(item.price_cents)}
                       </div>
                     </button>
@@ -786,19 +788,20 @@ export default function CheckoutPage() {
                   <div className="mt-2 flex gap-2">
                     <button
                       onClick={() => { setShowUnlisted(true); setShowResults(false); }}
-                      className="rounded bg-zinc-700 px-2 py-1 text-xs text-zinc-200 hover:bg-zinc-600"
+                      className="rounded bg-zinc-700 px-3 py-2 md:px-2 md:py-1 text-xs text-zinc-200 hover:bg-zinc-600 active:bg-zinc-600"
                     >
                       Sell as unlisted item
                     </button>
                     <button
                       onClick={() => { setShowCamera(true); setShowResults(false); }}
-                      className="rounded bg-zinc-700 px-2 py-1 text-xs text-zinc-200 hover:bg-zinc-600"
+                      className="rounded bg-zinc-700 px-3 py-2 md:px-2 md:py-1 text-xs text-zinc-200 hover:bg-zinc-600 active:bg-zinc-600"
                     >
                       Try camera ID
                     </button>
                   </div>
                 </div>
               )}
+              </div>
             </div>
 
             {/* Quick action buttons */}
@@ -917,13 +920,13 @@ export default function CheckoutPage() {
               )}
             </div>
 
-            {/* Cart items on mobile */}
-            <div className="lg:hidden">{renderCart()}</div>
+            {/* Cart items on mobile — shown inline below search */}
+            <div className="md:hidden">{renderCart()}</div>
           </div>
 
           {/* ============ RIGHT: Cart ============ */}
-          <div className="flex flex-col gap-4">
-            <div className="hidden lg:block flex-1 min-h-0">
+          <div className="flex flex-col gap-3 md:gap-4">
+            <div className="hidden md:block flex-1 min-h-0">
               {renderCart()}
             </div>
 
@@ -987,8 +990,8 @@ export default function CheckoutPage() {
               </div>
             )}
 
-            {/* Subtotal bar */}
-            <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-4">
+            {/* Subtotal bar — hidden on mobile when cart empty (shown in fixed bottom instead) */}
+            <div className="hidden md:block rounded-lg border border-zinc-800 bg-zinc-900 p-4">
               <div className="flex justify-between text-lg font-bold text-white">
                 <span>Subtotal</span>
                 <span>{formatCents(subtotal)}</span>
@@ -1011,7 +1014,7 @@ export default function CheckoutPage() {
               )}
             </div>
 
-            {/* PAY button */}
+            {/* PAY button — desktop only (mobile version is fixed at bottom) */}
             <button
               onClick={() => {
                 if (customer?.email) {
@@ -1022,7 +1025,7 @@ export default function CheckoutPage() {
                 setShowPayPanel(true);
               }}
               disabled={cart.length === 0}
-              className={`w-full rounded-lg py-5 text-xl font-bold transition-colors ${
+              className={`hidden md:block w-full rounded-lg py-5 text-xl font-bold transition-colors ${
                 cart.length > 0
                   ? "bg-emerald-600 text-white hover:bg-emerald-500 active:bg-emerald-700"
                   : "bg-zinc-800 text-zinc-600 cursor-not-allowed"
@@ -1033,17 +1036,75 @@ export default function CheckoutPage() {
           </div>
         </div>
 
+        {/* ============ MOBILE: Fixed bottom subtotal + PAY ============ */}
+        {cart.length > 0 && (
+          <div className="fixed inset-x-0 bottom-0 z-30 border-t border-zinc-800 bg-zinc-950/95 backdrop-blur-sm px-4 pb-safe md:hidden">
+            {/* Compact subtotal row */}
+            <div className="flex items-center justify-between py-2">
+              <div>
+                <span className="text-sm text-zinc-400">
+                  {cartItemCount} item{cartItemCount !== 1 ? "s" : ""}
+                </span>
+                {totalDiscountCents > 0 && (
+                  <span className="text-xs text-amber-400 ml-2">
+                    -{formatCents(totalDiscountCents)}
+                  </span>
+                )}
+                {taxCents > 0 && (
+                  <span className="text-xs text-zinc-500 ml-2">
+                    +{formatCents(taxCents)} tax
+                  </span>
+                )}
+              </div>
+              <span className="text-lg font-bold text-white">
+                {formatCents(subtotal + taxCents)}
+              </span>
+            </div>
+            {/* Customer attach — compact on mobile */}
+            {customer && (
+              <div className="flex items-center justify-between py-1 text-xs text-zinc-400">
+                <span>Customer: <span className="text-white">{customer.name}</span></span>
+                <button
+                  onClick={() => {
+                    setCustomer(null);
+                    setApplyCredit(false);
+                    setCreditInput("");
+                    if (paymentMethod === "store_credit") setPaymentMethod("cash");
+                  }}
+                  className="text-zinc-600 hover:text-red-400 min-h-0"
+                >
+                  &times;
+                </button>
+              </div>
+            )}
+            {/* Big PAY button */}
+            <button
+              onClick={() => {
+                if (customer?.email) {
+                  setReceiptCustomerEmail(customer.email);
+                } else {
+                  setReceiptCustomerEmail(null);
+                }
+                setShowPayPanel(true);
+              }}
+              className="w-full rounded-xl bg-emerald-600 py-4 text-lg font-bold text-white active:bg-emerald-700 transition-colors mb-2"
+            >
+              PAY {formatCents(subtotal + taxCents)}
+            </button>
+          </div>
+        )}
+
         {/* ============ PAY SLIDE-OVER ============ */}
         {showPayPanel && (
-          <div className="fixed inset-0 z-40 flex justify-end">
-            {/* Backdrop */}
+          <div className="fixed inset-0 z-50 flex md:justify-end">
+            {/* Backdrop — hidden on mobile (full-screen panel) */}
             <div
-              className="absolute inset-0 bg-black/60"
+              className="absolute inset-0 bg-black/60 hidden md:block"
               onClick={() => setShowPayPanel(false)}
             />
 
-            {/* Panel */}
-            <div className="relative z-50 flex w-full max-w-md flex-col bg-zinc-950 border-l border-zinc-800 shadow-2xl animate-slide-in-right">
+            {/* Panel — full screen on mobile, side panel on desktop */}
+            <div className="relative z-50 flex w-full md:max-w-md flex-col bg-zinc-950 md:border-l md:border-zinc-800 shadow-2xl md:animate-slide-in-right animate-slide-up">
               {/* Header */}
               <div className="flex items-center justify-between border-b border-zinc-800 px-6 py-4">
                 <h2 className="text-lg font-bold text-white">Payment</h2>
@@ -1267,12 +1328,12 @@ export default function CheckoutPage() {
                             );
                           }
                         }}
-                        className={`rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                        className={`rounded-md px-3 py-3 md:py-2 text-sm font-medium transition-colors ${
                           paymentMethod === m.value
                             ? "bg-blue-600 text-white"
                             : m.disabled
                             ? "bg-zinc-800 text-zinc-600 cursor-not-allowed"
-                            : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700"
+                            : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700 active:bg-zinc-700"
                         }`}
                       >
                         {m.label}
@@ -1321,8 +1382,8 @@ export default function CheckoutPage() {
                 </div>
               </div>
 
-              {/* Bottom actions */}
-              <div className="border-t border-zinc-800 px-6 py-4 space-y-2">
+              {/* Bottom actions — safe area padding on mobile */}
+              <div className="border-t border-zinc-800 px-6 py-4 pb-safe space-y-2">
                 <button
                   tabIndex={5}
                   onClick={() => {
@@ -1334,7 +1395,7 @@ export default function CheckoutPage() {
                     handleCompleteSale();
                   }}
                   disabled={!canComplete}
-                  className={`flex w-full items-center justify-center gap-2 rounded-lg py-4 text-lg font-bold transition-colors ${
+                  className={`flex w-full items-center justify-center gap-2 rounded-xl py-4 md:py-4 text-lg font-bold transition-colors ${
                     canComplete
                       ? "bg-emerald-600 text-white hover:bg-emerald-500 active:bg-emerald-700"
                       : "bg-zinc-800 text-zinc-600 cursor-not-allowed"
@@ -1350,7 +1411,7 @@ export default function CheckoutPage() {
                 </button>
                 <button
                   onClick={() => setShowPayPanel(false)}
-                  className="w-full rounded-lg border border-zinc-800 py-3 text-sm font-medium text-zinc-400 hover:bg-zinc-900 hover:text-white transition-colors"
+                  className="w-full rounded-xl border border-zinc-800 py-3 text-sm font-medium text-zinc-400 hover:bg-zinc-900 hover:text-white active:bg-zinc-900 transition-colors"
                 >
                   Cancel
                 </button>
@@ -1359,17 +1420,17 @@ export default function CheckoutPage() {
           </div>
         )}
 
-        {/* Customer search modal */}
+        {/* Customer search modal — full screen on mobile */}
         {showCustomerSearch && (
           <div
-            className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 pt-24"
+            className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 pt-0 md:pt-24"
             onClick={() => {
               setShowCustomerSearch(false);
               setShowNewCustomerForm(false);
             }}
           >
             <div
-              className="w-full max-w-md rounded-lg border border-zinc-800 bg-zinc-900 p-4 shadow-2xl"
+              className="w-full h-full md:h-auto md:max-w-md rounded-none md:rounded-lg border-0 md:border border-zinc-800 bg-zinc-900 p-4 shadow-2xl"
               onClick={(e) => e.stopPropagation()}
             >
               <input
@@ -1476,12 +1537,12 @@ export default function CheckoutPage() {
           </div>
         )}
 
-        {/* Receipt modal */}
+        {/* Receipt modal — full screen on mobile */}
         {receipt && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
+          <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/70">
             <div
               id="receipt-printable"
-              className="w-full max-w-md rounded-lg border border-zinc-800 bg-zinc-900 p-6 shadow-2xl"
+              className="w-full md:max-w-md rounded-t-2xl md:rounded-lg border-0 md:border border-zinc-800 bg-zinc-900 p-5 md:p-6 shadow-2xl max-h-[90vh] overflow-y-auto"
             >
               {/* Receipt header */}
               <div className="mb-4 text-center">
@@ -1576,10 +1637,16 @@ export default function CheckoutPage() {
               </div>
 
               {/* Actions (hidden in print) */}
-              <div className="no-print mt-5 grid grid-cols-3 gap-2">
+              <div className="no-print mt-5 space-y-2 md:space-y-0 md:grid md:grid-cols-3 md:gap-2 pb-safe">
+                <button
+                  onClick={handleNewSale}
+                  className="w-full rounded-xl md:rounded-md bg-blue-600 px-3 py-3 md:py-2 text-sm font-medium text-white hover:bg-blue-500 active:bg-blue-700"
+                >
+                  New Sale
+                </button>
                 <button
                   onClick={handlePrintReceipt}
-                  className="rounded-md bg-zinc-800 px-3 py-2 text-sm font-medium text-zinc-300 hover:bg-zinc-700 hover:text-white"
+                  className="w-full rounded-xl md:rounded-md bg-zinc-800 px-3 py-3 md:py-2 text-sm font-medium text-zinc-300 hover:bg-zinc-700 hover:text-white active:bg-zinc-700"
                 >
                   Print Receipt
                 </button>
@@ -1587,12 +1654,12 @@ export default function CheckoutPage() {
                   <button
                     onClick={handleEmailReceipt}
                     disabled={emailSending || emailSent}
-                    className={`rounded-md px-3 py-2 text-sm font-medium ${
+                    className={`w-full rounded-xl md:rounded-md px-3 py-3 md:py-2 text-sm font-medium ${
                       emailSent
                         ? "bg-emerald-900/40 text-emerald-400 cursor-default"
                         : emailSending
                         ? "bg-zinc-800 text-zinc-500 cursor-wait"
-                        : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-white"
+                        : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-white active:bg-zinc-700"
                     }`}
                   >
                     {emailSent ? "Email Sent" : emailSending ? "Sending..." : "Email Receipt"}
@@ -1600,18 +1667,12 @@ export default function CheckoutPage() {
                 ) : (
                   <button
                     disabled
-                    className="rounded-md bg-zinc-800 px-3 py-2 text-sm font-medium text-zinc-600 cursor-not-allowed"
+                    className="w-full rounded-xl md:rounded-md bg-zinc-800 px-3 py-3 md:py-2 text-sm font-medium text-zinc-600 cursor-not-allowed"
                     title="No customer email"
                   >
                     Email Receipt
                   </button>
                 )}
-                <button
-                  onClick={handleNewSale}
-                  className="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-500"
-                >
-                  New Sale
-                </button>
               </div>
             </div>
           </div>
@@ -1624,7 +1685,7 @@ export default function CheckoutPage() {
   function renderCart() {
     if (cart.length === 0) {
       return (
-        <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-8 text-center text-zinc-500">
+        <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-6 md:p-8 text-center text-zinc-500">
           Cart is empty. Scan or search to add items.
         </div>
       );
@@ -1638,25 +1699,32 @@ export default function CheckoutPage() {
             {cartItemCount}
           </span>
         </div>
-        <div className="max-h-72 divide-y divide-zinc-800 overflow-y-auto">
+        <div className="max-h-[40vh] md:max-h-72 divide-y divide-zinc-800 overflow-y-auto">
           {cart.map((item) => (
             <div
               key={item.inventory_item_id}
-              className="flex items-center gap-3 px-4 py-3"
+              className="flex items-center gap-2 md:gap-3 px-3 md:px-4 py-3"
             >
               <div className="flex-1 min-w-0">
-                <div className="truncate text-sm font-medium text-white">
-                  {item.name}
-                </div>
-                <div className="text-xs text-zinc-500">
-                  {formatCents(item.price_cents)} each
-                  {itemDiscounts[item.inventory_item_id] && itemDiscounts[item.inventory_item_id].value && (
-                    <span className="text-amber-400 ml-1">
-                      (-{itemDiscounts[item.inventory_item_id].type === "percent"
-                        ? `${itemDiscounts[item.inventory_item_id].value}%`
-                        : `$${itemDiscounts[item.inventory_item_id].value}`})
-                    </span>
-                  )}
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-medium text-white">
+                      {item.name}
+                    </div>
+                    <div className="text-xs text-zinc-500">
+                      {formatCents(item.price_cents)} each
+                      {itemDiscounts[item.inventory_item_id] && itemDiscounts[item.inventory_item_id].value && (
+                        <span className="text-amber-400 ml-1">
+                          (-{itemDiscounts[item.inventory_item_id].type === "percent"
+                            ? `${itemDiscounts[item.inventory_item_id].value}%`
+                            : `$${itemDiscounts[item.inventory_item_id].value}`})
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="shrink-0 text-sm font-semibold text-white">
+                    {formatCents(item.price_cents * item.quantity)}
+                  </div>
                 </div>
                 {/* Per-item discount toggle */}
                 <button
@@ -1671,7 +1739,7 @@ export default function CheckoutPage() {
                       });
                     }
                   }}
-                  className="text-[10px] text-zinc-600 hover:text-amber-400 transition-colors"
+                  className="text-[10px] text-zinc-600 hover:text-amber-400 transition-colors min-h-0 md:min-h-0"
                 >
                   {itemDiscounts[item.inventory_item_id] ? "remove discount" : "discount"}
                 </button>
@@ -1688,7 +1756,7 @@ export default function CheckoutPage() {
                           },
                         })
                       }
-                      className="rounded border border-zinc-700 bg-zinc-900 px-1 py-0.5 text-[10px] text-white focus:outline-none"
+                      className="rounded border border-zinc-700 bg-zinc-900 px-1 py-0.5 text-[10px] text-white focus:outline-none min-h-0"
                     >
                       <option value="percent">%</option>
                       <option value="flat">$</option>
@@ -1708,12 +1776,41 @@ export default function CheckoutPage() {
                         })
                       }
                       placeholder="0"
-                      className="w-14 rounded border border-zinc-700 bg-zinc-900 px-1 py-0.5 text-[10px] text-white placeholder-zinc-600 focus:outline-none"
+                      className="w-14 rounded border border-zinc-700 bg-zinc-900 px-1 py-0.5 text-[10px] text-white placeholder-zinc-600 focus:outline-none min-h-0"
                     />
                   </div>
                 )}
+                {/* Mobile: qty controls inline below name */}
+                <div className="flex items-center gap-2 mt-1.5 md:hidden">
+                  <button
+                    tabIndex={2}
+                    onClick={() => updateQty(item.inventory_item_id, -1)}
+                    className="flex h-9 w-9 items-center justify-center rounded-lg bg-zinc-800 text-zinc-400 active:bg-zinc-700 text-base font-bold min-h-0"
+                  >
+                    -
+                  </button>
+                  <span className="w-8 text-center text-sm font-medium text-white">
+                    {item.quantity}
+                  </span>
+                  <button
+                    tabIndex={2}
+                    onClick={() => updateQty(item.inventory_item_id, 1)}
+                    className="flex h-9 w-9 items-center justify-center rounded-lg bg-zinc-800 text-zinc-400 active:bg-zinc-700 text-base font-bold min-h-0"
+                  >
+                    +
+                  </button>
+                  <div className="flex-1" />
+                  <button
+                    tabIndex={2}
+                    onClick={() => removeItem(item.inventory_item_id)}
+                    className="flex h-9 w-9 items-center justify-center rounded-lg text-zinc-600 active:bg-red-900/40 active:text-red-400 text-lg min-h-0"
+                  >
+                    &times;
+                  </button>
+                </div>
               </div>
-              <div className="flex items-center gap-1">
+              {/* Desktop: qty controls on right */}
+              <div className="hidden md:flex items-center gap-1">
                 <button
                   tabIndex={2}
                   onClick={() => updateQty(item.inventory_item_id, -1)}
@@ -1732,13 +1829,13 @@ export default function CheckoutPage() {
                   +
                 </button>
               </div>
-              <div className="w-20 text-right text-sm font-semibold text-white">
+              <div className="hidden md:block w-20 text-right text-sm font-semibold text-white">
                 {formatCents(item.price_cents * item.quantity)}
               </div>
               <button
                 tabIndex={2}
                 onClick={() => removeItem(item.inventory_item_id)}
-                className="flex h-7 w-7 items-center justify-center rounded text-zinc-600 hover:bg-red-900/40 hover:text-red-400"
+                className="hidden md:flex h-7 w-7 items-center justify-center rounded text-zinc-600 hover:bg-red-900/40 hover:text-red-400"
               >
                 &times;
               </button>
