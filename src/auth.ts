@@ -5,6 +5,8 @@ import { compare } from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
+  debug: true,
+  trustHost: true,
   session: { strategy: "jwt" },
   pages: {
     signIn: "/login",
