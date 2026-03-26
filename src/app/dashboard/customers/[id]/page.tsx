@@ -3,22 +3,36 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import { Customer, LedgerEntry, formatCents, parseDollars } from '@/lib/types';
+import { useStore } from '@/lib/store-context';
+
+interface LoyaltyEntry {
+  id: string;
+  type: string;
+  points: number;
+  balance_after: number;
+  description: string | null;
+  created_at: string;
+}
 
 interface CustomerDetail extends Customer {
   ledger_entries: LedgerEntry[];
   trade_ins: any[];
+  loyalty_entries?: LoyaltyEntry[];
 }
 
 export default function CustomerDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const { can } = useStore();
   const [customer, setCustomer] = useState<CustomerDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [editForm, setEditForm] = useState({ name: '', email: '', phone: '', notes: '' });
   const [saving, setSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState<'transactions' | 'tradeins'>('transactions');
+  const [activeTab, setActiveTab] = useState<'transactions' | 'tradeins' | 'loyalty'>('transactions');
   const [showCreditForm, setShowCreditForm] = useState(false);
   const [creditForm, setCreditForm] = useState({ amount: '', type: 'issue' as 'issue' | 'deduct', description: '' });
+  const [showLoyaltyAdjust, setShowLoyaltyAdjust] = useState(false);
+  const [loyaltyAdjust, setLoyaltyAdjust] = useState({ points: '', type: 'add' as 'add' | 'deduct', description: '' });
 
   const loadCustomer = useCallback(async () => {
     try {
@@ -155,9 +169,12 @@ export default function CustomerDetailPage() {
                 {customer.email && <p>{customer.email}</p>}
                 {customer.phone && <p>{customer.phone}</p>}
               </div>
-              <div className="mt-3">
+              <div className="mt-3 flex gap-2 flex-wrap">
                 <span className="px-3 py-1 rounded text-sm bg-green-900 text-green-300 font-medium">
                   Credit: {formatCents(customer.credit_balance_cents ?? 0)}
+                </span>
+                <span className="px-3 py-1 rounded text-sm bg-purple-900 text-purple-300 font-medium">
+                  Loyalty: {customer.loyalty_points ?? 0} pts
                 </span>
               </div>
             </div>
@@ -256,6 +273,16 @@ export default function CustomerDetailPage() {
         >
           Trade-In History
         </button>
+        <button
+          onClick={() => setActiveTab('loyalty')}
+          className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px ${
+            activeTab === 'loyalty'
+              ? 'border-blue-500 text-white'
+              : 'border-transparent text-zinc-400 hover:text-zinc-300'
+          }`}
+        >
+          Loyalty Points
+        </button>
       </div>
 
       {/* Tab Content */}
@@ -326,6 +353,138 @@ export default function CustomerDetailPage() {
               </tbody>
             </table>
           )}
+        </div>
+      )}
+
+      {activeTab === 'loyalty' && (
+        <div className="space-y-4">
+          {/* Loyalty balance card */}
+          <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4 flex items-center justify-between">
+            <div>
+              <div className="text-sm text-zinc-400">Loyalty Points Balance</div>
+              <div className="text-2xl font-bold text-purple-400">{customer.loyalty_points ?? 0} pts</div>
+            </div>
+            {can('staff.manage') && (
+              <button
+                onClick={() => setShowLoyaltyAdjust(!showLoyaltyAdjust)}
+                className="px-4 py-2 bg-purple-700 hover:bg-purple-600 text-white rounded text-sm font-medium"
+              >
+                Adjust Points
+              </button>
+            )}
+          </div>
+
+          {/* Loyalty adjustment form */}
+          {showLoyaltyAdjust && (
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                setSaving(true);
+                try {
+                  const pts = parseInt(loyaltyAdjust.points);
+                  if (!pts || pts <= 0) return;
+                  const res = await fetch(`/api/customers/${id}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      action: 'adjust_loyalty',
+                      points: loyaltyAdjust.type === 'deduct' ? -pts : pts,
+                      description: loyaltyAdjust.description || `Manual ${loyaltyAdjust.type}`,
+                    }),
+                  });
+                  if (res.ok) {
+                    setShowLoyaltyAdjust(false);
+                    setLoyaltyAdjust({ points: '', type: 'add', description: '' });
+                    loadCustomer();
+                  }
+                } finally {
+                  setSaving(false);
+                }
+              }}
+              className="bg-zinc-900 border border-zinc-800 rounded-lg p-4 space-y-4"
+            >
+              <h3 className="text-sm font-semibold text-white">Adjust Loyalty Points</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm text-zinc-400 mb-1">Type</label>
+                  <select
+                    value={loyaltyAdjust.type}
+                    onChange={(e) => setLoyaltyAdjust({ ...loyaltyAdjust, type: e.target.value as 'add' | 'deduct' })}
+                    className="w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-white text-sm"
+                  >
+                    <option value="add">Add Points</option>
+                    <option value="deduct">Deduct Points</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm text-zinc-400 mb-1">Points</label>
+                  <input
+                    required
+                    type="number"
+                    min={1}
+                    value={loyaltyAdjust.points}
+                    onChange={(e) => setLoyaltyAdjust({ ...loyaltyAdjust, points: e.target.value })}
+                    className="w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-white text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-zinc-400 mb-1">Description</label>
+                  <input
+                    value={loyaltyAdjust.description}
+                    onChange={(e) => setLoyaltyAdjust({ ...loyaltyAdjust, description: e.target.value })}
+                    className="w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-white text-sm"
+                    placeholder="Reason for adjustment"
+                  />
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button type="submit" disabled={saving} className="px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white rounded text-sm font-medium">
+                  {saving ? 'Adjusting...' : 'Apply'}
+                </button>
+                <button type="button" onClick={() => setShowLoyaltyAdjust(false)} className="px-4 py-2 bg-zinc-700 hover:bg-zinc-600 text-white rounded text-sm font-medium">
+                  Cancel
+                </button>
+              </div>
+            </form>
+          )}
+
+          {/* Loyalty history */}
+          <div className="bg-zinc-900 border border-zinc-800 rounded-lg overflow-hidden">
+            {!customer.loyalty_entries || customer.loyalty_entries.length === 0 ? (
+              <p className="p-4 text-zinc-400 text-sm">No loyalty point activity yet.</p>
+            ) : (
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-zinc-800 text-zinc-400 text-left">
+                    <th className="px-4 py-3 font-medium">Date</th>
+                    <th className="px-4 py-3 font-medium">Type</th>
+                    <th className="px-4 py-3 font-medium">Description</th>
+                    <th className="px-4 py-3 font-medium text-right">Points</th>
+                    <th className="px-4 py-3 font-medium text-right">Balance</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {customer.loyalty_entries.map((entry: LoyaltyEntry) => (
+                    <tr key={entry.id} className="border-b border-zinc-800 text-white">
+                      <td className="px-4 py-3 text-zinc-300">
+                        {new Date(entry.created_at).toLocaleDateString()}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="px-2 py-0.5 rounded text-xs bg-zinc-700 text-zinc-300">
+                          {entry.type.replace(/_/g, ' ')}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-zinc-300">{entry.description || '-'}</td>
+                      <td className={`px-4 py-3 text-right font-medium ${entry.points >= 0 ? 'text-purple-400' : 'text-red-400'}`}>
+                        {entry.points >= 0 ? '+' : ''}{entry.points}
+                      </td>
+                      <td className="px-4 py-3 text-right text-zinc-400">{entry.balance_after}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
         </div>
       )}
     </div>

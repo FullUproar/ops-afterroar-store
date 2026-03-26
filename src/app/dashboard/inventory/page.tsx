@@ -78,6 +78,13 @@ export default function InventoryPage() {
 
   // Stock adjustment modal
   const [adjust, setAdjust] = useState<AdjustState | null>(null);
+
+  // Location breakdown
+  const [locations, setLocations] = useState<Array<{ id: string; name: string }>>([]);
+  const [showLocationBreakdown, setShowLocationBreakdown] = useState<string | null>(null);
+  const [locationLevels, setLocationLevels] = useState<
+    Array<{ location_id: string; location_name: string; quantity: number }>
+  >([]);
   const [adjustSubmitting, setAdjustSubmitting] = useState(false);
   const [adjustError, setAdjustError] = useState<string | null>(null);
 
@@ -85,10 +92,17 @@ export default function InventoryPage() {
   useEffect(() => {
     async function load() {
       try {
-        const res = await fetch("/api/inventory");
-        if (res.ok) {
-          const data = await res.json();
+        const [invRes, locRes] = await Promise.all([
+          fetch("/api/inventory"),
+          fetch("/api/locations"),
+        ]);
+        if (invRes.ok) {
+          const data = await invRes.json();
           setItems(data as InventoryItem[]);
+        }
+        if (locRes.ok) {
+          const locData = await locRes.json();
+          setLocations(locData);
         }
       } catch (err) {
         console.error("Failed to load inventory:", err);
@@ -486,6 +500,41 @@ export default function InventoryPage() {
                     >
                       {item.quantity}
                     </span>
+                    {locations.length > 0 && (
+                      <button
+                        onClick={async () => {
+                          if (showLocationBreakdown === item.id) {
+                            setShowLocationBreakdown(null);
+                            return;
+                          }
+                          setShowLocationBreakdown(item.id);
+                          try {
+                            const res = await fetch(`/api/inventory/levels?item_id=${item.id}`);
+                            if (res.ok) {
+                              const data = await res.json();
+                              setLocationLevels(data);
+                            }
+                          } catch {
+                            setLocationLevels([]);
+                          }
+                        }}
+                        className="block mx-auto mt-0.5 text-[10px] text-zinc-500 hover:text-blue-400 transition-colors"
+                      >
+                        {showLocationBreakdown === item.id ? "hide" : "by location"}
+                      </button>
+                    )}
+                    {showLocationBreakdown === item.id && locationLevels.length > 0 && (
+                      <div className="mt-1 space-y-0.5">
+                        {locationLevels.map((ll) => (
+                          <div key={ll.location_id} className="text-[10px] text-zinc-400">
+                            {ll.location_name}: <span className="text-white">{ll.quantity}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {showLocationBreakdown === item.id && locationLevels.length === 0 && (
+                      <div className="mt-1 text-[10px] text-zinc-500">No location data</div>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-zinc-400">
                     {String((item.attributes as Record<string, unknown>)?.condition ?? "\u2014")}

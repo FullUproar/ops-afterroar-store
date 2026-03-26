@@ -4,7 +4,8 @@ import { processPayment, PaymentMethod } from "@/lib/payment";
 import { formatCents } from "@/lib/types";
 import { getStoreSettings } from "@/lib/store-settings";
 import { requireStaff, handleAuthError } from "@/lib/require-staff";
-import { calculatePurchasePoints, earnPoints } from "@/lib/loyalty";
+import { calculatePurchasePoints, earnPoints, redeemPoints, calculateRedemptionDiscount } from "@/lib/loyalty";
+import { calculateTaxFromSettings } from "@/lib/tax";
 
 interface CheckoutItem {
   inventory_item_id: string;
@@ -21,6 +22,12 @@ interface CheckoutBody {
   event_id: string | null;
   tax_cents?: number;
   client_tx_id?: string; // Idempotency key for offline queue
+  discount_cents?: number;
+  discount_reason?: string;
+  gift_card_code?: string;
+  gift_card_amount_cents?: number;
+  loyalty_points_redeem?: number;
+  loyalty_discount_cents?: number;
 }
 
 export async function POST(request: NextRequest) {
@@ -50,9 +57,15 @@ export async function POST(request: NextRequest) {
       event_id,
       tax_cents: clientTaxCents,
       client_tx_id,
+      discount_cents: rawDiscountCents,
+      discount_reason,
+      gift_card_code,
+      gift_card_amount_cents,
+      loyalty_points_redeem,
+      loyalty_discount_cents,
     } = body;
 
-    const tax_cents = clientTaxCents ?? 0;
+    const discount_cents = rawDiscountCents ?? 0;
 
     // Idempotency: if this transaction was already processed, return the existing result
     if (client_tx_id) {
@@ -112,11 +125,21 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 2. Calculate subtotal
-    const subtotal_cents = items.reduce(
+    // 2. Calculate subtotal with discount
+    const rawSubtotal = items.reduce(
       (sum, i) => sum + i.price_cents * i.quantity,
       0
     );
+    const subtotal_cents = Math.max(0, rawSubtotal - discount_cents);
+
+    // 2b. Server-side tax calculation
+    const storeRawSettings = (staffWithStore?.store?.settings ?? {}) as Record<string, unknown>;
+    const taxResult = calculateTaxFromSettings(subtotal_cents, storeRawSettings);
+    const tax_cents = clientTaxCents ?? taxResult.taxCents;
+
+    // 2c. Gift card + loyalty deductions
+    const giftCardApplied = gift_card_amount_cents ?? 0;
+    const loyaltyApplied = loyalty_discount_cents ?? 0;
 
     // 3. Validate store credit if applicable
     const effectiveCreditApplied = credit_applied_cents || 0;
@@ -199,6 +222,9 @@ export async function POST(request: NextRequest) {
             transaction_id: paymentResult.transaction_id,
             amount_tendered_cents,
             tax_cents,
+            ...(discount_cents > 0 ? { discount_cents, discount_reason } : {}),
+            ...(giftCardApplied > 0 ? { gift_card_code, gift_card_amount_cents: giftCardApplied } : {}),
+            ...(loyaltyApplied > 0 ? { loyalty_points_redeemed: loyalty_points_redeem, loyalty_discount_cents: loyaltyApplied } : {}),
             ...(client_tx_id ? { client_tx_id } : {}),
           })),
         },
@@ -225,6 +251,41 @@ export async function POST(request: NextRequest) {
           data: {
             credit_balance_cents: { decrement: effectiveCreditApplied },
           },
+        });
+      }
+
+      // Deduct gift card balance if used
+      if (giftCardApplied > 0 && gift_card_code) {
+        const card = await tx.posGiftCard.findFirst({
+          where: { code: gift_card_code.toUpperCase(), store_id: storeId, active: true },
+        });
+        if (card && card.balance_cents >= giftCardApplied) {
+          await tx.posGiftCard.update({
+            where: { id: card.id },
+            data: { balance_cents: { decrement: giftCardApplied } },
+          });
+          await tx.posLedgerEntry.create({
+            data: {
+              store_id: storeId,
+              type: "gift_card_redeem",
+              staff_id: staff.id,
+              customer_id,
+              amount_cents: -giftCardApplied,
+              description: `Gift card redeemed: ${gift_card_code.toUpperCase()}`,
+              metadata: { gift_card_id: card.id, code: gift_card_code.toUpperCase(), sale_id: ledgerEntry.id },
+            },
+          });
+        }
+      }
+
+      // Redeem loyalty points if used
+      if (loyalty_points_redeem && loyalty_points_redeem > 0 && customer_id) {
+        await redeemPoints(tx, {
+          storeId,
+          customerId: customer_id,
+          points: loyalty_points_redeem,
+          discountCents: loyaltyApplied,
+          referenceId: ledgerEntry.id,
         });
       }
 
@@ -260,7 +321,7 @@ export async function POST(request: NextRequest) {
     });
 
     // Build receipt
-    const total_cents = subtotal_cents + tax_cents - effectiveCreditApplied;
+    const total_cents = subtotal_cents + tax_cents - effectiveCreditApplied - giftCardApplied - loyaltyApplied;
     const change_cents =
       payment_method === "cash" || payment_method === "split"
         ? Math.max(0, amount_tendered_cents - total_cents)
@@ -283,7 +344,10 @@ export async function POST(request: NextRequest) {
       }),
       subtotal_cents,
       tax_cents,
+      discount_cents,
       credit_applied_cents: effectiveCreditApplied,
+      gift_card_applied_cents: giftCardApplied,
+      loyalty_discount_cents: loyaltyApplied,
       payment_method,
       total_cents,
       change_cents,

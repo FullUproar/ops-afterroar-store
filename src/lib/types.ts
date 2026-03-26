@@ -26,6 +26,7 @@ export interface Customer {
   email: string | null;
   phone: string | null;
   credit_balance_cents: number;
+  loyalty_points: number;
   notes: string | null;
   afterroar_id: string | null;
   created_at: string;

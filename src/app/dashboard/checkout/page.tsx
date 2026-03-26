@@ -38,7 +38,10 @@ interface ReceiptData {
   items: ReceiptItem[];
   subtotal_cents: number;
   tax_cents: number;
+  discount_cents?: number;
   credit_applied_cents: number;
+  gift_card_applied_cents?: number;
+  loyalty_discount_cents?: number;
   payment_method: string;
   total_cents: number;
   change_cents: number;
@@ -89,6 +92,24 @@ export default function CheckoutPage() {
   const [cameraProcessing, setCameraProcessing] = useState(false);
   const [cameraResult, setCameraResult] = useState<string | null>(null);
 
+  // Discount state
+  const [cartDiscount, setCartDiscount] = useState<{ type: "percent" | "flat"; value: string; reason: string }>({
+    type: "percent",
+    value: "",
+    reason: "",
+  });
+  const [showCartDiscount, setShowCartDiscount] = useState(false);
+  const [itemDiscounts, setItemDiscounts] = useState<Record<string, { type: "percent" | "flat"; value: string }>>({});
+
+  // Gift card state
+  const [giftCardCode, setGiftCardCode] = useState("");
+  const [giftCardBalance, setGiftCardBalance] = useState<number | null>(null);
+  const [giftCardApply, setGiftCardApply] = useState(false);
+  const [giftCardLookingUp, setGiftCardLookingUp] = useState(false);
+
+  // Loyalty redemption state
+  const [redeemLoyalty, setRedeemLoyalty] = useState(false);
+
   // Pay slide-over state
   const [showPayPanel, setShowPayPanel] = useState(false);
 
@@ -104,13 +125,58 @@ export default function CheckoutPage() {
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   // ---- Derived values ----
-  const subtotal = cart.reduce((s, i) => s + i.price_cents * i.quantity, 0);
+  const rawSubtotal = cart.reduce((s, i) => s + i.price_cents * i.quantity, 0);
   const cartItemCount = cart.reduce((s, i) => s + i.quantity, 0);
+
+  // Per-item discounts
+  const itemDiscountTotal = cart.reduce((sum, item) => {
+    const disc = itemDiscounts[item.inventory_item_id];
+    if (!disc || !disc.value) return sum;
+    const val = parseFloat(disc.value) || 0;
+    if (disc.type === "percent") {
+      return sum + Math.round(item.price_cents * item.quantity * val / 100);
+    }
+    return sum + Math.round(val * 100) * item.quantity;
+  }, 0);
+
+  // Cart-level discount
+  const cartDiscountCents = (() => {
+    if (!showCartDiscount || !cartDiscount.value) return 0;
+    const val = parseFloat(cartDiscount.value) || 0;
+    if (cartDiscount.type === "percent") {
+      return Math.round(rawSubtotal * val / 100);
+    }
+    return Math.round(val * 100);
+  })();
+
+  const totalDiscountCents = itemDiscountTotal + cartDiscountCents;
+  const subtotal = Math.max(0, rawSubtotal - totalDiscountCents);
+
   const taxRate = storeSettings.tax_rate_percent;
   const taxCents = storeSettings.tax_included_in_price
     ? 0 // Tax already in price — no additional charge
     : Math.round(subtotal * taxRate / 100);
-  const totalBeforeCredit = subtotal + taxCents;
+
+  // Loyalty calculation
+  const loyaltyPointsAvailable = customer?.loyalty_points ?? 0;
+  const loyaltyCanRedeem = storeSettings.loyalty_enabled &&
+    loyaltyPointsAvailable >= storeSettings.loyalty_min_redeem_points;
+  const loyaltyDiscountCents = redeemLoyalty && loyaltyCanRedeem
+    ? Math.min(
+        Math.floor(loyaltyPointsAvailable / storeSettings.loyalty_redeem_points_per_dollar) * 100,
+        subtotal + taxCents
+      )
+    : 0;
+  const loyaltyPointsToRedeem = loyaltyDiscountCents > 0
+    ? Math.ceil((loyaltyDiscountCents / 100) * storeSettings.loyalty_redeem_points_per_dollar)
+    : 0;
+
+  // Gift card applied
+  const giftCardAppliedCents = giftCardApply && giftCardBalance
+    ? Math.min(giftCardBalance, subtotal + taxCents - loyaltyDiscountCents)
+    : 0;
+
+  const totalBeforeCredit = subtotal + taxCents - loyaltyDiscountCents - giftCardAppliedCents;
   const creditApplied =
     applyCredit && customer
       ? Math.min(
@@ -403,6 +469,12 @@ export default function CheckoutPage() {
       event_id: null,
       client_tx_id: clientTxId,
       tax_cents: taxCents,
+      discount_cents: totalDiscountCents,
+      discount_reason: cartDiscount.reason || undefined,
+      gift_card_code: giftCardAppliedCents > 0 ? giftCardCode : undefined,
+      gift_card_amount_cents: giftCardAppliedCents > 0 ? giftCardAppliedCents : undefined,
+      loyalty_points_redeem: loyaltyPointsToRedeem > 0 ? loyaltyPointsToRedeem : undefined,
+      loyalty_discount_cents: loyaltyDiscountCents > 0 ? loyaltyDiscountCents : undefined,
     };
 
     // Build receipt client-side (used for both online and offline)
@@ -417,7 +489,10 @@ export default function CheckoutPage() {
       })),
       subtotal_cents: subtotal,
       tax_cents: taxCents,
+      discount_cents: totalDiscountCents,
       credit_applied_cents: creditApplied,
+      gift_card_applied_cents: giftCardAppliedCents,
+      loyalty_discount_cents: loyaltyDiscountCents,
       payment_method: paymentMethod,
       total_cents: amountDue,
       change_cents: change,
@@ -533,6 +608,13 @@ export default function CheckoutPage() {
     setPaymentMethod("cash");
     setTenderedInput("");
     setShowPayPanel(false);
+    setCartDiscount({ type: "percent", value: "", reason: "" });
+    setShowCartDiscount(false);
+    setItemDiscounts({});
+    setGiftCardCode("");
+    setGiftCardBalance(null);
+    setGiftCardApply(false);
+    setRedeemLoyalty(false);
   }
 
   // ---- Receipt helpers ----
@@ -845,6 +927,66 @@ export default function CheckoutPage() {
               {renderCart()}
             </div>
 
+            {/* Cart discount toggle */}
+            {cart.length > 0 && (
+              <div>
+                <button
+                  onClick={() => setShowCartDiscount(!showCartDiscount)}
+                  className={`rounded-lg px-3 py-2 text-xs font-medium transition-colors ${
+                    showCartDiscount
+                      ? "bg-amber-600 text-white"
+                      : "bg-zinc-800 text-zinc-400 hover:text-white"
+                  }`}
+                >
+                  {showCartDiscount ? "Remove Discount" : "Apply Discount"}
+                </button>
+                {showCartDiscount && (
+                  <div className="mt-2 rounded-lg border border-zinc-700 bg-zinc-800 p-3 space-y-2">
+                    <div className="flex gap-2">
+                      <select
+                        value={cartDiscount.type}
+                        onChange={(e) =>
+                          setCartDiscount({
+                            ...cartDiscount,
+                            type: e.target.value as "percent" | "flat",
+                          })
+                        }
+                        className="rounded border border-zinc-600 bg-zinc-900 px-2 py-1 text-xs text-white focus:outline-none"
+                      >
+                        <option value="percent">% Off</option>
+                        <option value="flat">$ Off</option>
+                      </select>
+                      <input
+                        type="number"
+                        step={cartDiscount.type === "percent" ? "1" : "0.01"}
+                        min={0}
+                        value={cartDiscount.value}
+                        onChange={(e) =>
+                          setCartDiscount({ ...cartDiscount, value: e.target.value })
+                        }
+                        placeholder={cartDiscount.type === "percent" ? "10" : "5.00"}
+                        className="flex-1 rounded border border-zinc-600 bg-zinc-900 px-2 py-1 text-xs text-white placeholder-zinc-500 focus:outline-none"
+                      />
+                    </div>
+                    <input
+                      type="text"
+                      value={cartDiscount.reason}
+                      onChange={(e) =>
+                        setCartDiscount({ ...cartDiscount, reason: e.target.value })
+                      }
+                      placeholder="Reason (optional)"
+                      className="w-full rounded border border-zinc-600 bg-zinc-900 px-2 py-1 text-xs text-white placeholder-zinc-500 focus:outline-none"
+                    />
+                    {cartDiscountCents > 0 && (
+                      <div className="text-xs text-amber-400">
+                        -{formatCents(cartDiscountCents)} discount
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Subtotal bar */}
             <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-4">
               <div className="flex justify-between text-lg font-bold text-white">
@@ -854,6 +996,17 @@ export default function CheckoutPage() {
               {cartItemCount > 0 && (
                 <div className="text-sm text-zinc-500 mt-1">
                   {cartItemCount} item{cartItemCount !== 1 ? "s" : ""}
+                  {totalDiscountCents > 0 && (
+                    <span className="text-amber-400 ml-2">
+                      (-{formatCents(totalDiscountCents)} discount)
+                    </span>
+                  )}
+                </div>
+              )}
+              {taxCents > 0 && (
+                <div className="flex justify-between text-sm text-zinc-400 mt-1">
+                  <span>Tax ({taxRate}%)</span>
+                  <span>{formatCents(taxCents)}</span>
                 </div>
               )}
             </div>
@@ -875,7 +1028,7 @@ export default function CheckoutPage() {
                   : "bg-zinc-800 text-zinc-600 cursor-not-allowed"
               }`}
             >
-              PAY {subtotal > 0 ? formatCents(subtotal) : ""}
+              PAY {subtotal > 0 ? formatCents(subtotal + taxCents) : ""}
             </button>
           </div>
         </div>
@@ -927,10 +1080,109 @@ export default function CheckoutPage() {
                       </div>
                     ))}
                   </div>
-                  <div className="mt-2 pt-2 border-t border-zinc-800 flex justify-between text-sm font-medium text-white">
+                  {totalDiscountCents > 0 && (
+                    <div className="mt-2 pt-2 border-t border-zinc-800 flex justify-between text-sm text-amber-400">
+                      <span>Discount</span>
+                      <span className="font-mono">-{formatCents(totalDiscountCents)}</span>
+                    </div>
+                  )}
+                  <div className={`${totalDiscountCents > 0 ? "mt-1" : "mt-2 pt-2 border-t border-zinc-800"} flex justify-between text-sm font-medium text-white`}>
                     <span>Subtotal</span>
                     <span className="font-mono">{formatCents(subtotal)}</span>
                   </div>
+                  {taxCents > 0 && (
+                    <div className="flex justify-between text-sm text-zinc-400 mt-1">
+                      <span>Tax ({taxRate}%)</span>
+                      <span className="font-mono">{formatCents(taxCents)}</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Loyalty points toggle */}
+                {customer && loyaltyCanRedeem && (
+                  <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-4">
+                    <label className="flex items-center gap-2 text-sm text-zinc-300">
+                      <input
+                        type="checkbox"
+                        checked={redeemLoyalty}
+                        onChange={(e) => setRedeemLoyalty(e.target.checked)}
+                        className="rounded border-zinc-700 bg-zinc-950"
+                      />
+                      Use {loyaltyPointsAvailable} loyalty points ({formatCents(
+                        Math.floor(loyaltyPointsAvailable / storeSettings.loyalty_redeem_points_per_dollar) * 100
+                      )} value)
+                    </label>
+                    {loyaltyDiscountCents > 0 && (
+                      <div className="mt-2 flex justify-between text-sm text-purple-400">
+                        <span>Loyalty discount ({loyaltyPointsToRedeem} pts)</span>
+                        <span>-{formatCents(loyaltyDiscountCents)}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Gift card */}
+                <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-4">
+                  <div className="text-sm text-zinc-400 mb-2">Gift Card</div>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={giftCardCode}
+                      onChange={(e) => {
+                        setGiftCardCode(e.target.value.toUpperCase());
+                        setGiftCardBalance(null);
+                        setGiftCardApply(false);
+                      }}
+                      placeholder="Enter card code"
+                      className="flex-1 rounded border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-white font-mono placeholder-zinc-500 focus:border-blue-500 focus:outline-none"
+                    />
+                    <button
+                      onClick={async () => {
+                        if (!giftCardCode.trim() || giftCardLookingUp) return;
+                        setGiftCardLookingUp(true);
+                        try {
+                          const res = await fetch(`/api/gift-cards/${encodeURIComponent(giftCardCode)}`);
+                          if (res.ok) {
+                            const data = await res.json();
+                            setGiftCardBalance(data.balance_cents);
+                            setGiftCardApply(data.balance_cents > 0);
+                          } else {
+                            setGiftCardBalance(0);
+                            setGiftCardApply(false);
+                            alert("Gift card not found");
+                          }
+                        } finally {
+                          setGiftCardLookingUp(false);
+                        }
+                      }}
+                      disabled={!giftCardCode.trim() || giftCardLookingUp}
+                      className="rounded bg-zinc-700 px-3 py-2 text-xs text-zinc-200 hover:bg-zinc-600 disabled:opacity-50 transition-colors"
+                    >
+                      {giftCardLookingUp ? "..." : "Look Up"}
+                    </button>
+                  </div>
+                  {giftCardBalance !== null && giftCardBalance > 0 && (
+                    <div className="mt-2">
+                      <label className="flex items-center gap-2 text-sm text-zinc-300">
+                        <input
+                          type="checkbox"
+                          checked={giftCardApply}
+                          onChange={(e) => setGiftCardApply(e.target.checked)}
+                          className="rounded border-zinc-700 bg-zinc-950"
+                        />
+                        Apply {formatCents(giftCardBalance)} balance
+                      </label>
+                      {giftCardAppliedCents > 0 && (
+                        <div className="mt-1 flex justify-between text-sm text-teal-400">
+                          <span>Gift card applied</span>
+                          <span>-{formatCents(giftCardAppliedCents)}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {giftCardBalance === 0 && (
+                    <div className="mt-2 text-sm text-zinc-500">No balance on this card.</div>
+                  )}
                 </div>
 
                 {/* Store credit toggle -- only when customer attached with balance */}
@@ -1271,6 +1523,30 @@ export default function CheckoutPage() {
                   <span>Subtotal</span>
                   <span className="font-mono">{formatCents(receipt.subtotal_cents)}</span>
                 </div>
+                {receipt.discount_cents != null && receipt.discount_cents > 0 && (
+                  <div className="flex justify-between text-sm text-amber-400">
+                    <span>Discount</span>
+                    <span className="font-mono">-{formatCents(receipt.discount_cents)}</span>
+                  </div>
+                )}
+                {receipt.tax_cents > 0 && (
+                  <div className="flex justify-between text-sm text-zinc-400">
+                    <span>Tax</span>
+                    <span className="font-mono">{formatCents(receipt.tax_cents)}</span>
+                  </div>
+                )}
+                {receipt.loyalty_discount_cents != null && receipt.loyalty_discount_cents > 0 && (
+                  <div className="flex justify-between text-sm text-purple-400">
+                    <span>Loyalty Discount</span>
+                    <span className="font-mono">-{formatCents(receipt.loyalty_discount_cents)}</span>
+                  </div>
+                )}
+                {receipt.gift_card_applied_cents != null && receipt.gift_card_applied_cents > 0 && (
+                  <div className="flex justify-between text-sm text-teal-400">
+                    <span>Gift Card</span>
+                    <span className="font-mono">-{formatCents(receipt.gift_card_applied_cents)}</span>
+                  </div>
+                )}
                 {receipt.credit_applied_cents > 0 && (
                   <div className="flex justify-between text-sm text-amber-400">
                     <span>Store Credit</span>
@@ -1374,7 +1650,68 @@ export default function CheckoutPage() {
                 </div>
                 <div className="text-xs text-zinc-500">
                   {formatCents(item.price_cents)} each
+                  {itemDiscounts[item.inventory_item_id] && itemDiscounts[item.inventory_item_id].value && (
+                    <span className="text-amber-400 ml-1">
+                      (-{itemDiscounts[item.inventory_item_id].type === "percent"
+                        ? `${itemDiscounts[item.inventory_item_id].value}%`
+                        : `$${itemDiscounts[item.inventory_item_id].value}`})
+                    </span>
+                  )}
                 </div>
+                {/* Per-item discount toggle */}
+                <button
+                  onClick={() => {
+                    if (itemDiscounts[item.inventory_item_id]) {
+                      const { [item.inventory_item_id]: _, ...rest } = itemDiscounts;
+                      setItemDiscounts(rest);
+                    } else {
+                      setItemDiscounts({
+                        ...itemDiscounts,
+                        [item.inventory_item_id]: { type: "percent", value: "" },
+                      });
+                    }
+                  }}
+                  className="text-[10px] text-zinc-600 hover:text-amber-400 transition-colors"
+                >
+                  {itemDiscounts[item.inventory_item_id] ? "remove discount" : "discount"}
+                </button>
+                {itemDiscounts[item.inventory_item_id] && (
+                  <div className="flex gap-1 mt-0.5">
+                    <select
+                      value={itemDiscounts[item.inventory_item_id].type}
+                      onChange={(e) =>
+                        setItemDiscounts({
+                          ...itemDiscounts,
+                          [item.inventory_item_id]: {
+                            ...itemDiscounts[item.inventory_item_id],
+                            type: e.target.value as "percent" | "flat",
+                          },
+                        })
+                      }
+                      className="rounded border border-zinc-700 bg-zinc-900 px-1 py-0.5 text-[10px] text-white focus:outline-none"
+                    >
+                      <option value="percent">%</option>
+                      <option value="flat">$</option>
+                    </select>
+                    <input
+                      type="number"
+                      step={itemDiscounts[item.inventory_item_id].type === "percent" ? "1" : "0.01"}
+                      min={0}
+                      value={itemDiscounts[item.inventory_item_id].value}
+                      onChange={(e) =>
+                        setItemDiscounts({
+                          ...itemDiscounts,
+                          [item.inventory_item_id]: {
+                            ...itemDiscounts[item.inventory_item_id],
+                            value: e.target.value,
+                          },
+                        })
+                      }
+                      placeholder="0"
+                      className="w-14 rounded border border-zinc-700 bg-zinc-900 px-1 py-0.5 text-[10px] text-white placeholder-zinc-600 focus:outline-none"
+                    />
+                  </div>
+                )}
               </div>
               <div className="flex items-center gap-1">
                 <button

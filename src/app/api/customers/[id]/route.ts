@@ -18,7 +18,7 @@ export async function GET(
       return NextResponse.json({ error: "Customer not found" }, { status: 404 });
     }
 
-    const [ledger_entries, trade_ins] = await Promise.all([
+    const [ledger_entries, trade_ins, loyalty_entries] = await Promise.all([
       db.posLedgerEntry.findMany({
         where: { customer_id: id },
         orderBy: { created_at: "desc" },
@@ -29,12 +29,18 @@ export async function GET(
         orderBy: { created_at: "desc" },
         take: 50,
       }),
+      db.posLoyaltyEntry.findMany({
+        where: { customer_id: id },
+        orderBy: { created_at: "desc" },
+        take: 50,
+      }),
     ]);
 
     return NextResponse.json({
       ...customer,
       ledger_entries,
       trade_ins,
+      loyalty_entries,
     });
   } catch (error) {
     return handleAuthError(error);
@@ -82,18 +88,6 @@ export async function POST(
 
     const body = await request.json();
 
-    if (body.action !== "adjust_credit") {
-      return NextResponse.json({ error: "Invalid action" }, { status: 400 });
-    }
-
-    const { amount_cents, description } = body;
-    if (!amount_cents || typeof amount_cents !== "number") {
-      return NextResponse.json(
-        { error: "amount_cents is required and must be a number" },
-        { status: 400 }
-      );
-    }
-
     // Verify customer belongs to this store before modifying
     const customer = await prisma.posCustomer.findFirst({
       where: { id, store_id: storeId },
@@ -102,27 +96,71 @@ export async function POST(
       return NextResponse.json({ error: "Customer not found" }, { status: 404 });
     }
 
-    // Use a transaction for atomicity
-    const updated = await prisma.$transaction(async (tx) => {
-      await tx.posLedgerEntry.create({
-        data: {
-          store_id: storeId,
-          customer_id: id,
-          type: amount_cents > 0 ? "credit_issue" : "credit_deduct",
-          amount_cents,
-          description: description || null,
-        },
+    if (body.action === "adjust_credit") {
+      const { amount_cents, description } = body;
+      if (!amount_cents || typeof amount_cents !== "number") {
+        return NextResponse.json(
+          { error: "amount_cents is required and must be a number" },
+          { status: 400 }
+        );
+      }
+
+      const updated = await prisma.$transaction(async (tx) => {
+        await tx.posLedgerEntry.create({
+          data: {
+            store_id: storeId,
+            customer_id: id,
+            type: amount_cents > 0 ? "credit_issue" : "credit_deduct",
+            amount_cents,
+            description: description || null,
+          },
+        });
+
+        return tx.posCustomer.update({
+          where: { id, store_id: storeId },
+          data: {
+            credit_balance_cents: { increment: amount_cents },
+          },
+        });
       });
 
-      return tx.posCustomer.update({
-        where: { id, store_id: storeId },
-        data: {
-          credit_balance_cents: { increment: amount_cents },
-        },
-      });
-    });
+      return NextResponse.json(updated);
+    }
 
-    return NextResponse.json(updated);
+    if (body.action === "adjust_loyalty") {
+      const { points, description } = body;
+      if (!points || typeof points !== "number") {
+        return NextResponse.json(
+          { error: "points is required and must be a number" },
+          { status: 400 }
+        );
+      }
+
+      const updated = await prisma.$transaction(async (tx) => {
+        const updatedCustomer = await tx.posCustomer.update({
+          where: { id, store_id: storeId },
+          data: { loyalty_points: { increment: points } },
+          select: { loyalty_points: true },
+        });
+
+        await tx.posLoyaltyEntry.create({
+          data: {
+            store_id: storeId,
+            customer_id: id,
+            type: "adjust",
+            points,
+            balance_after: updatedCustomer.loyalty_points,
+            description: description || `Manual adjustment: ${points > 0 ? '+' : ''}${points}`,
+          },
+        });
+
+        return updatedCustomer;
+      });
+
+      return NextResponse.json(updated);
+    }
+
+    return NextResponse.json({ error: "Invalid action" }, { status: 400 });
   } catch (error) {
     return handleAuthError(error);
   }
