@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { SearchInput } from "@/components/search-input";
+import { useStore } from "@/lib/store-context";
 import {
   InventoryItem,
   ItemCategory,
@@ -20,6 +21,15 @@ const CATEGORIES: { value: ItemCategory; label: string }[] = [
 ];
 
 const CONDITIONS = ["NM", "LP", "MP", "HP", "DMG"] as const;
+
+const ADJUSTMENT_REASONS = [
+  "Received shipment",
+  "Damaged/defective",
+  "Physical count correction",
+  "Theft/shrinkage",
+  "Returned to supplier",
+  "Other",
+];
 
 interface NewItemForm {
   name: string;
@@ -47,7 +57,17 @@ const EMPTY_FORM: NewItemForm = {
   set_name: "",
 };
 
+interface AdjustState {
+  item: InventoryItem;
+  type: "add" | "remove";
+  amount: string;
+  reason: string;
+  notes: string;
+}
+
 export default function InventoryPage() {
+  const { can } = useStore();
+
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -55,6 +75,11 @@ export default function InventoryPage() {
   const [form, setForm] = useState<NewItemForm>({ ...EMPTY_FORM });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Stock adjustment modal
+  const [adjust, setAdjust] = useState<AdjustState | null>(null);
+  const [adjustSubmitting, setAdjustSubmitting] = useState(false);
+  const [adjustError, setAdjustError] = useState<string | null>(null);
 
   // Initial load
   useEffect(() => {
@@ -155,40 +180,53 @@ export default function InventoryPage() {
     }
   }, [form]);
 
-  const handleQuantityChange = useCallback(
-    async (item: InventoryItem, delta: number) => {
-      const newQty = Math.max(0, item.quantity + delta);
+  const handleAdjustSubmit = useCallback(async () => {
+    if (!adjust) return;
 
-      // Optimistic update
-      setItems((prev) =>
-        prev.map((i) => (i.id === item.id ? { ...i, quantity: newQty } : i))
-      );
+    const amount = parseInt(adjust.amount, 10);
+    if (!amount || amount <= 0) {
+      setAdjustError("Enter a valid amount greater than 0");
+      return;
+    }
 
-      try {
-        const res = await fetch("/api/inventory", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id: item.id, quantity: newQty }),
-        });
+    if (!adjust.reason) {
+      setAdjustError("Please select a reason");
+      return;
+    }
 
-        if (!res.ok) {
-          // Revert on failure
-          setItems((prev) =>
-            prev.map((i) =>
-              i.id === item.id ? { ...i, quantity: item.quantity } : i
-            )
-          );
-        }
-      } catch {
-        setItems((prev) =>
-          prev.map((i) =>
-            i.id === item.id ? { ...i, quantity: item.quantity } : i
-          )
-        );
+    const adjustment = adjust.type === "add" ? amount : -amount;
+
+    setAdjustSubmitting(true);
+    setAdjustError(null);
+
+    try {
+      const res = await fetch("/api/inventory/adjust", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          item_id: adjust.item.id,
+          adjustment,
+          reason: adjust.reason,
+          notes: adjust.notes.trim() || null,
+        }),
+      });
+
+      if (!res.ok) {
+        const body = await res.json();
+        throw new Error(body.error || "Failed to adjust stock");
       }
-    },
-    []
-  );
+
+      const updatedItem = await res.json();
+      setItems((prev) =>
+        prev.map((i) => (i.id === updatedItem.id ? updatedItem : i))
+      );
+      setAdjust(null);
+    } catch (err: any) {
+      setAdjustError(err.message);
+    } finally {
+      setAdjustSubmitting(false);
+    }
+  }, [adjust]);
 
   const getCategoryLabel = (cat: string) =>
     CATEGORIES.find((c) => c.value === cat)?.label ?? cat;
@@ -414,6 +452,9 @@ export default function InventoryPage() {
                 <th className="px-4 py-3 font-medium text-center">Qty</th>
                 <th className="px-4 py-3 font-medium">Condition</th>
                 <th className="px-4 py-3 font-medium">Status</th>
+                {can("inventory.adjust") && (
+                  <th className="px-4 py-3 font-medium text-center">Actions</th>
+                )}
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-800">
@@ -439,29 +480,15 @@ export default function InventoryPage() {
                   <td className="px-4 py-3 text-right text-zinc-400">
                     {formatCents(item.cost_cents)}
                   </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center justify-center gap-2">
-                      <button
-                        onClick={() => handleQuantityChange(item, -1)}
-                        className="flex h-6 w-6 items-center justify-center rounded border border-zinc-700 text-zinc-400 hover:bg-zinc-800 hover:text-white transition-colors"
-                      >
-                        -
-                      </button>
-                      <span
-                        className={`min-w-[2rem] text-center font-medium ${getStockColor(item.quantity)}`}
-                      >
-                        {item.quantity}
-                      </span>
-                      <button
-                        onClick={() => handleQuantityChange(item, 1)}
-                        className="flex h-6 w-6 items-center justify-center rounded border border-zinc-700 text-zinc-400 hover:bg-zinc-800 hover:text-white transition-colors"
-                      >
-                        +
-                      </button>
-                    </div>
+                  <td className="px-4 py-3 text-center">
+                    <span
+                      className={`font-medium ${getStockColor(item.quantity)}`}
+                    >
+                      {item.quantity}
+                    </span>
                   </td>
                   <td className="px-4 py-3 text-zinc-400">
-                    {String((item.attributes as Record<string, unknown>)?.condition ?? "—")}
+                    {String((item.attributes as Record<string, unknown>)?.condition ?? "\u2014")}
                   </td>
                   <td className="px-4 py-3">
                     <span
@@ -474,10 +501,179 @@ export default function InventoryPage() {
                       {item.active ? "Active" : "Inactive"}
                     </span>
                   </td>
+                  {can("inventory.adjust") && (
+                    <td className="px-4 py-3 text-center">
+                      <button
+                        onClick={() =>
+                          setAdjust({
+                            item,
+                            type: "add",
+                            amount: "",
+                            reason: "",
+                            notes: "",
+                          })
+                        }
+                        className="rounded-md bg-indigo-600/20 px-3 py-1.5 text-xs font-medium text-indigo-400 hover:bg-indigo-600/30 transition-colors"
+                      >
+                        Adjust Stock
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* Stock Adjustment Modal */}
+      {adjust && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70"
+          onClick={() => {
+            setAdjust(null);
+            setAdjustError(null);
+          }}
+        >
+          <div
+            className="w-full max-w-md rounded-lg border border-zinc-800 bg-zinc-900 p-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-lg font-semibold text-white mb-1">
+              Adjust Stock
+            </h2>
+            <p className="text-sm text-zinc-400 mb-4">{adjust.item.name}</p>
+
+            {/* Current quantity */}
+            <div className="mb-4 rounded-md bg-zinc-950 border border-zinc-800 px-4 py-3 flex items-center justify-between">
+              <span className="text-sm text-zinc-400">Current Quantity</span>
+              <span className="text-lg font-bold text-white">
+                {adjust.item.quantity}
+              </span>
+            </div>
+
+            {adjustError && (
+              <p className="mb-3 text-sm text-red-400">{adjustError}</p>
+            )}
+
+            {/* Add / Remove toggle */}
+            <div className="mb-4 grid grid-cols-2 gap-2">
+              <button
+                onClick={() => setAdjust({ ...adjust, type: "add" })}
+                className={`rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                  adjust.type === "add"
+                    ? "bg-emerald-600 text-white"
+                    : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700"
+                }`}
+              >
+                Add
+              </button>
+              <button
+                onClick={() => setAdjust({ ...adjust, type: "remove" })}
+                className={`rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                  adjust.type === "remove"
+                    ? "bg-red-600 text-white"
+                    : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700"
+                }`}
+              >
+                Remove
+              </button>
+            </div>
+
+            {/* Amount */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-zinc-400 mb-1">
+                Amount
+              </label>
+              <input
+                type="number"
+                min={1}
+                value={adjust.amount}
+                onChange={(e) =>
+                  setAdjust({ ...adjust, amount: e.target.value })
+                }
+                className="w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-white placeholder-zinc-500 focus:border-indigo-500 focus:outline-none"
+                placeholder="Enter quantity"
+                autoFocus
+              />
+            </div>
+
+            {/* Reason */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-zinc-400 mb-1">
+                Reason *
+              </label>
+              <select
+                value={adjust.reason}
+                onChange={(e) =>
+                  setAdjust({ ...adjust, reason: e.target.value })
+                }
+                className="w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-white focus:border-indigo-500 focus:outline-none"
+              >
+                <option value="">Select a reason...</option>
+                {ADJUSTMENT_REASONS.map((r) => (
+                  <option key={r} value={r}>
+                    {r}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Notes */}
+            <div className="mb-5">
+              <label className="block text-sm font-medium text-zinc-400 mb-1">
+                Notes (optional)
+              </label>
+              <textarea
+                value={adjust.notes}
+                onChange={(e) =>
+                  setAdjust({ ...adjust, notes: e.target.value })
+                }
+                rows={2}
+                className="w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-white placeholder-zinc-500 focus:border-indigo-500 focus:outline-none resize-none"
+                placeholder="Additional details..."
+              />
+            </div>
+
+            {/* Preview */}
+            {adjust.amount && parseInt(adjust.amount, 10) > 0 && (
+              <div className="mb-4 rounded-md bg-zinc-950 border border-zinc-800 px-4 py-3 flex items-center justify-between">
+                <span className="text-sm text-zinc-400">New Quantity</span>
+                <span className="text-lg font-bold text-white">
+                  {adjust.type === "add"
+                    ? adjust.item.quantity + parseInt(adjust.amount, 10)
+                    : Math.max(
+                        0,
+                        adjust.item.quantity - parseInt(adjust.amount, 10)
+                      )}
+                </span>
+              </div>
+            )}
+
+            {/* Actions */}
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setAdjust(null);
+                  setAdjustError(null);
+                }}
+                className="flex-1 rounded-md border border-zinc-700 px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-800 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAdjustSubmit}
+                disabled={adjustSubmitting}
+                className={`flex-1 rounded-md px-4 py-2 text-sm font-medium text-white transition-colors ${
+                  adjust.type === "add"
+                    ? "bg-emerald-600 hover:bg-emerald-500"
+                    : "bg-red-600 hover:bg-red-500"
+                } disabled:opacity-50`}
+              >
+                {adjustSubmitting ? "Adjusting..." : "Confirm Adjustment"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
