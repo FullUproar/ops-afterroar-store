@@ -45,29 +45,27 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     }),
   ],
   callbacks: {
-    async signIn({ user, account }) {
-      if (account?.provider === "google" && user.email) {
-        // Look up existing HQ user by email
-        const existingUser = await prisma.user.findUnique({
-          where: { email: user.email },
-        });
-
-        if (existingUser) {
-          // Use the HQ user ID, not a new one
-          user.id = existingUser.id;
-          user.name = existingUser.displayName;
-          user.image = existingUser.avatarUrl;
+    async jwt({ token, account, profile }) {
+      // On initial sign-in (Google or credentials), look up the HQ user
+      if (account) {
+        if (account.provider === "google" && profile?.email) {
+          const hqUser = await prisma.user.findUnique({
+            where: { email: profile.email },
+          });
+          if (hqUser) {
+            token.id = hqUser.id;
+            token.email = hqUser.email;
+            token.name = hqUser.displayName;
+            token.picture = hqUser.avatarUrl;
+          }
+        } else if (account.provider === "credentials" && token.email) {
+          const hqUser = await prisma.user.findUnique({
+            where: { email: token.email },
+          });
+          if (hqUser) {
+            token.id = hqUser.id;
+          }
         }
-        // If no HQ user exists, block sign-in (must have HQ account first)
-        if (!existingUser) {
-          return false;
-        }
-      }
-      return true;
-    },
-    async jwt({ token, user }) {
-      if (user) {
-        token.id = user.id;
       }
       return token;
     },

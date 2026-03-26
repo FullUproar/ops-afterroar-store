@@ -1,11 +1,28 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { signIn } from "next-auth/react";
+import { useSearchParams } from "next/navigation";
 
 export default function LoginPage() {
   const [isSignUp, setIsSignUp] = useState(false);
   const [error, setError] = useState("");
+  const searchParams = useSearchParams();
+
+  // Show NextAuth errors from redirect
+  useEffect(() => {
+    const authError = searchParams.get("error");
+    if (authError) {
+      const messages: Record<string, string> = {
+        AccessDenied: "Access denied — you need an Afterroar HQ account first.",
+        Callback: "Authentication failed. Please try again.",
+        OAuthSignin: "Could not start Google sign-in.",
+        OAuthCallback: "Google sign-in callback failed.",
+        Default: `Auth error: ${authError}`,
+      };
+      setError(messages[authError] || messages.Default);
+    }
+  }, [searchParams]);
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const emailRef = useRef<HTMLInputElement>(null);
