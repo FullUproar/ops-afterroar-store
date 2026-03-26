@@ -29,7 +29,7 @@ export async function POST(request: Request) {
 
   if (error) {
     return NextResponse.json(
-      { error: error.message, code: error.status },
+      { error: error.message, code: error.status, email_received: email, password_length: password?.length },
       { status: 401 }
     );
   }
