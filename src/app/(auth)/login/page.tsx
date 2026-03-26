@@ -59,13 +59,15 @@ export default function LoginPage() {
 
       window.location.href = "/dashboard";
     } else {
-      const { error: signInError } = await supabase.auth.signInWithPassword({
+      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
+      console.log("Sign in result:", { signInData, signInError });
+
       if (signInError) {
-        setError(signInError.message);
+        setError(`${signInError.message} (${signInError.status})`);
         setLoading(false);
         return;
       }
