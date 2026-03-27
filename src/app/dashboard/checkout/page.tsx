@@ -12,6 +12,7 @@ import {
   updateLocalCustomerCredit,
 } from "@/lib/offline-db";
 import { useStoreName, useStoreSettings } from "@/lib/store-settings";
+import { CategoryBrowser } from "@/components/category-browser";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -91,6 +92,9 @@ export default function CheckoutPage() {
   const [showCamera, setShowCamera] = useState(false);
   const [cameraProcessing, setCameraProcessing] = useState(false);
   const [cameraResult, setCameraResult] = useState<string | null>(null);
+
+  // Browse mode (category navigation)
+  const [browseMode, setBrowseMode] = useState(false);
 
   // Discount state
   const [cartDiscount, setCartDiscount] = useState<{ type: "percent" | "flat"; value: string; reason: string }>({
@@ -210,6 +214,8 @@ export default function CheckoutPage() {
             low_stock_threshold: 5,
             image_url: null,
             external_id: null,
+            catalog_product_id: null,
+            shared_to_catalog: false,
             created_at: "",
             updated_at: "",
           })) as InventoryItem[];
@@ -807,7 +813,26 @@ export default function CheckoutPage() {
             {/* Quick action buttons */}
             <div className="flex gap-2">
               <button
-                onClick={() => setShowUnlisted(!showUnlisted)}
+                onClick={() => {
+                  setBrowseMode(!browseMode);
+                  if (!browseMode) {
+                    setShowUnlisted(false);
+                    setShowResults(false);
+                  }
+                }}
+                className={`rounded-lg px-3 py-2 text-xs font-medium transition-colors ${
+                  browseMode
+                    ? "bg-emerald-600 text-white"
+                    : "bg-zinc-800 text-zinc-400 hover:text-white"
+                }`}
+              >
+                Browse
+              </button>
+              <button
+                onClick={() => {
+                  setShowUnlisted(!showUnlisted);
+                  if (!showUnlisted) setBrowseMode(false);
+                }}
                 className={`rounded-lg px-3 py-2 text-xs font-medium transition-colors ${
                   showUnlisted
                     ? "bg-indigo-600 text-white"
@@ -823,6 +848,17 @@ export default function CheckoutPage() {
                 Camera ID
               </button>
             </div>
+
+            {/* Category browser */}
+            {browseMode && (
+              <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-3">
+                <CategoryBrowser
+                  onAddToCart={(item) => {
+                    addToCart(item);
+                  }}
+                />
+              </div>
+            )}
 
             {/* Unlisted item form */}
             {showUnlisted && (

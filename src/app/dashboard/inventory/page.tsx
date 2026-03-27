@@ -242,6 +242,58 @@ export default function InventoryPage() {
     }
   }, [adjust]);
 
+  async function handleToggleCatalogShare(item: InventoryItem) {
+    if (item.shared_to_catalog) {
+      // Unshare: set shared_to_catalog = false, catalog_product_id = null
+      try {
+        const res = await fetch("/api/inventory/catalog-link", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            inventory_item_id: item.id,
+            action: "unshare",
+          }),
+        });
+        if (res.ok) {
+          setItems((prev) =>
+            prev.map((i) =>
+              i.id === item.id
+                ? { ...i, shared_to_catalog: false, catalog_product_id: null }
+                : i
+            )
+          );
+        }
+      } catch {
+        // Silently fail
+      }
+    } else {
+      // Share to catalog
+      try {
+        const res = await fetch("/api/catalog/products", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ inventory_item_id: item.id }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setItems((prev) =>
+            prev.map((i) =>
+              i.id === item.id
+                ? {
+                    ...i,
+                    shared_to_catalog: true,
+                    catalog_product_id: data.catalog_product_id,
+                  }
+                : i
+            )
+          );
+        }
+      } catch {
+        // Silently fail
+      }
+    }
+  }
+
   const getCategoryLabel = (cat: string) =>
     CATEGORIES.find((c) => c.value === cat)?.label ?? cat;
 
@@ -479,6 +531,16 @@ export default function InventoryPage() {
                         Foil
                       </span>
                     )}
+                    {item.shared_to_catalog && (
+                      <span className="ml-1.5 inline-block rounded bg-blue-900/50 px-1.5 py-0.5 text-xs text-blue-400">
+                        Shared
+                      </span>
+                    )}
+                    {item.catalog_product_id && !item.shared_to_catalog && (
+                      <span className="ml-1.5 inline-block rounded bg-zinc-700 px-1.5 py-0.5 text-xs text-zinc-400">
+                        Linked
+                      </span>
+                    )}
                   </span>
                   <span className="text-sm font-medium text-white whitespace-nowrap">
                     {formatCents(item.price_cents)}
@@ -491,20 +553,32 @@ export default function InventoryPage() {
                       Qty: {item.quantity}
                     </span>
                     {can("inventory.adjust") && (
-                      <button
-                        onClick={() =>
-                          setAdjust({
-                            item,
-                            type: "add",
-                            amount: "",
-                            reason: "",
-                            notes: "",
-                          })
-                        }
-                        className="rounded-md bg-indigo-600/20 px-3 py-1.5 text-xs font-medium text-indigo-400 hover:bg-indigo-600/30 transition-colors min-h-11 flex items-center"
-                      >
-                        Adjust
-                      </button>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => handleToggleCatalogShare(item)}
+                          className={`rounded-md px-2 py-1.5 text-xs font-medium transition-colors min-h-11 flex items-center ${
+                            item.shared_to_catalog
+                              ? "bg-blue-600/20 text-blue-400 hover:bg-blue-600/30"
+                              : "bg-zinc-700/50 text-zinc-400 hover:bg-zinc-700"
+                          }`}
+                        >
+                          {item.shared_to_catalog ? "Unshare" : "Share"}
+                        </button>
+                        <button
+                          onClick={() =>
+                            setAdjust({
+                              item,
+                              type: "add",
+                              amount: "",
+                              reason: "",
+                              notes: "",
+                            })
+                          }
+                          className="rounded-md bg-indigo-600/20 px-3 py-1.5 text-xs font-medium text-indigo-400 hover:bg-indigo-600/30 transition-colors min-h-11 flex items-center"
+                        >
+                          Adjust
+                        </button>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -540,6 +614,16 @@ export default function InventoryPage() {
                       {Boolean((item.attributes as Record<string, unknown>)?.foil) && (
                         <span className="ml-2 inline-block rounded bg-yellow-900/50 px-1.5 py-0.5 text-xs text-yellow-400">
                           Foil
+                        </span>
+                      )}
+                      {item.shared_to_catalog && (
+                        <span className="ml-2 inline-block rounded bg-blue-900/50 px-1.5 py-0.5 text-xs text-blue-400">
+                          Shared
+                        </span>
+                      )}
+                      {item.catalog_product_id && !item.shared_to_catalog && (
+                        <span className="ml-2 inline-block rounded bg-zinc-700 px-1.5 py-0.5 text-xs text-zinc-400">
+                          Linked
                         </span>
                       )}
                     </td>
@@ -610,20 +694,32 @@ export default function InventoryPage() {
                     </td>
                     {can("inventory.adjust") && (
                       <td className="px-4 py-3 text-center">
-                        <button
-                          onClick={() =>
-                            setAdjust({
-                              item,
-                              type: "add",
-                              amount: "",
-                              reason: "",
-                              notes: "",
-                            })
-                          }
-                          className="rounded-md bg-indigo-600/20 px-3 py-1.5 text-xs font-medium text-indigo-400 hover:bg-indigo-600/30 transition-colors"
-                        >
-                          Adjust Stock
-                        </button>
+                        <div className="flex items-center justify-center gap-1">
+                          <button
+                            onClick={() => handleToggleCatalogShare(item)}
+                            className={`rounded-md px-2 py-1.5 text-xs font-medium transition-colors ${
+                              item.shared_to_catalog
+                                ? "bg-blue-600/20 text-blue-400 hover:bg-blue-600/30"
+                                : "bg-zinc-700/50 text-zinc-400 hover:bg-zinc-700"
+                            }`}
+                          >
+                            {item.shared_to_catalog ? "Unshare" : "Share"}
+                          </button>
+                          <button
+                            onClick={() =>
+                              setAdjust({
+                                item,
+                                type: "add",
+                                amount: "",
+                                reason: "",
+                                notes: "",
+                              })
+                            }
+                            className="rounded-md bg-indigo-600/20 px-3 py-1.5 text-xs font-medium text-indigo-400 hover:bg-indigo-600/30 transition-colors"
+                          >
+                            Adjust Stock
+                          </button>
+                        </div>
                       </td>
                     )}
                   </tr>

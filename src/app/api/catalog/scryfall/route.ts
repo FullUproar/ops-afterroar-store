@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireStaff, requirePermission, handleAuthError } from "@/lib/require-staff";
+import { prisma } from "@/lib/prisma";
 import {
   searchCards,
   getCard,
@@ -84,6 +85,52 @@ export async function POST(request: NextRequest) {
       mapped.price_cents = price_cents;
     }
 
+    // Find or create catalog product for this Scryfall card
+    const scryfallExternalKey = `scryfall:${card.id}`;
+    let catalogProduct = await prisma.posCatalogProduct.findFirst({
+      where: {
+        external_ids: { path: ["scryfall_id"], equals: card.id },
+      },
+    });
+
+    if (!catalogProduct) {
+      // Try by name + set as fallback
+      catalogProduct = await prisma.posCatalogProduct.findFirst({
+        where: {
+          name: foil ? `${card.name} (Foil)` : card.name,
+          set_code: card.set.toUpperCase(),
+          game: "MTG",
+        },
+      });
+    }
+
+    if (!catalogProduct) {
+      catalogProduct = await prisma.posCatalogProduct.create({
+        data: {
+          name: foil ? `${card.name} (Foil)` : card.name,
+          category: "tcg_single",
+          subcategory: "mtg-singles",
+          game: "MTG",
+          product_type: "single",
+          set_name: card.set_name,
+          set_code: card.set.toUpperCase(),
+          attributes: {
+            rarity: card.rarity,
+            foil,
+            collector_number: card.collector_number,
+            type_line: card.type_line || "",
+            mana_cost: card.mana_cost || "",
+          },
+          external_ids: {
+            scryfall_id: card.id,
+            primary: scryfallExternalKey,
+          },
+          image_url: mapped.image_url,
+          contributed_by_store_id: storeId,
+        },
+      });
+    }
+
     // Check if this card already exists in inventory
     const externalId = mapped.external_id;
     const existing = await db.posInventoryItem.findFirst({
@@ -104,6 +151,7 @@ export async function POST(request: NextRequest) {
             ...(existing.attributes as Record<string, unknown>),
             condition,
           },
+          catalog_product_id: catalogProduct.id,
           updated_at: new Date(),
         },
       });
@@ -118,7 +166,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create new inventory item
+    // Create new inventory item linked to catalog
     const item = await db.posInventoryItem.create({
       data: {
         store_id: storeId,
@@ -130,6 +178,8 @@ export async function POST(request: NextRequest) {
         image_url: mapped.image_url,
         external_id: externalId,
         attributes: mapped.attributes,
+        catalog_product_id: catalogProduct.id,
+        shared_to_catalog: false,
       },
     });
 
