@@ -48,7 +48,16 @@ function loadFavorites(): string[] {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
       const parsed = JSON.parse(stored);
-      if (Array.isArray(parsed) && parsed.length === 3) return parsed;
+      if (Array.isArray(parsed) && parsed.length === 3) {
+        // Migrate old checkout favorites to register
+        const migrated = parsed.map((href: string) =>
+          href === "/dashboard/checkout" ? "/dashboard/register" : href
+        );
+        if (JSON.stringify(migrated) !== stored) {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(migrated));
+        }
+        return migrated;
+      }
     }
   } catch {}
   return DEFAULT_FAVORITES;

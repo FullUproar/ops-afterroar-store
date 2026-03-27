@@ -162,6 +162,12 @@ export default function RegisterPage() {
   const cartEndRef = useRef<HTMLDivElement>(null);
   const searchCache = useRef<Map<string, InventoryItem[]>>(new Map());
 
+  // Only auto-focus inputs on desktop (prevents mobile keyboard popping up)
+  const isTouchDevice = typeof window !== "undefined" && ("ontouchstart" in window || navigator.maxTouchPoints > 0);
+  const focusSearch = useCallback(() => {
+    if (!isTouchDevice) focusSearch();
+  }, [isTouchDevice]);
+
   // ---- Beep sound helper ----
   const playBeep = useCallback((freq = 1200, duration = 0.08, vol = 0.08) => {
     try {
@@ -261,7 +267,7 @@ export default function RegisterPage() {
     onHumanTyping: useCallback((text: string) => {
       setSearchQuery((prev) => prev + text);
       setActivePanel("search");
-      searchRef.current?.focus();
+      focusSearch();
     }, []),
     onError: useCallback((error: ScannerError) => {
       setScannerFlash("error");
@@ -573,7 +579,7 @@ export default function RegisterPage() {
       if (e.key === "F2") {
         e.preventDefault();
         setActivePanel("search");
-        setTimeout(() => searchRef.current?.focus(), 50);
+        setTimeout(() => focusSearch(), 50);
       }
       // Enter on empty search with items -> PAY
       if (e.key === "Enter" && !searchQuery.trim() && cart.length > 0 && !showPaySheet && !activePanel) {
@@ -1048,7 +1054,7 @@ export default function RegisterPage() {
           <button
             onClick={() => {
               togglePanel("search");
-              setTimeout(() => searchRef.current?.focus(), 50);
+              setTimeout(() => focusSearch(), 50);
             }}
             className={`flex items-center justify-center w-12 h-12 rounded-xl transition-colors ${
               activePanel === "search"
@@ -1232,7 +1238,7 @@ export default function RegisterPage() {
                           onKeyDown={(e) => {
                             if (e.key === "Enter") commitQtyEdit(index);
                           }}
-                          autoFocus
+                          autoFocus={!isTouchDevice}={!isTouchDevice}={!isTouchDevice}
                           className="w-14 rounded-md border border-input-border bg-input-bg px-2 py-0.5 text-center text-sm text-foreground focus:border-accent focus:outline-none"
                           style={{ minHeight: "auto" }}
                         />
@@ -1498,7 +1504,7 @@ export default function RegisterPage() {
                       }
                     }}
                     placeholder={formatCents(amountDue)}
-                    autoFocus
+                    autoFocus={!isTouchDevice}={!isTouchDevice}
                     className="w-full rounded-xl border border-input-border bg-input-bg px-4 text-foreground placeholder:text-muted focus:border-accent focus:outline-none text-center font-bold font-mono"
                     style={{ height: 60, fontSize: 28 }}
                   />
@@ -1738,7 +1744,7 @@ export default function RegisterPage() {
                 value={parkLabel}
                 onChange={(e) => setParkLabel(e.target.value)}
                 placeholder={`Cart #${getParkedCartCount() + 1}`}
-                autoFocus
+                autoFocus={!isTouchDevice}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") handleParkCart(parkLabel || undefined);
                 }}
@@ -1894,7 +1900,7 @@ export default function RegisterPage() {
                 className="w-full rounded-xl border border-input-border bg-input-bg pl-4 pr-10 text-foreground placeholder:text-muted focus:border-accent focus:outline-none"
                 style={{ height: 48, fontSize: 16 }}
                 autoComplete="off"
-                autoFocus
+                autoFocus={!isTouchDevice}
               />
               {searchQuery && (
                 <button
@@ -1902,7 +1908,7 @@ export default function RegisterPage() {
                     setSearchQuery("");
                     setSearchResults([]);
                     setScannerErrorText(null);
-                    searchRef.current?.focus();
+                    focusSearch();
                   }}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-foreground text-xl leading-none"
                   style={{ minHeight: "auto" }}
@@ -1975,7 +1981,7 @@ export default function RegisterPage() {
                   value={customerQuery}
                   onChange={(e) => setCustomerQuery(e.target.value)}
                   placeholder="Search by name, email, or phone..."
-                  autoFocus
+                  autoFocus={!isTouchDevice}
                   className="w-full rounded-xl border border-input-border bg-input-bg px-4 py-3 text-foreground placeholder:text-muted focus:border-accent focus:outline-none"
                   style={{ fontSize: 16, minHeight: 48 }}
                 />
