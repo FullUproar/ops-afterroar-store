@@ -24,8 +24,6 @@ interface UseScannerOptions {
 }
 
 interface UseScannerReturn {
-  /** Ref to attach to the hidden input element */
-  hiddenInputRef: React.RefObject<HTMLInputElement | null>;
   /** Whether the scanner is actively listening */
   isListening: boolean;
   /** Last successful scan */
@@ -47,9 +45,7 @@ interface UseScannerReturn {
 export function useScanner(options: UseScannerOptions): UseScannerReturn {
   const { onScan, onHumanTyping, onError, enabled = true } = options;
 
-  const hiddenInputRef = useRef<HTMLInputElement | null>(null);
   const managerRef = useRef<ScannerInputManager | null>(null);
-  const refocusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isPausedRef = useRef(false);
 
   const [lastScan, setLastScan] = useState<{
@@ -117,32 +113,11 @@ export function useScanner(options: UseScannerOptions): UseScannerReturn {
     }
   }, [enabled]);
 
-  // Focus management — keep the hidden input focused
-  const ensureFocus = useCallback(() => {
-    if (isPausedRef.current || !enabled) return;
-
-    const el = hiddenInputRef.current;
-    if (!el) return;
-
-    // Don't steal focus from other inputs that are intentionally focused
-    const active = document.activeElement;
-    if (
-      active &&
-      active !== document.body &&
-      active !== el &&
-      (active.tagName === "INPUT" ||
-        active.tagName === "TEXTAREA" ||
-        active.tagName === "SELECT" ||
-        (active as HTMLElement).isContentEditable)
-    ) {
-      // Some other input has focus — don't fight it
-      return;
-    }
-
-    el.focus({ preventScroll: true });
-  }, [enabled]);
-
   // Set up the global keydown listener for scanner input
+  // This is the ONLY scanner input mechanism — no hidden inputs needed.
+  // It captures all keystrokes at the document level via capture phase.
+  // Scanner detection (speed-based) distinguishes scanner from human typing
+  // regardless of what element has focus.
   useEffect(() => {
     if (!enabled) return;
 
@@ -172,11 +147,9 @@ export function useScanner(options: UseScannerOptions): UseScannerReturn {
 
       // Check if another input element has focus
       const active = document.activeElement;
-      const hiddenEl = hiddenInputRef.current;
       if (
         active &&
         active !== document.body &&
-        active !== hiddenEl &&
         (active.tagName === "INPUT" ||
           active.tagName === "TEXTAREA" ||
           active.tagName === "SELECT" ||
@@ -190,7 +163,7 @@ export function useScanner(options: UseScannerOptions): UseScannerReturn {
         return;
       }
 
-      // Feed the character to the scanner manager
+      // No input focused — feed the character to the scanner manager
       e.preventDefault();
       manager.handleKeyPress(e.key, e.timeStamp || Date.now());
       setStatus(manager.status);
@@ -204,46 +177,6 @@ export function useScanner(options: UseScannerOptions): UseScannerReturn {
     };
   }, [enabled]);
 
-  // Auto-refocus the hidden input when focus is lost
-  useEffect(() => {
-    if (!enabled) return;
-
-    function handleFocusOut() {
-      if (isPausedRef.current) return;
-
-      // Clear any existing refocus timer
-      if (refocusTimerRef.current) {
-        clearTimeout(refocusTimerRef.current);
-      }
-
-      // Delay refocus to allow intentional focus changes to settle
-      refocusTimerRef.current = setTimeout(() => {
-        ensureFocus();
-      }, 150);
-    }
-
-    function handleVisibilityChange() {
-      if (document.visibilityState === "visible" && !isPausedRef.current) {
-        // Tab was backgrounded and came back — refocus
-        setTimeout(() => ensureFocus(), 100);
-      }
-    }
-
-    document.addEventListener("focusout", handleFocusOut);
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-
-    // Initial focus
-    setTimeout(() => ensureFocus(), 50);
-
-    return () => {
-      document.removeEventListener("focusout", handleFocusOut);
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-      if (refocusTimerRef.current) {
-        clearTimeout(refocusTimerRef.current);
-      }
-    };
-  }, [enabled, ensureFocus]);
-
   // Pause / resume
   const pause = useCallback(() => {
     isPausedRef.current = true;
@@ -255,12 +188,9 @@ export function useScanner(options: UseScannerOptions): UseScannerReturn {
     isPausedRef.current = false;
     managerRef.current?.resume();
     setStatus("listening");
-    // Refocus after a short delay
-    setTimeout(() => ensureFocus(), 100);
-  }, [ensureFocus]);
+  }, []);
 
   return {
-    hiddenInputRef,
     isListening: status === "listening" && enabled,
     lastScan,
     lastError,

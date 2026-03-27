@@ -193,7 +193,6 @@ export default function RegisterPage() {
   const scannerEnabled = !showPaySheet && activePanel !== "scan";
 
   const {
-    hiddenInputRef: scannerInputRef,
     lastScan,
     pause: pauseScanner,
     resume: resumeScanner,
@@ -621,12 +620,13 @@ export default function RegisterPage() {
     flashTimerRef.current = setTimeout(() => setLastAddedIndex(null), 500);
     // Scroll to bottom
     setTimeout(() => cartEndRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
-    // Close search panel after add
+    // Close search panel after add and dismiss keyboard
     setSearchQuery("");
     setSearchResults([]);
     if (activePanel === "search" || activePanel === "quick") {
       setActivePanel(null);
     }
+    (document.activeElement as HTMLElement)?.blur();
   }
 
   function addManualItem() {
@@ -656,6 +656,7 @@ export default function RegisterPage() {
     setManualPrice("");
     setManualQty("1");
     setActivePanel(null);
+    (document.activeElement as HTMLElement)?.blur();
   }
 
   function removeItem(index: number) {
@@ -690,6 +691,7 @@ export default function RegisterPage() {
     }
     setEditingQtyIndex(null);
     setEditQtyValue("");
+    (document.activeElement as HTMLElement)?.blur();
   }
 
   // ---- Discount helpers ----
@@ -713,6 +715,7 @@ export default function RegisterPage() {
     setDiscountValue("");
     setDiscountReason("");
     setActivePanel(null);
+    (document.activeElement as HTMLElement)?.blur();
   }
 
   function removeDiscount(id: string) {
@@ -812,6 +815,9 @@ export default function RegisterPage() {
 
     // Flash success
     setShowSuccess(true);
+
+    // Dismiss keyboard
+    (document.activeElement as HTMLElement)?.blur();
 
     // Clear everything
     setCart([]);
@@ -939,20 +945,6 @@ export default function RegisterPage() {
 
   return (
     <div className="flex flex-col h-screen bg-background overflow-hidden select-none">
-      {/* ====== HIDDEN SCANNER INPUT ====== */}
-      <input
-        ref={scannerInputRef}
-        className="fixed opacity-0 pointer-events-none"
-        style={{ position: "fixed", top: -9999, left: -9999, width: 0, height: 0 }}
-        tabIndex={-1}
-        autoComplete="off"
-        autoCorrect="off"
-        autoCapitalize="off"
-        spellCheck={false}
-        aria-hidden="true"
-        data-scanner-input="true"
-      />
-
       {/* ====== SUCCESS FLASH ====== */}
       {showSuccess && (
         <div className="absolute inset-0 z-[70] flex items-center justify-center bg-green-600/90 pointer-events-none">
@@ -1184,7 +1176,8 @@ export default function RegisterPage() {
       {/* ====== MAIN CONTENT AREA (desktop: split, mobile: stacked) ====== */}
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden relative">
         {/* ---- Receipt tape (left on desktop, fills screen on mobile) ---- */}
-        <div className="flex-1 overflow-y-auto" style={{ scrollBehavior: "smooth" }}>
+        {/* Tapping receipt tape dismisses the on-screen keyboard */}
+        <div className="flex-1 overflow-y-auto" style={{ scrollBehavior: "smooth" }} onClick={() => (document.activeElement as HTMLElement)?.blur()}>
           {cart.length === 0 && !activePanel ? (
             <div className="flex items-center justify-center h-full text-muted text-sm">
               Scan or search to add items
@@ -1507,6 +1500,7 @@ export default function RegisterPage() {
                     onChange={(e) => setTenderedInput(e.target.value)}
                     onKeyDown={(e) => {
                       if (e.key === "Enter" && tendered >= amountDue) {
+                        (document.activeElement as HTMLElement)?.blur();
                         handleCompleteSale("cash");
                       }
                     }}
@@ -1520,7 +1514,10 @@ export default function RegisterPage() {
                     {[100, 500, 1000, 2000, 5000, 10000].map((cents) => (
                       <button
                         key={cents}
-                        onClick={() => setTenderedInput((cents / 100).toFixed(2))}
+                        onClick={() => {
+                          setTenderedInput((cents / 100).toFixed(2));
+                          (document.activeElement as HTMLElement)?.blur();
+                        }}
                         className="flex-1 min-w-[60px] rounded-lg border border-card-border bg-card-hover px-2 py-2 text-sm font-medium text-foreground hover:bg-accent-light transition-colors"
                         style={{ minHeight: 40 }}
                       >
@@ -1528,7 +1525,10 @@ export default function RegisterPage() {
                       </button>
                     ))}
                     <button
-                      onClick={() => setTenderedInput((amountDue / 100).toFixed(2))}
+                      onClick={() => {
+                        setTenderedInput((amountDue / 100).toFixed(2));
+                        (document.activeElement as HTMLElement)?.blur();
+                      }}
                       className="flex-1 min-w-[60px] rounded-lg border border-accent bg-accent/20 px-2 py-2 text-sm font-medium text-accent hover:bg-accent/30 transition-colors"
                       style={{ minHeight: 40 }}
                     >
@@ -1979,7 +1979,8 @@ export default function RegisterPage() {
             <div className="relative">
               <input
                 ref={searchRef}
-                type="text"
+                type="search"
+                inputMode="search"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search products or scan barcode..."
@@ -2063,7 +2064,8 @@ export default function RegisterPage() {
             ) : (
               <>
                 <input
-                  type="text"
+                  type="search"
+                  inputMode="search"
                   value={customerQuery}
                   onChange={(e) => setCustomerQuery(e.target.value)}
                   placeholder="Search by name, email, or phone..."
@@ -2078,6 +2080,7 @@ export default function RegisterPage() {
                       onClick={() => {
                         setCustomer(c);
                         setActivePanel(null);
+                        (document.activeElement as HTMLElement)?.blur();
                       }}
                       className="w-full flex items-center justify-between rounded-xl px-4 py-3 text-left bg-card-hover hover:bg-accent-light active:bg-accent-light transition-colors"
                       style={{ minHeight: 52 }}
