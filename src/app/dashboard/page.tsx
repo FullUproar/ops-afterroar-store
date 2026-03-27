@@ -71,7 +71,7 @@ export default async function DashboardPage() {
       {/* Quick Actions — mobile-first, most common staff tasks */}
       <div className="grid grid-cols-3 gap-3 md:hidden">
         <Link
-          href="/dashboard/checkout"
+          href="/dashboard/register"
           className="flex flex-col items-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-600 px-3 py-4 text-white active:bg-emerald-700 transition-colors shadow-sm"
         >
           <span className="text-2xl">{"\u25C8"}</span>
