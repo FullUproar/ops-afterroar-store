@@ -1238,7 +1238,7 @@ export default function RegisterPage() {
                           onKeyDown={(e) => {
                             if (e.key === "Enter") commitQtyEdit(index);
                           }}
-                          autoFocus={!isTouchDevice}={!isTouchDevice}={!isTouchDevice}
+                          autoFocus={!isTouchDevice}
                           className="w-14 rounded-md border border-input-border bg-input-bg px-2 py-0.5 text-center text-sm text-foreground focus:border-accent focus:outline-none"
                           style={{ minHeight: "auto" }}
                         />
@@ -1504,7 +1504,7 @@ export default function RegisterPage() {
                       }
                     }}
                     placeholder={formatCents(amountDue)}
-                    autoFocus={!isTouchDevice}={!isTouchDevice}
+                    autoFocus={!isTouchDevice}
                     className="w-full rounded-xl border border-input-border bg-input-bg px-4 text-foreground placeholder:text-muted focus:border-accent focus:outline-none text-center font-bold font-mono"
                     style={{ height: 60, fontSize: 28 }}
                   />
