@@ -91,6 +91,34 @@ main {
   animation: slide-up 0.25s ease-out;
 }
 
+@keyframes slide-down {
+  from {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-down {
+  animation: slide-down 0.2s ease-out;
+}
+
+@keyframes cart-item-flash {
+  0% {
+    background-color: rgba(34, 197, 94, 0.2);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+.animate-cart-flash {
+  animation: cart-item-flash 0.5s ease-out;
+}
+
 /* Safe area for bottom nav (iPhone notch / home indicator) */
 .pb-safe {
   padding-bottom: env(safe-area-inset-bottom, 0);

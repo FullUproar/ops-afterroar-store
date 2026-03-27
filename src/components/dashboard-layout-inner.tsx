@@ -1,5 +1,6 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import { useMode } from "@/lib/mode-context";
 import { Sidebar } from "@/components/sidebar";
 import { MobileNav } from "@/components/mobile-nav";
@@ -9,6 +10,14 @@ import { NotificationCenter } from "@/components/notification-center";
 
 export function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
   const { mode } = useMode();
+  const pathname = usePathname();
+
+  // Register page is full-screen — no sidebar, no nav, no top bar
+  const isRegisterPage = pathname === "/dashboard/register";
+
+  if (isRegisterPage) {
+    return <>{children}</>;
+  }
 
   if (mode === "register") {
     return (
