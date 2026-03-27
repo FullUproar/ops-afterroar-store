@@ -17,6 +17,18 @@ import { useStore } from "@/lib/store-context";
 import { BarcodeScanner } from "@/components/barcode-scanner";
 import { useScanner } from "@/hooks/use-scanner";
 import type { ScannerError } from "@/lib/scanner-manager";
+import {
+  saveCart as persistCart,
+  loadCart as loadPersistedCart,
+  clearCart as clearPersistedCart,
+  createEmptyCart,
+  parkCart,
+  listParkedCarts,
+  recallParkedCart,
+  deleteParkedCart,
+  getParkedCartCount,
+  type ParkedCart,
+} from "@/lib/cart-store";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -121,6 +133,19 @@ export default function RegisterPage() {
   // Last receipt
   const [lastReceipt, setLastReceipt] = useState<LastReceipt | null>(null);
   const [showLastReceipt, setShowLastReceipt] = useState(false);
+
+  // Park / Recall
+  const [showParkInput, setShowParkInput] = useState(false);
+  const [parkLabel, setParkLabel] = useState("");
+  const [showRecallSheet, setShowRecallSheet] = useState(false);
+  const [parkedCarts, setParkedCarts] = useState<ParkedCart[]>([]);
+  const [parkedCount, setParkedCount] = useState(0);
+  const [parkConflictCart, setParkConflictCart] = useState<ParkedCart | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Cart persistence
+  const cartIdRef = useRef<string>(createEmptyCart().id);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   // Swipe-to-delete
   const [swipingIndex, setSwipingIndex] = useState<number | null>(null);
@@ -282,6 +307,51 @@ export default function RegisterPage() {
       if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
     };
   }, []);
+
+  // ---- Cart persistence: load on mount ----
+  const hasLoadedRef = useRef(false);
+  useEffect(() => {
+    if (hasLoadedRef.current) return;
+    hasLoadedRef.current = true;
+    const persisted = loadPersistedCart();
+    if (persisted && persisted.items.length > 0) {
+      cartIdRef.current = persisted.id;
+      setCart(persisted.items as CartItem[]);
+      setCustomer(persisted.customer);
+      setDiscounts(persisted.discounts as CartDiscount[]);
+    }
+    setParkedCount(getParkedCartCount());
+  }, []);
+
+  // ---- Cart persistence: auto-save on change (debounced 100ms) ----
+  useEffect(() => {
+    if (!hasLoadedRef.current) return;
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      if (cart.length === 0 && !customer && discounts.length === 0) {
+        clearPersistedCart();
+      } else {
+        persistCart({
+          id: cartIdRef.current,
+          items: cart,
+          customer,
+          discounts,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        });
+      }
+    }, 100);
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    };
+  }, [cart, customer, discounts]);
+
+  // ---- Toast auto-dismiss ----
+  useEffect(() => {
+    if (!toastMessage) return;
+    const t = setTimeout(() => setToastMessage(null), 2000);
+    return () => clearTimeout(t);
+  }, [toastMessage]);
 
   // ---- Derived values (synchronous) ----
   const subtotal = cart.reduce((s, i) => s + i.price_cents * i.quantity, 0);
@@ -747,8 +817,71 @@ export default function RegisterPage() {
     setPaymentMethod("cash");
     setActivePanel(null);
 
+    // Clear persisted cart (but NOT parked carts)
+    clearPersistedCart();
+    cartIdRef.current = createEmptyCart().id;
+
     // Hide success after 1s
     setTimeout(() => setShowSuccess(false), 1000);
+  }
+
+  // ---- Park / Recall helpers ----
+  function handleParkCart(label?: string) {
+    if (cart.length === 0) return;
+    parkCart(
+      {
+        id: cartIdRef.current,
+        items: cart,
+        customer,
+        discounts,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+      label
+    );
+    // Clear active cart
+    setCart([]);
+    setDiscounts([]);
+    setCustomer(null);
+    clearPersistedCart();
+    cartIdRef.current = createEmptyCart().id;
+    setParkedCount(getParkedCartCount());
+    setShowParkInput(false);
+    setParkLabel("");
+    setToastMessage("Cart parked");
+  }
+
+  function handleRecallCart(parkedCart: ParkedCart) {
+    // If current cart has items, ask to park first
+    if (cart.length > 0) {
+      setParkConflictCart(parkedCart);
+      return;
+    }
+    doRecall(parkedCart.parkId);
+  }
+
+  function doRecall(parkId: string) {
+    const recalled = recallParkedCart(parkId);
+    if (!recalled) return;
+    cartIdRef.current = recalled.id;
+    setCart(recalled.items as CartItem[]);
+    setCustomer(recalled.customer);
+    setDiscounts(recalled.discounts as CartDiscount[]);
+    setParkedCount(getParkedCartCount());
+    setShowRecallSheet(false);
+    setParkConflictCart(null);
+    setToastMessage("Cart recalled");
+  }
+
+  function handleDeleteParked(parkId: string) {
+    deleteParkedCart(parkId);
+    setParkedCarts(listParkedCarts());
+    setParkedCount(getParkedCartCount());
+  }
+
+  function openRecallSheet() {
+    setParkedCarts(listParkedCarts());
+    setShowRecallSheet(true);
   }
 
   // ---- Fullscreen toggle ----
@@ -763,6 +896,17 @@ export default function RegisterPage() {
       }
     }
     lastLogoTap.current = now;
+  }
+
+  // ---- Time ago helper ----
+  function getTimeAgo(iso: string): string {
+    const diff = Date.now() - new Date(iso).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return "just now";
+    if (mins < 60) return `${mins} min ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    return `${Math.floor(hrs / 24)}d ago`;
   }
 
   // ---- Render helpers ----
@@ -809,6 +953,13 @@ export default function RegisterPage() {
             <div className="text-7xl mb-3">{"\u2713"}</div>
             <div className="text-2xl font-bold">Sale Complete</div>
           </div>
+        </div>
+      )}
+
+      {/* ====== TOAST ====== */}
+      {toastMessage && (
+        <div className="absolute top-16 left-1/2 -translate-x-1/2 z-60 bg-card border border-card-border rounded-xl px-4 py-2 shadow-lg text-sm text-foreground pointer-events-none animate-slide-down">
+          {toastMessage}
         </div>
       )}
 
@@ -1234,24 +1385,52 @@ export default function RegisterPage() {
 
       {/* ====== STATUS BAR ====== */}
       <div className="shrink-0 flex items-center justify-between px-4 h-8 border-t border-card-border bg-card/80 text-xs text-muted">
-        <button
-          onClick={() => {
-            if (customer) {
-              togglePanel("customer");
-            } else {
-              setActivePanel("customer");
-              setCustomerQuery("");
-              setCustomerResults([]);
-            }
-          }}
-          className="hover:text-foreground transition-colors truncate"
-          style={{ minHeight: "auto" }}
-        >
-          {customer ? customer.name : "Guest"}
-          {customer && customer.credit_balance_cents > 0 && (
-            <span className="ml-1 text-accent">{formatCents(customer.credit_balance_cents)}</span>
+        <div className="flex items-center gap-2 min-w-0">
+          {/* Park button — only when cart has items */}
+          {hasCart && (
+            <button
+              onClick={() => setShowParkInput(true)}
+              className="hover:text-foreground transition-colors shrink-0 flex items-center gap-1"
+              style={{ minHeight: "auto" }}
+              title="Park this cart"
+            >
+              <span>{"⏸"}</span> Park
+            </button>
           )}
-        </button>
+          {/* Recall button — only when parked carts exist */}
+          {parkedCount > 0 && (
+            <button
+              onClick={openRecallSheet}
+              className="hover:text-foreground transition-colors shrink-0 flex items-center gap-1"
+              style={{ minHeight: "auto" }}
+              title="Recall a parked cart"
+            >
+              <span>{"▶"}</span> Recall
+              <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-accent text-white text-[10px] font-bold">
+                {parkedCount}
+              </span>
+            </button>
+          )}
+          {(hasCart || parkedCount > 0) && <span className="text-card-border">|</span>}
+          <button
+            onClick={() => {
+              if (customer) {
+                togglePanel("customer");
+              } else {
+                setActivePanel("customer");
+                setCustomerQuery("");
+                setCustomerResults([]);
+              }
+            }}
+            className="hover:text-foreground transition-colors truncate"
+            style={{ minHeight: "auto" }}
+          >
+            {customer ? customer.name : "Guest"}
+            {customer && customer.credit_balance_cents > 0 && (
+              <span className="ml-1 text-accent">{formatCents(customer.credit_balance_cents)}</span>
+            )}
+          </button>
+        </div>
         {lastReceipt && (
           <button
             onClick={() => setShowLastReceipt(true)}
@@ -1409,8 +1588,8 @@ export default function RegisterPage() {
       {/* ====== LAST RECEIPT MODAL ====== */}
       {showLastReceipt && lastReceipt && (
         <div className="absolute inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/60" onClick={() => setShowLastReceipt(false)} />
-          <div className="relative bg-card rounded-2xl border border-card-border w-full max-w-sm mx-4 max-h-[80vh] overflow-y-auto">
+          <div className="absolute inset-0 bg-black/60 no-print" onClick={() => setShowLastReceipt(false)} />
+          <div className="relative bg-card rounded-2xl border border-card-border w-full max-w-sm mx-4 max-h-[80vh] overflow-y-auto no-print">
             <div className="p-5 space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-base font-bold text-foreground">Last Receipt</span>
@@ -1474,6 +1653,208 @@ export default function RegisterPage() {
               >
                 Print Receipt
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ====== PRINTABLE RECEIPT (hidden on screen, shown on print) ====== */}
+      {lastReceipt && (
+        <div className="print-receipt hidden">
+          <div className="receipt-store-name">{storeName}</div>
+          {storeSettings.receipt_header && (
+            <div className="receipt-header">{storeSettings.receipt_header}</div>
+          )}
+          <div className="receipt-date">
+            {new Date(lastReceipt.timestamp).toLocaleDateString()}{" "}
+            {new Date(lastReceipt.timestamp).toLocaleTimeString()}
+          </div>
+          {lastReceipt.customerName && (
+            <div className="receipt-customer">Customer: {lastReceipt.customerName}</div>
+          )}
+          <div className="receipt-divider">{"--------------------------------"}</div>
+          {lastReceipt.items.map((item, i) => (
+            <div key={i} className="receipt-line">
+              <span className="receipt-item-name">{item.name}</span>
+              <span className="receipt-item-detail">
+                {item.quantity > 1 ? `  x${item.quantity}` : ""}
+                {"  "}{formatCents(item.price_cents * item.quantity)}
+              </span>
+            </div>
+          ))}
+          <div className="receipt-divider">{"--------------------------------"}</div>
+          <div className="receipt-line">
+            <span>Subtotal</span>
+            <span>{formatCents(lastReceipt.subtotalCents)}</span>
+          </div>
+          {lastReceipt.discountCents > 0 && (
+            <div className="receipt-line">
+              <span>Discount</span>
+              <span>-{formatCents(lastReceipt.discountCents)}</span>
+            </div>
+          )}
+          {lastReceipt.taxCents > 0 && (
+            <div className="receipt-line">
+              <span>Tax ({taxRate}%)</span>
+              <span>{formatCents(lastReceipt.taxCents)}</span>
+            </div>
+          )}
+          <div className="receipt-divider">{"================================"}</div>
+          <div className="receipt-line receipt-total">
+            <span>TOTAL</span>
+            <span>{formatCents(lastReceipt.totalCents)}</span>
+          </div>
+          <div className="receipt-line">
+            <span>Paid</span>
+            <span>{lastReceipt.paymentMethod.toUpperCase()}</span>
+          </div>
+          <div className="receipt-divider">{"--------------------------------"}</div>
+          <div className="receipt-footer">
+            {storeSettings.receipt_footer || "Thank you for shopping with us!"}
+          </div>
+          <div className="receipt-barcode">
+            {"||||| |||| ||||| |||| |||||"}
+          </div>
+        </div>
+      )}
+
+      {/* ====== PARK INPUT MODAL ====== */}
+      {showParkInput && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/60" onClick={() => { setShowParkInput(false); setParkLabel(""); }} />
+          <div className="relative bg-card rounded-2xl border border-card-border w-full max-w-sm mx-4">
+            <div className="p-5 space-y-4">
+              <div className="text-base font-bold text-foreground">Park Cart</div>
+              <p className="text-sm text-muted">
+                Save this cart ({cartItemCount} item{cartItemCount !== 1 ? "s" : ""}, {formatCents(total)}) and start a new transaction.
+              </p>
+              <input
+                type="text"
+                value={parkLabel}
+                onChange={(e) => setParkLabel(e.target.value)}
+                placeholder={`Cart #${getParkedCartCount() + 1}`}
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleParkCart(parkLabel || undefined);
+                }}
+                className="w-full rounded-xl border border-input-border bg-input-bg px-4 py-2.5 text-foreground placeholder:text-muted focus:border-accent focus:outline-none"
+                style={{ fontSize: 16 }}
+              />
+              <div className="flex gap-2">
+                <button
+                  onClick={() => { setShowParkInput(false); setParkLabel(""); }}
+                  className="flex-1 rounded-xl border border-card-border px-4 py-2.5 text-sm font-medium text-muted hover:text-foreground hover:bg-card-hover transition-colors"
+                  style={{ minHeight: 44 }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => handleParkCart(parkLabel || undefined)}
+                  className="flex-1 rounded-xl font-medium text-white transition-colors"
+                  style={{ height: 44, backgroundColor: "var(--accent)", minHeight: 44 }}
+                >
+                  Park
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ====== RECALL SHEET ====== */}
+      {showRecallSheet && (
+        <div className="absolute inset-0 z-50 flex flex-col justify-end">
+          <div className="absolute inset-0 bg-black/60" onClick={() => { setShowRecallSheet(false); setParkConflictCart(null); }} />
+          <div className="relative bg-card rounded-t-2xl border-t border-card-border animate-slide-up" style={{ maxHeight: "70vh" }}>
+            <div className="p-5 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-base font-bold text-foreground">Parked Carts</span>
+                <button
+                  onClick={() => { setShowRecallSheet(false); setParkConflictCart(null); }}
+                  className="text-muted hover:text-foreground"
+                  style={{ minHeight: "auto" }}
+                >
+                  {"\u00D7"}
+                </button>
+              </div>
+
+              {/* Conflict dialog */}
+              {parkConflictCart && (
+                <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 space-y-2">
+                  <p className="text-sm text-foreground">
+                    You have items in your current cart. What would you like to do?
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        // Park current cart first, then recall
+                        handleParkCart();
+                        setTimeout(() => doRecall(parkConflictCart.parkId), 50);
+                      }}
+                      className="flex-1 rounded-xl border border-card-border px-3 py-2 text-sm font-medium text-foreground hover:bg-card-hover transition-colors"
+                      style={{ minHeight: 40 }}
+                    >
+                      Park current first
+                    </button>
+                    <button
+                      onClick={() => {
+                        // Replace current cart
+                        doRecall(parkConflictCart.parkId);
+                      }}
+                      className="flex-1 rounded-xl border border-red-500/30 px-3 py-2 text-sm font-medium text-red-400 hover:bg-red-500/10 transition-colors"
+                      style={{ minHeight: 40 }}
+                    >
+                      Replace
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {parkedCarts.length === 0 ? (
+                <div className="flex items-center justify-center h-24 text-muted text-sm">
+                  No parked carts
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-[50vh] overflow-y-auto">
+                  {parkedCarts.map((pc) => {
+                    const ago = getTimeAgo(pc.parkedAt);
+                    return (
+                      <div key={pc.parkId} className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleRecallCart(pc)}
+                          className="flex-1 flex items-center justify-between rounded-xl px-4 py-3 text-left bg-card-hover hover:bg-accent-light active:bg-accent-light transition-colors border border-card-border"
+                          style={{ minHeight: 52 }}
+                        >
+                          <div className="min-w-0 flex-1">
+                            <div className="text-sm font-medium text-foreground truncate">
+                              {pc.label}
+                            </div>
+                            <div className="text-xs text-muted">
+                              {pc.itemCount} item{pc.itemCount !== 1 ? "s" : ""}
+                              {" \u00B7 "}{formatCents(pc.totalCents)}
+                              {" \u00B7 "}{ago}
+                              {pc.customer && ` \u00B7 ${pc.customer.name}`}
+                            </div>
+                          </div>
+                          <svg className="w-4 h-4 text-muted shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                          </svg>
+                        </button>
+                        <button
+                          onClick={() => handleDeleteParked(pc.parkId)}
+                          className="shrink-0 w-10 h-10 flex items-center justify-center rounded-xl text-muted hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                          title="Delete"
+                          style={{ minHeight: "auto" }}
+                        >
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
         </div>

@@ -165,3 +165,88 @@ button:active, a:active, [role="button"]:active {
     min-height: 56px;
   }
 }
+
+/* ---- Thermal receipt print styles (80mm / 3.15in) ---- */
+@media print {
+  /* Hide everything except the receipt */
+  body > *:not(.print-receipt) {
+    display: none !important;
+  }
+  body {
+    background: #fff !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .print-receipt {
+    display: block !important;
+    width: 80mm;
+    max-width: 80mm;
+    margin: 0 auto;
+    padding: 4mm 2mm;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 12px;
+    line-height: 1.4;
+    color: #000;
+    background: #fff;
+  }
+  .receipt-store-name {
+    text-align: center;
+    font-size: 16px;
+    font-weight: bold;
+    margin-bottom: 2px;
+  }
+  .receipt-header {
+    text-align: center;
+    font-size: 10px;
+    margin-bottom: 4px;
+  }
+  .receipt-date {
+    text-align: center;
+    font-size: 10px;
+    margin-bottom: 2px;
+  }
+  .receipt-customer {
+    text-align: center;
+    font-size: 10px;
+    margin-bottom: 4px;
+  }
+  .receipt-divider {
+    text-align: center;
+    letter-spacing: -1px;
+    margin: 2px 0;
+  }
+  .receipt-line {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+  }
+  .receipt-item-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .receipt-item-detail {
+    flex-shrink: 0;
+    text-align: right;
+    white-space: nowrap;
+  }
+  .receipt-total {
+    font-weight: bold;
+    font-size: 14px;
+  }
+  .receipt-footer {
+    text-align: center;
+    font-size: 10px;
+    margin-top: 8px;
+  }
+  .receipt-barcode {
+    text-align: center;
+    font-size: 18px;
+    letter-spacing: 2px;
+    margin-top: 8px;
+  }
+}
