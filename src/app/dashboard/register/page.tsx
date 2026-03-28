@@ -122,6 +122,7 @@ export default function RegisterPage() {
   const [tenderedInput, setTenderedInput] = useState("");
   const [showCashInput, setShowCashInput] = useState(false);
   const [showCreditConfirm, setShowCreditConfirm] = useState(false);
+  const [showChangeDue, setShowChangeDue] = useState<number | null>(null); // cents of change to give back
   const [processing, setProcessing] = useState(false);
 
   // Quantity edit
@@ -801,6 +802,9 @@ export default function RegisterPage() {
   }
 
   function saleComplete(method: PaymentMethod) {
+    // For cash: calculate change to show on persistent screen
+    const cashChange = method === "cash" ? Math.max(0, tendered - total) : 0;
+
     // Save last receipt
     setLastReceipt({
       items: [...cart],
@@ -814,13 +818,10 @@ export default function RegisterPage() {
       timestamp: new Date().toISOString(),
     });
 
-    // Flash success
-    setShowSuccess(true);
-
     // Dismiss keyboard
     (document.activeElement as HTMLElement)?.blur();
 
-    // Clear everything
+    // Clear cart and payment state
     setCart([]);
     setDiscounts([]);
     setCustomer(null);
@@ -835,8 +836,15 @@ export default function RegisterPage() {
     clearPersistedCart();
     cartIdRef.current = createEmptyCart().id;
 
-    // Hide success after 1s
-    setTimeout(() => setShowSuccess(false), 1000);
+    if (method === "cash" && cashChange > 0) {
+      // Show persistent change-due screen — cashier dismisses when done
+      setShowChangeDue(cashChange);
+      // TODO: trigger cash drawer open here
+    } else {
+      // Non-cash: brief success flash
+      setShowSuccess(true);
+      setTimeout(() => setShowSuccess(false), 1000);
+    }
   }
 
   // ---- Park / Recall helpers ----
@@ -1537,6 +1545,35 @@ export default function RegisterPage() {
               processing={processing}
             />
           </div>
+        </div>
+      )}
+
+      {/* ====== CHANGE DUE SCREEN ====== */}
+      {showChangeDue !== null && (
+        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-card">
+          <div className="text-center space-y-4">
+            <div className="text-muted text-lg">Change Due</div>
+            <div className="text-7xl font-mono font-bold text-green-400 tabular-nums">
+              ${(showChangeDue / 100).toFixed(2)}
+            </div>
+            <div className="text-muted text-sm">Give change and tap to continue</div>
+          </div>
+          <button
+            onClick={() => {
+              setShowChangeDue(null);
+              setShowSuccess(true);
+              setTimeout(() => setShowSuccess(false), 800);
+            }}
+            className="mt-12 rounded-xl font-bold text-white active:scale-[0.98] transition-transform select-none px-12"
+            style={{
+              height: 56,
+              fontSize: 18,
+              backgroundColor: "#16a34a",
+              touchAction: "manipulation",
+            }}
+          >
+            Done
+          </button>
         </div>
       )}
 
