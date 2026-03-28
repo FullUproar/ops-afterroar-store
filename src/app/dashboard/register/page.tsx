@@ -15,6 +15,7 @@ import {
 import { useStoreName, useStoreSettings } from "@/lib/store-settings";
 import { useStore } from "@/lib/store-context";
 import { BarcodeScanner } from "@/components/barcode-scanner";
+import { NumericKeypad } from "@/components/numeric-keypad";
 import { useScanner } from "@/hooks/use-scanner";
 import type { ScannerError } from "@/lib/scanner-manager";
 import {
@@ -159,7 +160,7 @@ export default function RegisterPage() {
   const searchRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const customerDebounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
-  const tenderedRef = useRef<HTMLInputElement>(null);
+  // tenderedRef removed — NumericKeypad manages its own display
   const cartEndRef = useRef<HTMLDivElement>(null);
   const searchCache = useRef<Map<string, InventoryItem[]>>(new Map());
 
@@ -1490,74 +1491,24 @@ export default function RegisterPage() {
               </div>
 
               {showCashInput ? (
-                <div className="space-y-4">
-                  <div className="text-sm text-muted">Amount tendered:</div>
-                  <input
-                    ref={tenderedRef}
-                    type="text"
-                    inputMode="decimal"
-                    value={tenderedInput}
-                    onChange={(e) => setTenderedInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && tendered >= amountDue) {
-                        (document.activeElement as HTMLElement)?.blur();
-                        handleCompleteSale("cash");
-                      }
-                    }}
-                    placeholder={formatCents(amountDue)}
-                    autoFocus={!isTouchDevice}
-                    className="w-full rounded-xl border border-input-border bg-input-bg px-4 text-foreground placeholder:text-muted focus:border-accent focus:outline-none text-center font-bold font-mono"
-                    style={{ height: 60, fontSize: 28 }}
-                  />
-                  {/* Quick-tender buttons */}
-                  <div className="flex flex-wrap gap-2">
-                    {[100, 500, 1000, 2000, 5000, 10000].map((cents) => (
-                      <button
-                        key={cents}
-                        onClick={() => {
-                          setTenderedInput((cents / 100).toFixed(2));
-                          (document.activeElement as HTMLElement)?.blur();
-                        }}
-                        className="flex-1 min-w-[60px] rounded-lg border border-card-border bg-card-hover px-2 py-2 text-sm font-medium text-foreground hover:bg-accent-light transition-colors"
-                        style={{ minHeight: 40 }}
-                      >
-                        {formatCents(cents)}
-                      </button>
-                    ))}
-                    <button
-                      onClick={() => {
-                        setTenderedInput((amountDue / 100).toFixed(2));
-                        (document.activeElement as HTMLElement)?.blur();
-                      }}
-                      className="flex-1 min-w-[60px] rounded-lg border border-card-border bg-card-hover px-2 py-2 text-sm font-medium text-foreground hover:bg-accent-light transition-colors"
-                      style={{ minHeight: 40 }}
-                    >
-                      Exact
-                    </button>
-                  </div>
-                  {/* Change display */}
-                  <div className={`text-center text-xl font-bold tabular-nums font-mono ${
-                    tendered > 0 && tendered >= amountDue ? "text-green-400" : tendered > 0 ? "text-red-400" : "text-muted"
-                  }`}>
-                    {tendered > 0 && tendered >= amountDue
-                      ? `Change: ${formatCents(change)}`
-                      : tendered > 0
-                        ? "Insufficient"
-                        : `Change: ${formatCents(0)}`}
-                  </div>
-                  <button
-                    onClick={() => handleCompleteSale("cash")}
-                    disabled={processing || (amountDue > 0 && tendered < amountDue)}
-                    className="w-full rounded-xl font-bold text-white disabled:opacity-30 transition-colors"
-                    style={{ height: 56, fontSize: 18, backgroundColor: "#16a34a", minHeight: 56 }}
-                  >
-                    {processing
+                <NumericKeypad
+                  value={tenderedInput}
+                  onChange={setTenderedInput}
+                  onSubmit={() => handleCompleteSale("cash")}
+                  submitLabel={
+                    processing
                       ? "Processing..."
                       : amountDue > 0 && tendered < amountDue
                         ? "Insufficient"
-                        : `Done \u2014 Change ${formatCents(change)}`}
-                  </button>
-                </div>
+                        : `Done \u2014 Change ${formatCents(change)}`
+                  }
+                  submitDisabled={processing || (amountDue > 0 && tendered < amountDue)}
+                  quickAmounts={[100, 500, 1000, 2000, 5000, 10000]}
+                  totalCents={amountDue}
+                  changeCents={change}
+                  showChange={true}
+                  processing={processing}
+                />
               ) : showCreditConfirm ? (
                 <div className="space-y-4">
                   <div className="text-sm text-muted">
@@ -1582,7 +1533,6 @@ export default function RegisterPage() {
                   <button
                     onClick={() => {
                       setShowCashInput(true);
-                      setTimeout(() => tenderedRef.current?.focus(), 50);
                     }}
                     className="w-full flex items-center gap-4 rounded-xl border border-card-border bg-card-hover px-5 text-foreground hover:bg-accent-light active:bg-accent-light transition-colors"
                     style={{ height: 64, fontSize: 18, minHeight: 56 }}
