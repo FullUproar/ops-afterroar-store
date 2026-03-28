@@ -1377,21 +1377,69 @@ export default function RegisterPage() {
         )}
 
         <div className="px-4 pb-3 pt-1">
-          <button
-            onClick={() => {
-              if (hasCart) setShowPaySheet(true);
-            }}
-            disabled={!hasCart}
-            className="w-full rounded-xl font-bold text-white transition-colors disabled:opacity-30"
-            style={{
-              height: 56,
-              fontSize: 18,
-              backgroundColor: hasCart ? "#16a34a" : undefined,
-              minHeight: 56,
-            }}
-          >
-            {hasCart ? `PAY ${formatCents(total)}` : "PAY"}
-          </button>
+          {showPaySheet && !showCashInput ? (
+            /* Inline payment method buttons — replaces PAY button */
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowCashInput(true)}
+                className="flex-1 rounded-xl font-semibold text-foreground border border-card-border bg-card-hover active:scale-[0.97] transition-transform"
+                style={{ height: 56 }}
+              >
+                Cash
+              </button>
+              <button
+                onClick={() => handleCompleteSale("card")}
+                disabled={processing}
+                className="flex-1 rounded-xl font-semibold text-white active:scale-[0.97] transition-transform disabled:opacity-50"
+                style={{ height: 56, backgroundColor: "#2563eb" }}
+              >
+                {processing ? "..." : "Card"}
+              </button>
+              {customer && creditAvailable > 0 ? (
+                <button
+                  onClick={() => handleCompleteSale("store_credit")}
+                  disabled={processing}
+                  className="flex-1 rounded-xl font-semibold text-foreground border border-accent bg-accent/10 active:scale-[0.97] transition-transform disabled:opacity-50"
+                  style={{ height: 56 }}
+                >
+                  Credit
+                </button>
+              ) : (
+                <button
+                  onClick={() => handleCompleteSale("external")}
+                  disabled={processing}
+                  className="flex-1 rounded-xl font-semibold text-foreground border border-card-border bg-card-hover active:scale-[0.97] transition-transform disabled:opacity-50"
+                  style={{ height: 56 }}
+                >
+                  Other
+                </button>
+              )}
+              <button
+                onClick={() => { setShowPaySheet(false); setShowCashInput(false); setShowCreditConfirm(false); }}
+                className="shrink-0 rounded-xl text-muted hover:text-foreground border border-card-border bg-card-hover active:scale-[0.97] transition-transform"
+                style={{ height: 56, width: 56 }}
+              >
+                ✕
+              </button>
+            </div>
+          ) : !showPaySheet ? (
+            /* PAY button — normal state */
+            <button
+              onClick={() => {
+                if (hasCart) setShowPaySheet(true);
+              }}
+              disabled={!hasCart}
+              className="w-full rounded-xl font-bold text-white transition-colors disabled:opacity-30 active:scale-[0.98]"
+              style={{
+                height: 56,
+                fontSize: 18,
+                backgroundColor: hasCart ? "#16a34a" : undefined,
+                minHeight: 56,
+              }}
+            >
+              {hasCart ? `PAY ${formatCents(total)}` : "PAY"}
+            </button>
+          ) : null}
         </div>
       </div>
 
@@ -1455,166 +1503,40 @@ export default function RegisterPage() {
       </div>
 
       {/* ====== PAYMENT SHEET ====== */}
-      {showPaySheet && (
-        <div className="fixed inset-0 z-50 flex flex-col">
-          {/* Backdrop — only visible when NOT in cash keypad mode */}
-          {!showCashInput && (
-            <div
-              className="absolute inset-0 bg-black/60"
-              onClick={() => {
-                if (!processing) {
-                  setShowPaySheet(false);
-                  setShowCashInput(false);
-                  setShowCreditConfirm(false);
-                }
-              }}
+      {/* Cash keypad — full viewport overlay, only when cash is selected */}
+      {showCashInput && (
+        <div className="fixed inset-0 z-50 flex flex-col bg-card">
+          <div className="flex items-center justify-between px-4 py-2 border-b border-card-border">
+            <span className="text-lg font-bold text-foreground tabular-nums font-mono">
+              Due: {formatCents(amountDue)}
+            </span>
+            <button
+              onClick={() => { if (!processing) setShowCashInput(false); }}
+              className="text-muted hover:text-foreground text-sm px-3 py-1"
+              style={{ minHeight: "auto" }}
+            >
+              Back
+            </button>
+          </div>
+          <div className="flex-1 min-h-0">
+            <NumericKeypad
+              value={tenderedInput}
+              onChange={setTenderedInput}
+              onSubmit={() => handleCompleteSale("cash")}
+              submitLabel={
+                processing
+                  ? "Processing..."
+                  : amountDue > 0 && tendered < amountDue
+                    ? "Insufficient"
+                    : `Done \u2014 Change ${formatCents(change)}`
+              }
+              submitDisabled={processing || (amountDue > 0 && tendered < amountDue)}
+              totalCents={amountDue}
+              changeCents={change}
+              showChange={true}
+              processing={processing}
             />
-          )}
-
-          {showCashInput ? (
-            /* Cash keypad — FULL VIEWPORT, no scroll */
-            <div className="flex flex-col h-full bg-card">
-              {/* Header bar */}
-              <div className="flex items-center justify-between px-4 py-2 border-b border-card-border">
-                <span className="text-lg font-bold text-foreground tabular-nums font-mono">
-                  Due: {formatCents(amountDue)}
-                </span>
-                <button
-                  onClick={() => {
-                    if (!processing) {
-                      setShowCashInput(false);
-                    }
-                  }}
-                  className="text-muted hover:text-foreground text-sm px-3 py-1"
-                  style={{ minHeight: "auto" }}
-                >
-                  Back
-                </button>
-              </div>
-              {/* Keypad fills remaining space */}
-              <div className="flex-1 min-h-0">
-                <NumericKeypad
-                  value={tenderedInput}
-                  onChange={setTenderedInput}
-                  onSubmit={() => handleCompleteSale("cash")}
-                  submitLabel={
-                    processing
-                      ? "Processing..."
-                      : amountDue > 0 && tendered < amountDue
-                        ? "Insufficient"
-                        : `Done \u2014 Change ${formatCents(change)}`
-                  }
-                  submitDisabled={processing || (amountDue > 0 && tendered < amountDue)}
-                  totalCents={amountDue}
-                  changeCents={change}
-                  showChange={true}
-                  processing={processing}
-                />
-              </div>
-            </div>
-          ) : showCreditConfirm ? (
-            /* Store credit confirmation — full screen */
-            <div className="flex flex-col h-full bg-card">
-              <div className="flex items-center justify-between px-4 py-2 border-b border-card-border">
-                <span className="text-lg font-bold text-foreground tabular-nums font-mono">
-                  Due: {formatCents(amountDue)}
-                </span>
-                <button
-                  onClick={() => { if (!processing) setShowCreditConfirm(false); }}
-                  className="text-muted hover:text-foreground text-sm px-3 py-1"
-                  style={{ minHeight: "auto" }}
-                >
-                  Back
-                </button>
-              </div>
-              <div className="flex-1 flex flex-col items-center justify-center p-6 space-y-6">
-                <div className="text-center space-y-2">
-                  <div className="text-muted text-sm">Apply store credit from</div>
-                  <div className="text-2xl font-bold text-foreground">{customer?.name}</div>
-                  <div className="text-3xl font-mono font-bold text-accent tabular-nums">{formatCents(creditToApply)}</div>
-                  {total > creditAvailable && (
-                    <div className="text-sm text-muted">
-                      Remaining {formatCents(total - creditToApply)} will need another payment method.
-                    </div>
-                  )}
-                </div>
-                <button
-                  onClick={() => handleCompleteSale("store_credit")}
-                  disabled={processing}
-                  className="w-full max-w-sm rounded-xl font-bold text-white disabled:opacity-30 transition-colors active:scale-[0.98]"
-                  style={{ height: 56, fontSize: 18, backgroundColor: "#16a34a" }}
-                >
-                  {processing ? "Processing..." : "Apply Credit"}
-                </button>
-              </div>
-            </div>
-          ) : (
-            /* Payment method selector — full screen, centered */
-            <div className="flex flex-col h-full bg-card">
-              <div className="flex items-center justify-between px-4 py-2 border-b border-card-border">
-                <span className="text-lg font-bold text-foreground tabular-nums font-mono">
-                  {formatCents(amountDue)}
-                </span>
-                <button
-                  onClick={() => {
-                    if (!processing) {
-                      setShowPaySheet(false);
-                      setShowCashInput(false);
-                      setShowCreditConfirm(false);
-                    }
-                  }}
-                  className="text-muted hover:text-foreground text-sm px-3 py-1"
-                  style={{ minHeight: "auto" }}
-                >
-                  Cancel
-                </button>
-              </div>
-              <div className="flex-1 flex flex-col items-center justify-center p-6">
-                <div className="w-full max-w-sm space-y-3">
-                  <div className="text-center text-sm text-muted mb-4">Select payment method</div>
-                  <button
-                    onClick={() => setShowCashInput(true)}
-                    className="w-full flex items-center gap-4 rounded-xl border border-card-border bg-card-hover px-5 text-foreground active:scale-[0.98] transition-transform"
-                    style={{ height: 64 }}
-                  >
-                    <svg className="h-6 w-6 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z" /></svg>
-                    <span className="font-medium text-lg">Cash</span>
-                  </button>
-
-                  <button
-                    onClick={() => handleCompleteSale("card")}
-                    disabled={processing}
-                    className="w-full flex items-center gap-4 rounded-xl border border-card-border bg-card-hover px-5 text-foreground active:scale-[0.98] transition-transform disabled:opacity-50"
-                    style={{ height: 64 }}
-                  >
-                    <svg className="h-6 w-6 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z" /></svg>
-                    <span className="font-medium text-lg">{processing ? "Processing..." : "Card"}</span>
-                  </button>
-
-                  <button
-                    onClick={() => handleCompleteSale("external")}
-                    disabled={processing}
-                    className="w-full flex items-center gap-4 rounded-xl border border-card-border bg-card-hover px-5 text-foreground active:scale-[0.98] transition-transform disabled:opacity-50"
-                    style={{ height: 64 }}
-                  >
-                    <svg className="h-6 w-6 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M10.5 1.5H8.25A2.25 2.25 0 006 3.75v16.5a2.25 2.25 0 002.25 2.25h7.5A2.25 2.25 0 0018 20.25V3.75a2.25 2.25 0 00-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18.75h3" /></svg>
-                    <span className="font-medium text-lg">External Terminal</span>
-                  </button>
-
-                  {customer && creditAvailable > 0 && (
-                    <button
-                      onClick={() => setShowCreditConfirm(true)}
-                      className="w-full flex items-center gap-4 rounded-xl border border-card-border bg-card-hover px-5 text-foreground active:scale-[0.98] transition-transform"
-                      style={{ height: 64 }}
-                    >
-                      <svg className="h-6 w-6 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M21 12a2.25 2.25 0 00-2.25-2.25H15a3 3 0 11-6 0H5.25A2.25 2.25 0 003 12m18 0v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18v-6m18 0V9M3 12V9m18 0a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 013 9m18 0V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 013 6v3" /></svg>
-                      <span className="font-medium text-lg">Store Credit ({formatCents(creditAvailable)})</span>
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
+          </div>
         </div>
       )}
 
