@@ -119,6 +119,16 @@ main {
   animation: cart-item-flash 0.5s ease-out;
 }
 
+.animate-fade-out {
+  animation: fade-out 1.5s ease-out forwards;
+}
+
+@keyframes fade-out {
+  0% { opacity: 1; transform: translateY(0); }
+  70% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-8px); }
+}
+
 /* Safe area for bottom nav (iPhone notch / home indicator) */
 .pb-safe {
   padding-bottom: env(safe-area-inset-bottom, 0);

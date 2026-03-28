@@ -129,12 +129,23 @@ export default function RegisterPage() {
   const [editingQtyIndex, setEditingQtyIndex] = useState<number | null>(null);
   const [editQtyValue, setEditQtyValue] = useState("");
 
-  // Success flash
+  // Success screen (persistent for non-cash sales — replaces brief flash)
   const [showSuccess, setShowSuccess] = useState(false);
 
   // Last receipt
   const [lastReceipt, setLastReceipt] = useState<LastReceipt | null>(null);
   const [showLastReceipt, setShowLastReceipt] = useState(false);
+
+  // Item added confirmation
+  const [itemAddedMessage, setItemAddedMessage] = useState<string | null>(null);
+  const itemAddedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Error banner (replaces alert())
+  const [errorBanner, setErrorBanner] = useState<string | null>(null);
+  const errorBannerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Receipt sending state
+  const [sendingReceipt, setSendingReceipt] = useState<"email" | "text" | null>(null);
 
   // Park / Recall
   const [showParkInput, setShowParkInput] = useState(false);
@@ -313,6 +324,8 @@ export default function RegisterPage() {
       if (scannerErrorTimerRef.current) clearTimeout(scannerErrorTimerRef.current);
       if (scannerFlashTimerRef.current) clearTimeout(scannerFlashTimerRef.current);
       if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
+      if (itemAddedTimerRef.current) clearTimeout(itemAddedTimerRef.current);
+      if (errorBannerTimerRef.current) clearTimeout(errorBannerTimerRef.current);
     };
   }, []);
 
@@ -568,7 +581,13 @@ export default function RegisterPage() {
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
       if (e.key === "Escape") {
-        if (showPaySheet) {
+        if (showSuccess) {
+          setShowSuccess(false);
+          setCustomer(null);
+        } else if (showChangeDue !== null) {
+          setShowChangeDue(null);
+          setCustomer(null);
+        } else if (showPaySheet) {
           setShowPaySheet(false);
           setShowCashInput(false);
           setShowCreditConfirm(false);
@@ -591,11 +610,77 @@ export default function RegisterPage() {
     }
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [searchQuery, cart, showPaySheet, activePanel, showLastReceipt]);
+  }, [searchQuery, cart, showPaySheet, activePanel, showLastReceipt, showSuccess, showChangeDue]);
 
   // ---- Cart helpers ----
+  // Show item-added confirmation
+  function showItemAdded(name: string) {
+    setItemAddedMessage(name);
+    if (itemAddedTimerRef.current) clearTimeout(itemAddedTimerRef.current);
+    itemAddedTimerRef.current = setTimeout(() => setItemAddedMessage(null), 1500);
+  }
+
+  // Show error banner (replaces alert())
+  function showError(message: string) {
+    // Map common errors to user-friendly messages
+    let friendly = message;
+    if (/payment.*fail/i.test(message)) {
+      friendly = "Card payment failed. Try again or use a different method.";
+    } else if (/insufficient.*inventory/i.test(message) || /not enough.*stock/i.test(message)) {
+      friendly = "Not enough stock. Check inventory.";
+    } else if (/network|fetch|connect/i.test(message)) {
+      friendly = "Connection lost. Transaction saved offline.";
+    }
+    setErrorBanner(friendly);
+    if (errorBannerTimerRef.current) clearTimeout(errorBannerTimerRef.current);
+    errorBannerTimerRef.current = setTimeout(() => setErrorBanner(null), 5000);
+  }
+
+  // Send email receipt
+  async function sendEmailReceipt() {
+    if (!lastReceipt || !customer?.email) return;
+    setSendingReceipt("email");
+    try {
+      const res = await fetch("/api/receipts/email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          customer_email: customer.email,
+          receipt: {
+            store_name: storeName,
+            date: lastReceipt.timestamp,
+            items: lastReceipt.items.map((item) => ({
+              name: item.name,
+              quantity: item.quantity,
+              price_cents: item.price_cents,
+              total_cents: item.price_cents * item.quantity,
+            })),
+            subtotal_cents: lastReceipt.subtotalCents,
+            tax_cents: lastReceipt.taxCents,
+            discount_cents: lastReceipt.discountCents,
+            credit_applied_cents: 0,
+            payment_method: lastReceipt.paymentMethod,
+            total_cents: lastReceipt.totalCents,
+            change_cents: 0,
+            customer_name: lastReceipt.customerName,
+          },
+        }),
+      });
+      if (res.ok) {
+        setToastMessage("Receipt sent");
+      } else {
+        setToastMessage("Failed to send receipt");
+      }
+    } catch {
+      setToastMessage("Failed to send receipt");
+    } finally {
+      setSendingReceipt(null);
+    }
+  }
+
   // eslint-disable-next-line react-hooks/exhaustive-deps
   function addToCart(item: InventoryItem) {
+    showItemAdded(item.name);
     setCart((prev) => {
       const existingIdx = prev.findIndex((c) => c.inventory_item_id === item.id);
       if (existingIdx >= 0) {
@@ -637,6 +722,7 @@ export default function RegisterPage() {
     const qty = parseInt(manualQty, 10) || 1;
     if (!name || priceCents <= 0) return;
 
+    showItemAdded(name);
     setCart((prev) => {
       setLastAddedIndex(prev.length);
       return [
@@ -765,7 +851,7 @@ export default function RegisterPage() {
 
       if (!res.ok) {
         const data = await res.json();
-        alert(data.error || "Checkout failed");
+        showError(data.error || "Checkout failed");
         setProcessing(false);
         return;
       }
@@ -794,7 +880,7 @@ export default function RegisterPage() {
         }
         saleComplete(method);
       } catch {
-        alert("Failed to save transaction. Please try again.");
+        showError("Failed to save transaction. Please try again.");
       }
     } finally {
       setProcessing(false);
@@ -805,7 +891,8 @@ export default function RegisterPage() {
     // For cash: calculate change to show on persistent screen
     const cashChange = method === "cash" ? Math.max(0, tendered - total) : 0;
 
-    // Save last receipt
+    // Save last receipt (capture customer before clearing)
+    const receiptCustomer = customer;
     setLastReceipt({
       items: [...cart],
       discounts: [...discounts],
@@ -814,17 +901,16 @@ export default function RegisterPage() {
       taxCents,
       totalCents: total,
       paymentMethod: method,
-      customerName: customer?.name ?? null,
+      customerName: receiptCustomer?.name ?? null,
       timestamp: new Date().toISOString(),
     });
 
     // Dismiss keyboard
     (document.activeElement as HTMLElement)?.blur();
 
-    // Clear cart and payment state
+    // Clear cart and payment state — but keep customer ref for receipt buttons
     setCart([]);
     setDiscounts([]);
-    setCustomer(null);
     setShowPaySheet(false);
     setShowCashInput(false);
     setShowCreditConfirm(false);
@@ -841,9 +927,9 @@ export default function RegisterPage() {
       setShowChangeDue(cashChange);
       // TODO: trigger cash drawer open here
     } else {
-      // Non-cash: brief success flash
+      // Non-cash: persistent success screen with receipt buttons
       setShowSuccess(true);
-      setTimeout(() => setShowSuccess(false), 1000);
+      // Don't auto-dismiss — cashier taps "Next Customer" to continue
     }
   }
 
@@ -954,13 +1040,60 @@ export default function RegisterPage() {
 
   return (
     <div className="flex flex-col h-screen bg-background overflow-hidden select-none">
-      {/* ====== SUCCESS FLASH ====== */}
+      {/* ====== SUCCESS SCREEN (persistent for non-cash) ====== */}
       {showSuccess && (
-        <div className="absolute inset-0 z-[70] flex items-center justify-center bg-green-600/90 pointer-events-none">
-          <div className="text-center text-white">
-            <div className="text-7xl mb-3">{"\u2713"}</div>
-            <div className="text-2xl font-bold">Sale Complete</div>
+        <div className="fixed inset-0 z-[70] flex flex-col items-center justify-center bg-card">
+          <div className="text-center space-y-4">
+            <div className="text-7xl text-green-400">{"\u2713"}</div>
+            <div className="text-2xl font-bold text-foreground">Sale Complete</div>
+            {lastReceipt && (
+              <div className="text-4xl font-mono font-bold text-foreground tabular-nums">
+                {formatCents(lastReceipt.totalCents)}
+              </div>
+            )}
+
+            {/* Receipt buttons */}
+            {customer && (
+              <div className="flex items-center justify-center gap-3 pt-4">
+                {customer.email && (
+                  <button
+                    onClick={sendEmailReceipt}
+                    disabled={sendingReceipt === "email"}
+                    className="flex items-center gap-2 rounded-xl border border-card-border bg-card-hover px-5 text-sm font-medium text-foreground hover:bg-accent/10 active:scale-[0.97] transition-all disabled:opacity-50"
+                    style={{ height: 48, touchAction: "manipulation" }}
+                  >
+                    <span>{"\uD83D\uDCE7"}</span>
+                    {sendingReceipt === "email" ? "Sending..." : "Email Receipt"}
+                  </button>
+                )}
+                {customer.phone && (
+                  <button
+                    onClick={() => setToastMessage("SMS receipts coming soon")}
+                    className="flex items-center gap-2 rounded-xl border border-card-border bg-card-hover px-5 text-sm font-medium text-foreground hover:bg-accent/10 active:scale-[0.97] transition-all"
+                    style={{ height: 48, touchAction: "manipulation" }}
+                  >
+                    <span>{"\uD83D\uDCF1"}</span>
+                    Text Receipt
+                  </button>
+                )}
+              </div>
+            )}
           </div>
+          <button
+            onClick={() => {
+              setShowSuccess(false);
+              setCustomer(null);
+            }}
+            className="mt-12 rounded-xl font-bold text-white active:scale-[0.98] transition-transform select-none px-12"
+            style={{
+              height: 56,
+              fontSize: 18,
+              backgroundColor: "#16a34a",
+              touchAction: "manipulation",
+            }}
+          >
+            Next Customer
+          </button>
         </div>
       )}
 
@@ -968,6 +1101,32 @@ export default function RegisterPage() {
       {toastMessage && (
         <div className="absolute top-16 left-1/2 -translate-x-1/2 z-60 bg-card border border-card-border rounded-xl px-4 py-2 shadow-lg text-sm text-foreground pointer-events-none animate-slide-down">
           {toastMessage}
+        </div>
+      )}
+
+      {/* ====== ERROR BANNER ====== */}
+      {errorBanner && (
+        <div className="absolute top-0 left-0 right-0 z-[65] flex items-center gap-3 px-4 py-3 bg-red-500/15 border-b border-red-500/30 animate-slide-down">
+          <span className="flex-1 text-sm font-medium text-red-400">{errorBanner}</span>
+          <button
+            onClick={() => {
+              setErrorBanner(null);
+              if (errorBannerTimerRef.current) clearTimeout(errorBannerTimerRef.current);
+            }}
+            className="shrink-0 text-red-400 hover:text-red-300 text-lg leading-none"
+            style={{ minHeight: "auto" }}
+          >
+            {"\u00D7"}
+          </button>
+        </div>
+      )}
+
+      {/* ====== ITEM ADDED CONFIRMATION ====== */}
+      {itemAddedMessage && (
+        <div className="absolute top-12 left-0 right-0 z-[55] flex items-center justify-center pointer-events-none">
+          <div className="px-4 py-1.5 text-sm font-medium text-green-400 animate-fade-out">
+            {"\u2713"} {itemAddedMessage} added
+          </div>
         </div>
       )}
 
@@ -1064,7 +1223,7 @@ export default function RegisterPage() {
               togglePanel("search");
               setTimeout(() => focusSearch(), 50);
             }}
-            className={`flex items-center justify-center w-12 h-12 rounded-xl transition-colors ${
+            className={`flex flex-col items-center justify-center w-12 lg:w-14 h-12 rounded-xl transition-colors ${
               activePanel === "search"
                 ? "bg-accent text-white"
                 : "text-muted hover:text-foreground hover:bg-card-hover"
@@ -1074,12 +1233,13 @@ export default function RegisterPage() {
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
             </svg>
+            <span className="hidden lg:block text-[9px] leading-none mt-0.5 font-medium">Search</span>
           </button>
 
           {/* Camera scan */}
           <button
             onClick={() => togglePanel("scan")}
-            className={`flex items-center justify-center w-12 h-12 rounded-xl transition-colors ${
+            className={`flex flex-col items-center justify-center w-12 lg:w-14 h-12 rounded-xl transition-colors ${
               activePanel === "scan"
                 ? "bg-accent text-white"
                 : "text-muted hover:text-foreground hover:bg-card-hover"
@@ -1089,13 +1249,13 @@ export default function RegisterPage() {
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 1.5H8.25A2.25 2.25 0 006 3.75v16.5a2.25 2.25 0 002.25 2.25h7.5A2.25 2.25 0 0018 20.25V3.75a2.25 2.25 0 00-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18.75h3" />
             </svg>
+            <span className="hidden lg:block text-[9px] leading-none mt-0.5 font-medium">Scan</span>
           </button>
 
           {/* Customer */}
           <button
             onClick={() => {
               if (customer && activePanel !== "customer") {
-                // If customer attached and panel not open, open it
                 togglePanel("customer");
               } else if (customer && activePanel === "customer") {
                 setActivePanel(null);
@@ -1105,7 +1265,7 @@ export default function RegisterPage() {
                 setCustomerResults([]);
               }
             }}
-            className={`flex items-center justify-center rounded-xl transition-colors ${
+            className={`flex flex-col items-center justify-center rounded-xl transition-colors ${
               activePanel === "customer"
                 ? "bg-accent text-white"
                 : customer
@@ -1118,12 +1278,13 @@ export default function RegisterPage() {
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
             </svg>
+            <span className="hidden lg:block text-[9px] leading-none mt-0.5 font-medium">Cust</span>
           </button>
 
           {/* Quick Add */}
           <button
             onClick={() => togglePanel("quick")}
-            className={`flex items-center justify-center w-12 h-12 rounded-xl transition-colors ${
+            className={`flex flex-col items-center justify-center w-12 lg:w-14 h-12 rounded-xl transition-colors ${
               activePanel === "quick"
                 ? "bg-accent text-white"
                 : "text-muted hover:text-foreground hover:bg-card-hover"
@@ -1133,12 +1294,13 @@ export default function RegisterPage() {
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
             </svg>
+            <span className="hidden lg:block text-[9px] leading-none mt-0.5 font-medium">Quick</span>
           </button>
 
           {/* Manual Item */}
           <button
             onClick={() => togglePanel("manual")}
-            className={`flex items-center justify-center w-12 h-12 rounded-xl transition-colors ${
+            className={`flex flex-col items-center justify-center w-12 lg:w-14 h-12 rounded-xl transition-colors ${
               activePanel === "manual"
                 ? "bg-accent text-white"
                 : "text-muted hover:text-foreground hover:bg-card-hover"
@@ -1148,12 +1310,13 @@ export default function RegisterPage() {
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
             </svg>
+            <span className="hidden lg:block text-[9px] leading-none mt-0.5 font-medium">Add</span>
           </button>
 
           {/* Discount */}
           <button
             onClick={() => togglePanel("discount")}
-            className={`flex items-center justify-center w-12 h-12 rounded-xl transition-colors ${
+            className={`flex flex-col items-center justify-center w-12 lg:w-14 h-12 rounded-xl transition-colors ${
               activePanel === "discount"
                 ? "bg-accent text-white"
                 : discounts.length > 0
@@ -1163,6 +1326,7 @@ export default function RegisterPage() {
             title="Discount"
           >
             <span className="text-lg font-bold">%</span>
+            <span className="hidden lg:block text-[9px] leading-none mt-0.5 font-medium">Disc</span>
           </button>
         </div>
 
@@ -1557,12 +1721,38 @@ export default function RegisterPage() {
               ${(showChangeDue / 100).toFixed(2)}
             </div>
             <div className="text-muted text-sm">Give change and tap to continue</div>
+
+            {/* Receipt buttons — only if customer attached with contact info */}
+            {customer && (
+              <div className="flex items-center justify-center gap-3 pt-4">
+                {customer.email && (
+                  <button
+                    onClick={sendEmailReceipt}
+                    disabled={sendingReceipt === "email"}
+                    className="flex items-center gap-2 rounded-xl border border-card-border bg-card-hover px-5 text-sm font-medium text-foreground hover:bg-accent/10 active:scale-[0.97] transition-all disabled:opacity-50"
+                    style={{ height: 48, touchAction: "manipulation" }}
+                  >
+                    <span>{"\uD83D\uDCE7"}</span>
+                    {sendingReceipt === "email" ? "Sending..." : "Email Receipt"}
+                  </button>
+                )}
+                {customer.phone && (
+                  <button
+                    onClick={() => setToastMessage("SMS receipts coming soon")}
+                    className="flex items-center gap-2 rounded-xl border border-card-border bg-card-hover px-5 text-sm font-medium text-foreground hover:bg-accent/10 active:scale-[0.97] transition-all"
+                    style={{ height: 48, touchAction: "manipulation" }}
+                  >
+                    <span>{"\uD83D\uDCF1"}</span>
+                    Text Receipt
+                  </button>
+                )}
+              </div>
+            )}
           </div>
           <button
             onClick={() => {
               setShowChangeDue(null);
-              setShowSuccess(true);
-              setTimeout(() => setShowSuccess(false), 800);
+              setCustomer(null);
             }}
             className="mt-12 rounded-xl font-bold text-white active:scale-[0.98] transition-transform select-none px-12"
             style={{
