@@ -8,8 +8,6 @@ interface NumericKeypadProps {
   onSubmit: () => void;
   submitLabel?: string;
   submitDisabled?: boolean;
-  quickAmounts?: number[];
-  onQuickAmount?: (cents: number) => void;
   totalCents?: number;
   changeCents?: number;
   showChange?: boolean;
@@ -17,11 +15,7 @@ interface NumericKeypadProps {
 }
 
 function haptic() {
-  try {
-    navigator.vibrate?.(10);
-  } catch {
-    // not supported
-  }
+  try { navigator.vibrate?.(10); } catch {}
 }
 
 export function NumericKeypad({
@@ -30,8 +24,6 @@ export function NumericKeypad({
   onSubmit,
   submitLabel = "Done",
   submitDisabled = false,
-  quickAmounts = [2000, 5000, 10000],
-  onQuickAmount,
   totalCents,
   changeCents = 0,
   showChange = false,
@@ -41,32 +33,20 @@ export function NumericKeypad({
     (digit: string) => {
       haptic();
       let next = value;
-
       if (digit === ".") {
-        // Only one decimal point
         if (next.includes(".")) return;
         if (next === "") next = "0";
         next += ".";
       } else {
-        // Appending a digit
         if (next === "0" && digit !== ".") {
-          // Leading zero: "0" then "5" = "0.05" (not "05")
           next = "0.0" + digit;
         } else {
           next += digit;
         }
-
-        // Enforce max 2 decimal places
         const dotIdx = next.indexOf(".");
-        if (dotIdx !== -1 && next.length - dotIdx > 3) {
-          return; // would exceed 2 decimal places
-        }
-
-        // Enforce max value
-        const parsed = parseFloat(next || "0");
-        if (parsed > 99999.99) return;
+        if (dotIdx !== -1 && next.length - dotIdx > 3) return;
+        if (parseFloat(next || "0") > 99999.99) return;
       }
-
       onChange(next);
     },
     [value, onChange]
@@ -74,69 +54,81 @@ export function NumericKeypad({
 
   const handleBackspace = useCallback(() => {
     haptic();
-    if (value.length <= 1) {
-      onChange("");
-    } else {
-      onChange(value.slice(0, -1));
-    }
+    onChange(value.length <= 1 ? "" : value.slice(0, -1));
   }, [value, onChange]);
 
   const handleQuickAmount = useCallback(
     (cents: number) => {
       haptic();
       onChange((cents / 100).toFixed(2));
-      onQuickAmount?.(cents);
     },
-    [onChange, onQuickAmount]
+    [onChange]
   );
 
-  const handleExact = useCallback(() => {
-    haptic();
-    if (totalCents != null) {
-      onChange((totalCents / 100).toFixed(2));
-    }
-  }, [totalCents, onChange]);
-
   const displayValue = value || "0.00";
-
-  // Determine change status
-  const isEnough = changeCents != null && changeCents >= 0 && value !== "";
   const hasValue = value !== "" && parseFloat(value) > 0;
+  const isEnough = changeCents != null && changeCents >= 0 && hasValue;
 
-  const buttonBase =
-    "select-none rounded-xl font-bold text-2xl flex items-center justify-center transition-transform active:scale-95";
-  const digitClass = `${buttonBase} bg-card-hover text-foreground`;
+  const btnStyle = {
+    touchAction: "manipulation" as const,
+    WebkitTapHighlightColor: "transparent",
+  };
 
   return (
-    <div className="flex flex-col gap-3 rounded-xl border border-card-border bg-card shadow-lg p-4">
-      {/* Display */}
-      <div className="rounded-xl bg-background border border-card-border px-4 py-3 text-right">
-        <span className="text-4xl font-mono font-bold text-foreground tabular-nums">
+    <div className="flex flex-col h-full max-h-[100dvh] overflow-hidden">
+      {/* Display + Change — compact header */}
+      <div className="flex items-center justify-between px-3 py-2 border-b border-card-border bg-card">
+        <div className="text-3xl font-mono font-bold text-foreground tabular-nums">
           ${displayValue}
-        </span>
+        </div>
+        {showChange && (
+          <div className={`text-lg font-bold tabular-nums font-mono ${
+            hasValue && isEnough ? "text-green-400" : hasValue ? "text-red-400" : "text-muted"
+          }`}>
+            {hasValue && isEnough
+              ? `+$${(changeCents / 100).toFixed(2)}`
+              : hasValue ? "Short" : ""}
+          </div>
+        )}
       </div>
 
-      {/* Number Grid — 4x3 */}
-      <div className="grid grid-cols-3 gap-2">
+      {/* Quick amounts — compact single row */}
+      <div className="flex gap-1 px-2 py-1.5 border-b border-card-border bg-card overflow-x-auto">
+        {[500, 1000, 2000, 5000, 10000].map((cents) => (
+          <button
+            key={cents}
+            type="button"
+            onClick={() => handleQuickAmount(cents)}
+            className="shrink-0 flex-1 rounded-lg bg-card-hover text-foreground text-xs font-semibold active:scale-95 transition-transform select-none"
+            style={{ height: 36, minWidth: 44, ...btnStyle }}
+          >
+            ${(cents / 100).toFixed(0)}
+          </button>
+        ))}
+        {totalCents != null && (
+          <button
+            type="button"
+            onClick={() => { haptic(); onChange((totalCents / 100).toFixed(2)); }}
+            className="shrink-0 flex-1 rounded-lg bg-card-hover text-accent text-xs font-semibold active:scale-95 transition-transform select-none"
+            style={{ height: 36, minWidth: 44, ...btnStyle }}
+          >
+            Exact
+          </button>
+        )}
+      </div>
+
+      {/* Number Grid — fills available space */}
+      <div className="flex-1 grid grid-cols-3 grid-rows-4 gap-1 p-2 bg-card min-h-0">
         {["7", "8", "9", "4", "5", "6", "1", "2", "3", "0", ".", "\u232B"].map(
           (key) => (
             <button
               key={key}
               type="button"
-              onClick={() => {
-                if (key === "\u232B") handleBackspace();
-                else handleDigit(key);
-              }}
-              className={
-                key === "\u232B"
-                  ? `${buttonBase} bg-card-hover text-red-400`
-                  : digitClass
-              }
-              style={{
-                height: 64,
-                touchAction: "manipulation",
-                WebkitTapHighlightColor: "transparent",
-              }}
+              onClick={() => key === "\u232B" ? handleBackspace() : handleDigit(key)}
+              className={`select-none rounded-xl font-bold text-xl flex items-center justify-center transition-transform active:scale-95 ${
+                key === "\u232B" ? "bg-card-hover text-red-400" : "bg-card-hover text-foreground"
+              }`}
+              style={{ ...btnStyle, minHeight: 0 }}
             >
               {key}
             </button>
@@ -144,80 +136,18 @@ export function NumericKeypad({
         )}
       </div>
 
-      {/* Quick amounts row */}
-      <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
-        {[100, 500, 1000, 2000, 5000, 10000].map((cents) => (
-          <button
-            key={cents}
-            type="button"
-            onClick={() => handleQuickAmount(cents)}
-            className="shrink-0 rounded-lg border border-card-border bg-card-hover px-3 font-medium text-foreground text-sm active:scale-95 transition-transform select-none"
-            style={{
-              height: 48,
-              touchAction: "manipulation",
-              WebkitTapHighlightColor: "transparent",
-              minWidth: 52,
-            }}
-          >
-            ${cents >= 100 ? (cents / 100).toFixed(0) : (cents / 100).toFixed(2)}
-          </button>
-        ))}
-        {totalCents != null && (
-          <button
-            type="button"
-            onClick={handleExact}
-            className="shrink-0 rounded-lg border border-card-border bg-card-hover px-3 font-medium text-foreground text-sm active:scale-95 transition-transform select-none"
-            style={{
-              height: 48,
-              touchAction: "manipulation",
-              WebkitTapHighlightColor: "transparent",
-              minWidth: 52,
-            }}
-          >
-            Exact
-          </button>
-        )}
-      </div>
-
-      {/* Change display */}
-      {showChange && (
-        <div
-          className={`text-center text-xl font-bold tabular-nums font-mono ${
-            hasValue && isEnough
-              ? "text-green-400"
-              : hasValue
-                ? "text-red-400"
-                : "text-muted"
-          }`}
+      {/* Done button — always at bottom */}
+      <div className="p-2 pt-1 bg-card border-t border-card-border">
+        <button
+          type="button"
+          onClick={() => { haptic(); onSubmit(); }}
+          disabled={submitDisabled || processing}
+          className="w-full rounded-xl font-bold text-white disabled:opacity-30 transition-colors active:scale-[0.98] select-none"
+          style={{ height: 52, fontSize: 16, backgroundColor: "#16a34a", ...btnStyle }}
         >
-          {hasValue && isEnough
-            ? `Change: $${(changeCents / 100).toFixed(2)}`
-            : hasValue
-              ? "Insufficient"
-              : "Change: $0.00"}
-        </div>
-      )}
-
-      {/* Done button */}
-      <button
-        type="button"
-        onClick={() => {
-          haptic();
-          onSubmit();
-        }}
-        disabled={submitDisabled || processing}
-        className="w-full rounded-xl font-bold text-white disabled:opacity-30 transition-colors active:scale-[0.98] select-none"
-        style={{
-          height: 56,
-          fontSize: 18,
-          backgroundColor: "#16a34a",
-          minHeight: 56,
-          touchAction: "manipulation",
-          WebkitTapHighlightColor: "transparent",
-        }}
-      >
-        {processing ? "Processing..." : submitLabel}
-      </button>
+          {processing ? "Processing..." : submitLabel}
+        </button>
+      </div>
     </div>
   );
 }
