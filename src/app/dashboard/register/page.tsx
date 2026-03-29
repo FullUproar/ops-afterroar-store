@@ -203,7 +203,7 @@ export default function RegisterPage() {
   }, []);
 
   // ---- USB barcode scanner integration ----
-  const scannerEnabled = !showPaySheet && activePanel !== "scan";
+  const scannerEnabled = !showPaySheet && activePanel !== "scan" && activePanel !== "customer";
 
   const {
     lastScan,
@@ -311,7 +311,7 @@ export default function RegisterPage() {
 
   // Pause/resume scanner when overlays open/close
   useEffect(() => {
-    if (showPaySheet || activePanel === "scan") {
+    if (showPaySheet || activePanel === "scan" || activePanel === "customer") {
       pauseScanner();
     } else {
       resumeScanner();
@@ -2203,6 +2203,7 @@ export default function RegisterPage() {
                   inputMode="search"
                   value={customerQuery}
                   onChange={(e) => setCustomerQuery(e.target.value)}
+                  onKeyDown={(e) => e.stopPropagation()}
                   placeholder="Search by name, email, or phone..."
                   autoFocus={!isTouchDevice}
                   className="w-full rounded-xl border border-input-border bg-input-bg px-4 py-3 text-foreground placeholder:text-muted focus:border-accent focus:outline-none"

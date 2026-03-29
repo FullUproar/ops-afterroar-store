@@ -80,6 +80,16 @@ export function NumericKeypad({
 
   return (
     <div className="flex flex-col h-full overflow-hidden bg-card">
+      {/* Amount Due */}
+      {totalCents != null && totalCents > 0 && (
+        <div className="flex items-center justify-center px-4 py-1.5 border-b border-card-border bg-card-hover">
+          <span className="text-sm font-medium text-muted uppercase tracking-wider mr-2">Amount Due</span>
+          <span className="text-lg font-bold text-foreground tabular-nums font-mono">
+            ${(totalCents / 100).toFixed(2)}
+          </span>
+        </div>
+      )}
+
       {/* Display + Change */}
       <div className="flex items-center justify-between px-4 py-2 border-b border-card-border">
         <div className="text-3xl font-mono font-bold text-foreground tabular-nums">

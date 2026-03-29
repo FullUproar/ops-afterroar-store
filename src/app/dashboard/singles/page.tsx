@@ -65,6 +65,8 @@ export default function SinglesDashboard() {
   const [editingQty, setEditingQty] = useState<string | null>(null);
   const [editQtyValue, setEditQtyValue] = useState("");
   const [saving, setSaving] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   // Debounce search
   useEffect(() => {
@@ -122,10 +124,20 @@ export default function SinglesDashboard() {
     fetchItems();
   }, [fetchItems]);
 
+  // Toast helper
+  function showToast(message: string, type: "success" | "error") {
+    setToast({ message, type });
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = setTimeout(() => setToast(null), 3000);
+  }
+
   // Inline price save
   async function savePrice(id: string) {
     const cents = parseDollars(editPriceValue);
-    if (isNaN(cents) || cents < 0) return;
+    if (isNaN(cents) || cents < 0) {
+      showToast("Invalid price value", "error");
+      return;
+    }
     setSaving(true);
     try {
       const res = await fetch("/api/singles", {
@@ -137,7 +149,13 @@ export default function SinglesDashboard() {
         setItems((prev) =>
           prev.map((i) => (i.id === id ? { ...i, price_cents: cents } : i))
         );
+        showToast("Price updated", "success");
+      } else {
+        const data = await res.json().catch(() => ({}));
+        showToast(data.error || "Failed to update price", "error");
       }
+    } catch {
+      showToast("Network error — price not saved", "error");
     } finally {
       setSaving(false);
       setEditingPrice(null);
@@ -147,7 +165,10 @@ export default function SinglesDashboard() {
   // Inline quantity save
   async function saveQty(id: string) {
     const qty = parseInt(editQtyValue, 10);
-    if (isNaN(qty) || qty < 0) return;
+    if (isNaN(qty) || qty < 0) {
+      showToast("Invalid quantity", "error");
+      return;
+    }
     setSaving(true);
     try {
       const res = await fetch("/api/singles", {
@@ -159,7 +180,13 @@ export default function SinglesDashboard() {
         setItems((prev) =>
           prev.map((i) => (i.id === id ? { ...i, quantity: qty } : i))
         );
+        showToast("Quantity updated", "success");
+      } else {
+        const data = await res.json().catch(() => ({}));
+        showToast(data.error || "Failed to update quantity", "error");
       }
+    } catch {
+      showToast("Network error — quantity not saved", "error");
     } finally {
       setSaving(false);
       setEditingQty(null);
@@ -182,6 +209,19 @@ export default function SinglesDashboard() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-4 pb-8">
+      {/* Toast notification */}
+      {toast && (
+        <div
+          className={`fixed top-4 right-4 z-50 rounded-xl px-4 py-3 text-sm font-medium shadow-lg transition-opacity ${
+            toast.type === "error"
+              ? "border border-red-500/30 bg-red-500/10 text-red-400"
+              : "border border-green-500/30 bg-green-500/10 text-green-400"
+          }`}
+        >
+          {toast.message}
+        </div>
+      )}
+
       <PageHeader
         title="TCG Singles"
         backHref="/dashboard"

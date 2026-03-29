@@ -35,6 +35,7 @@ export default function BulkPricingPage() {
   const [applying, setApplying] = useState(false);
   const [applied, setApplied] = useState<{ count: number } | null>(null);
   const [error, setError] = useState("");
+  const [showConfirm, setShowConfirm] = useState(false);
 
   // Pricing strategy
   const [markupPercent, setMarkupPercent] = useState(130);
@@ -481,9 +482,9 @@ export default function BulkPricingPage() {
           {/* Action Buttons */}
           <div className="flex gap-2 flex-wrap">
             <button
-              onClick={applyAll}
+              onClick={() => setShowConfirm(true)}
               disabled={applying || changedItems.length === 0}
-              className="flex-1 md:flex-none rounded-xl bg-accent px-6 py-3 text-sm font-bold text-foreground hover:opacity-90 transition-colors disabled:opacity-50 min-h-[48px]"
+              className="flex-1 md:flex-none rounded-xl bg-accent px-6 py-3 text-sm font-bold text-foreground hover:opacity-90 transition-colors disabled:opacity-50 min-h-12"
             >
               {applying
                 ? "Applying..."
@@ -498,6 +499,85 @@ export default function BulkPricingPage() {
             </button>
           </div>
         </>
+      )}
+
+      {/* Confirmation Modal */}
+      {showConfirm && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setShowConfirm(false);
+          }}
+        >
+          <div
+            className="mx-4 w-full max-w-sm rounded-xl border border-card-border bg-card p-6 shadow-2xl space-y-4"
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-lg font-bold text-foreground">
+              Apply Price Changes?
+            </h3>
+            <p className="text-sm text-muted">
+              This will update prices for{" "}
+              <span className="font-medium text-foreground">
+                {changedItems.length} item{changedItems.length !== 1 ? "s" : ""}
+              </span>
+              .
+            </p>
+            {(() => {
+              const totalChange = changedItems.reduce(
+                (sum, i) => sum + (i.new_price_cents - i.price_cents),
+                0
+              );
+              const avgChange =
+                changedItems.length > 0
+                  ? totalChange / changedItems.length
+                  : 0;
+              return (
+                <div className="rounded-lg border border-card-border bg-card-hover p-3 text-sm space-y-1">
+                  <div className="flex justify-between">
+                    <span className="text-muted">Items changing</span>
+                    <span className="text-foreground font-medium">
+                      {changedItems.length}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted">Avg change per item</span>
+                    <span
+                      className={
+                        avgChange > 0
+                          ? "text-green-400 font-medium"
+                          : avgChange < 0
+                            ? "text-red-400 font-medium"
+                            : "text-foreground font-medium"
+                      }
+                    >
+                      {avgChange > 0 ? "+" : ""}
+                      {formatCents(Math.round(avgChange))}
+                    </span>
+                  </div>
+                </div>
+              );
+            })()}
+            <div className="flex gap-3 pt-1">
+              <button
+                onClick={() => setShowConfirm(false)}
+                className="flex-1 rounded-xl border border-card-border bg-card py-3 text-sm font-medium text-muted hover:text-foreground transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  setShowConfirm(false);
+                  applyAll();
+                }}
+                disabled={applying}
+                className="flex-1 rounded-xl bg-accent py-3 text-sm font-bold text-foreground hover:opacity-90 transition-colors disabled:opacity-50"
+              >
+                {applying ? "Applying..." : "Apply"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

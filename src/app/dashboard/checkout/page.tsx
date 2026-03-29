@@ -1537,14 +1537,16 @@ export default function CheckoutPage() {
         {showCustomerSearch && (
           <div
             className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 pt-0 md:pt-24"
-            onClick={() => {
-              setShowCustomerSearch(false);
-              setShowNewCustomerForm(false);
+            onMouseDown={(e) => {
+              if (e.target === e.currentTarget) {
+                setShowCustomerSearch(false);
+                setShowNewCustomerForm(false);
+              }
             }}
           >
             <div
               className="w-full h-full md:h-auto md:max-w-md rounded-none md:rounded-xl border-0 md:border border-card-border bg-card p-4 shadow-2xl"
-              onClick={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
             >
               <input
                 ref={customerSearchRef}
@@ -1554,6 +1556,7 @@ export default function CheckoutPage() {
                   setCustomerQuery(e.target.value);
                   setShowNewCustomerForm(false);
                 }}
+                onKeyDown={(e) => e.stopPropagation()}
                 placeholder="Search customers by name..."
                 className="mb-3 w-full rounded-md border border-card-border bg-background px-3 py-2 text-foreground placeholder:text-muted focus:border-accent focus:outline-none"
               />

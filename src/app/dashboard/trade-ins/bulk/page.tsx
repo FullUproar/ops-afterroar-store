@@ -80,6 +80,52 @@ export default function BulkTradeInPage() {
     buylistPercent: DEFAULT_PRICING_CONFIG.buylistPercent,
   };
 
+  /* ---- Load items from evaluator handoff (sessionStorage) ---- */
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem("eval_to_tradein");
+      if (!raw) return;
+      sessionStorage.removeItem("eval_to_tradein");
+      const evalItems = JSON.parse(raw) as Array<{
+        name: string;
+        set_name: string;
+        set_code: string;
+        scryfall_id: string;
+        image_url: string | null;
+        condition: Condition;
+        foil: boolean;
+        market_price_cents: number;
+      }>;
+      if (!Array.isArray(evalItems) || evalItems.length === 0) return;
+
+      const bulkItems: BulkItem[] = evalItems.map((ei) => {
+        const offer = calculateOffer({
+          marketPriceCents: ei.market_price_cents,
+          condition: ei.condition,
+          isFoil: ei.foil,
+          config: pricingConfig,
+        });
+        return {
+          key: nextKey.current++,
+          name: ei.name,
+          set_name: ei.set_name,
+          set_code: ei.set_code,
+          scryfall_id: ei.scryfall_id,
+          image_url: ei.image_url,
+          condition: ei.condition,
+          isFoil: ei.foil,
+          market_price_cents: ei.market_price_cents,
+          offer_price_cents: offer,
+          overridden: false,
+        };
+      });
+      setItems(bulkItems);
+    } catch {
+      // Silently ignore malformed sessionStorage data
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   /* ---- customer search ---- */
   useEffect(() => {
     if (customerQuery.length < 2) {

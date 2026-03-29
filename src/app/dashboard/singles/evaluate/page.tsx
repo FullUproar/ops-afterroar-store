@@ -290,6 +290,11 @@ export default function CardEvaluatorPage() {
                 <span className="font-medium text-foreground">
                   {formatCents(getMarketCents(currentCard, isFoil))}
                 </span>
+                {condition !== "NM" && (
+                  <span className="ml-2 text-muted">
+                    {condition}: {formatCents(Math.round(getMarketCents(currentCard, isFoil) * CONDITION_PERCENT[condition] / 100))}
+                  </span>
+                )}
               </p>
             </div>
           </div>
