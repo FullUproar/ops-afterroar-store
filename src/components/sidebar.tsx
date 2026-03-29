@@ -29,6 +29,7 @@ const NAV_GROUPS: NavGroup[] = [
     label: "Inventory",
     hrefs: [
       "/dashboard/inventory",
+      "/dashboard/singles",
       "/dashboard/game-library",
       "/dashboard/catalog",
       "/dashboard/purchase-orders",

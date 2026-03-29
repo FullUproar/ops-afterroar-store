@@ -321,6 +321,10 @@ model PosInventoryItem {
   catalog_product_id  String?
   shared_to_catalog   Boolean  @default(false)
 
+  ebay_listing_id     String?
+  ebay_offer_id       String?
+  listed_on_ebay      Boolean  @default(false)
+
   store           PosStore           @relation(fields: [store_id], references: [id], onDelete: Cascade)
   supplier        PosSupplier?       @relation(fields: [supplier_id], references: [id])
   catalog_product PosCatalogProduct? @relation(fields: [catalog_product_id], references: [id])
