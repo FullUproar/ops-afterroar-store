@@ -34,6 +34,7 @@ function LoginContent() {
   }, [searchParams]);
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [showForgotMsg, setShowForgotMsg] = useState(false);
   const emailRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
   const storeNameRef = useRef<HTMLInputElement>(null);
@@ -144,6 +145,19 @@ function LoginContent() {
                 )}
               </button>
             </div>
+            {!isSignUp && (
+              <div className="text-right mt-1">
+                <button type="button" onClick={() => setShowForgotMsg(true)} className="text-xs text-zinc-500 hover:text-blue-400 min-h-0">
+                  Forgot password?
+                </button>
+              </div>
+            )}
+            {showForgotMsg && (
+              <div className="rounded-lg border border-zinc-700 bg-zinc-800/80 px-3 py-2 text-xs text-zinc-300">
+                Contact your store administrator to reset your password.
+                <button type="button" onClick={() => setShowForgotMsg(false)} className="ml-2 text-zinc-500 hover:text-zinc-300 min-h-0">&times;</button>
+              </div>
+            )}
           </div>
 
           {error && (
