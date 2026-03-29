@@ -128,24 +128,8 @@ export function useScanner(options: UseScannerOptions): UseScannerReturn {
       // Ignore modifier combos (Ctrl+C, Alt+Tab, etc.)
       if (e.ctrlKey || e.altKey || e.metaKey) return;
 
-      // Ignore function keys, arrows, etc. — only printable chars and terminators
-      if (e.key.length > 1) {
-        // Check for terminator keys
-        if (manager.isTerminator(e.key)) {
-          // Only process if we have buffer content
-          if (manager.status === "processing") {
-            e.preventDefault();
-            e.stopPropagation();
-            setStatus("processing");
-            manager.handleTerminator();
-          }
-          return;
-        }
-        // Non-printable, non-terminator key — ignore
-        return;
-      }
-
-      // Check if another input element has focus
+      // CHECK FIRST: if a visible input has focus, let it handle ALL keystrokes.
+      // The scanner only operates when NO input is focused.
       const active = document.activeElement;
       if (
         active &&
@@ -155,11 +139,26 @@ export function useScanner(options: UseScannerOptions): UseScannerReturn {
           active.tagName === "SELECT" ||
           (active as HTMLElement).isContentEditable)
       ) {
-        // Another input has focus. We still listen — scanner fires fast
-        // regardless of focus. Feed the char to the manager; the speed
-        // check will distinguish scanner from human typing.
-        manager.handleKeyPress(e.key, e.timeStamp || Date.now());
-        setStatus(manager.status);
+        // Reset scanner buffer if it was accumulating — user switched to typing
+        if (manager.status === "processing") {
+          manager.reset();
+          setStatus("listening");
+        }
+        return;
+      }
+
+      // No input focused — scanner territory.
+      // Ignore function keys, arrows, etc. — only printable chars and terminators
+      if (e.key.length > 1) {
+        if (manager.isTerminator(e.key)) {
+          if (manager.status === "processing") {
+            e.preventDefault();
+            e.stopPropagation();
+            setStatus("processing");
+            manager.handleTerminator();
+          }
+          return;
+        }
         return;
       }
 

@@ -1393,19 +1393,22 @@ export default function RegisterPage() {
                         </span>
                       </div>
 
-                      {/* Quantity — tappable */}
+                      {/* Quantity — tap to type, stopPropagation for scanner */}
                       {editingQtyIndex === index ? (
                         <input
-                          type="number"
+                          type="text"
                           inputMode="numeric"
+                          pattern="[0-9]*"
                           value={editQtyValue}
-                          onChange={(e) => setEditQtyValue(e.target.value)}
+                          onChange={(e) => setEditQtyValue(e.target.value.replace(/\D/g, ""))}
                           onBlur={() => commitQtyEdit(index)}
                           onKeyDown={(e) => {
+                            e.stopPropagation();
                             if (e.key === "Enter") commitQtyEdit(index);
+                            if (e.key === "Escape") { setEditingQtyIndex(null); (document.activeElement as HTMLElement)?.blur(); }
                           }}
-                          autoFocus={!isTouchDevice}
-                          className="w-14 rounded-md border border-input-border bg-input-bg px-2 py-0.5 text-center text-sm text-foreground focus:border-accent focus:outline-none"
+                          autoFocus
+                          className="w-14 rounded-md border border-accent bg-input-bg px-2 py-1 text-center text-sm font-bold text-foreground focus:outline-none"
                           style={{ minHeight: "auto" }}
                         />
                       ) : (
@@ -1414,19 +1417,31 @@ export default function RegisterPage() {
                             setEditingQtyIndex(index);
                             setEditQtyValue(String(item.quantity));
                           }}
-                          className="shrink-0 text-xs text-muted hover:text-foreground tabular-nums px-1"
-                          style={{ minHeight: "auto" }}
+                          className="shrink-0 rounded-md bg-card-hover px-2 py-1 text-sm font-medium text-foreground tabular-nums active:scale-95 transition-transform"
+                          style={{ minHeight: 32 }}
                         >
                           x{item.quantity}
                         </button>
                       )}
 
-                      {/* Line total — right-aligned, monospace-ish */}
-                      <div className="shrink-0 w-20 text-right text-sm font-medium text-foreground tabular-nums font-mono">
+                      {/* Line total */}
+                      <div className="shrink-0 w-16 text-right text-sm font-medium text-foreground tabular-nums font-mono">
                         {formatCents(lineTotal)}
                       </div>
 
-                      {/* Delete button (visible on swipe / hover on desktop) */}
+                      {/* Delete — always visible, compact */}
+                      <button
+                        onClick={() => removeItem(index)}
+                        className="shrink-0 ml-1 text-red-400 hover:text-red-300 active:scale-95 transition-transform"
+                        style={{ minHeight: "auto", padding: "4px" }}
+                        title="Remove item"
+                      >
+                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+
+                      {/* Swipe delete (mobile fallback) */}
                       {isSwiping && (
                         <button
                           onClick={() => removeItem(index)}
