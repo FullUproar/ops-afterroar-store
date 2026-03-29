@@ -76,6 +76,7 @@ export function canAccess(role: Role, path: string): boolean {
     "/dashboard/preorders": "inventory.adjust",
     "/dashboard/locations": "store.settings",
     "/dashboard/trade-ins": "trade_ins",
+    "/dashboard/trade-ins/bulk": "trade_ins",
     "/dashboard/returns": "returns",
     "/dashboard/customers": "customers.view",
     "/dashboard/events": "events.checkin",

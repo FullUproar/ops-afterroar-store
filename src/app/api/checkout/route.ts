@@ -97,7 +97,7 @@ export async function POST(request: NextRequest) {
     const itemIds = items.map((i) => i.inventory_item_id);
     const invItems = await prisma.posInventoryItem.findMany({
       where: { id: { in: itemIds }, store_id: storeId },
-      select: { id: true, name: true, quantity: true, price_cents: true },
+      select: { id: true, name: true, quantity: true, price_cents: true, cost_cents: true },
     });
 
     if (invItems.length !== itemIds.length) {
@@ -205,6 +205,16 @@ export async function POST(request: NextRequest) {
       })
       .join(", ");
 
+    // Calculate COGS for items with cost data
+    const cogsCents = items.reduce((sum, i) => {
+      const inv = invMap.get(i.inventory_item_id);
+      return sum + (inv?.cost_cents ?? 0) * i.quantity;
+    }, 0);
+    const marginCents = subtotal_cents - cogsCents;
+    const marginPercent = subtotal_cents > 0
+      ? ((marginCents / subtotal_cents) * 100).toFixed(1)
+      : "0.0";
+
     const result = await prisma.$transaction(async (tx) => {
       // Create sale ledger entry
       const ledgerEntry = await tx.posLedgerEntry.create({
@@ -223,6 +233,7 @@ export async function POST(request: NextRequest) {
             transaction_id: paymentResult.transaction_id,
             amount_tendered_cents,
             tax_cents,
+            ...(cogsCents > 0 ? { cogs_cents: cogsCents, margin_cents: marginCents, margin_percent: marginPercent } : {}),
             ...(paymentResult.stripe_payment_intent_id ? { stripe_payment_intent_id: paymentResult.stripe_payment_intent_id } : {}),
             ...(paymentResult.provider ? { payment_provider: paymentResult.provider } : {}),
             ...(discount_cents > 0 ? { discount_cents, discount_reason } : {}),

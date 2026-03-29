@@ -45,12 +45,20 @@ export default function TradeInsPage() {
       <PageHeader
         title="Trade-Ins"
         action={
-          <Link
-            href="/dashboard/trade-ins/new"
-            className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90 transition-colors"
-          >
-            New Trade-In
-          </Link>
+          <div className="flex gap-2">
+            <Link
+              href="/dashboard/trade-ins/bulk"
+              className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-500 transition-colors"
+            >
+              Bulk Buylist
+            </Link>
+            <Link
+              href="/dashboard/trade-ins/new"
+              className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90 transition-colors"
+            >
+              New Trade-In
+            </Link>
+          </div>
         }
       />
 
