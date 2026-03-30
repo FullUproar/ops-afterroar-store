@@ -627,12 +627,108 @@ export default function RegisterPage() {
   }
 
   // ---- Complete sale ----
+  // State for terminal card payment
+  const [waitingForTerminal, setWaitingForTerminal] = useState(false);
+  const [terminalPiId, setTerminalPiId] = useState<string | null>(null);
+  const terminalPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   async function handleCompleteSale(method: PaymentMethod) {
     if (cart.length === 0 || processing) return;
     if (method === "cash" && tendered < amountDue && amountDue > 0) return;
+
+    // For card payments: route through Stripe Terminal reader
+    if (method === "card" && !isTraining) {
+      setProcessing(true);
+      try {
+        // Send to terminal reader
+        const collectRes = await fetch("/api/stripe/terminal/collect", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            amount_cents: amountDue,
+            description: `Sale: ${cart.map(c => c.name).join(", ")}`.substring(0, 200),
+          }),
+        });
+        const collectData = await collectRes.json();
+
+        if (!collectRes.ok) {
+          showError(collectData.error || "Failed to send to card reader");
+          setProcessing(false);
+          return;
+        }
+
+        // Show "Waiting for card..." screen and poll
+        setTerminalPiId(collectData.payment_intent_id);
+        setWaitingForTerminal(true);
+
+        // Poll every 2 seconds for payment status
+        terminalPollRef.current = setInterval(async () => {
+          try {
+            const statusRes = await fetch(`/api/stripe/terminal/collect?payment_intent_id=${collectData.payment_intent_id}`);
+            const statusData = await statusRes.json();
+
+            if (statusData.status === "succeeded") {
+              // Payment collected! Now record the sale
+              clearInterval(terminalPollRef.current!);
+              terminalPollRef.current = null;
+              setWaitingForTerminal(false);
+              setTerminalPiId(null);
+              await finalizeSale(method, collectData.payment_intent_id);
+            } else if (statusData.status === "failed" || statusData.status === "cancelled") {
+              clearInterval(terminalPollRef.current!);
+              terminalPollRef.current = null;
+              setWaitingForTerminal(false);
+              setTerminalPiId(null);
+              setProcessing(false);
+              showError(statusData.error || "Card payment failed or was cancelled");
+            }
+            // status === "waiting" — keep polling
+          } catch {
+            // Network error during poll — keep trying
+          }
+        }, 2000);
+
+        return; // Don't proceed — poll callback will handle completion
+      } catch {
+        showError("Failed to connect to card reader");
+        setProcessing(false);
+        return;
+      }
+    }
+
+    // Non-terminal payments (cash, credit, gift card, external, training card)
     setProcessing(true);
+    await finalizeSale(method);
+  }
+
+  async function cancelTerminalPayment() {
+    if (terminalPollRef.current) {
+      clearInterval(terminalPollRef.current);
+      terminalPollRef.current = null;
+    }
+    if (terminalPiId) {
+      await fetch(`/api/stripe/terminal/collect?payment_intent_id=${terminalPiId}`, { method: "DELETE" }).catch(() => {});
+    }
+    setWaitingForTerminal(false);
+    setTerminalPiId(null);
+    setProcessing(false);
+  }
+
+  async function finalizeSale(method: PaymentMethod, stripePaymentIntentId?: string) {
     const clientTxId = `tx_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-    const payload = { items: cart.map((c) => ({ inventory_item_id: c.inventory_item_id, quantity: c.quantity, price_cents: c.price_cents })), customer_id: customer?.id ?? null, payment_method: method, amount_tendered_cents: method === "cash" ? tendered : amountDue, credit_applied_cents: creditToApply, event_id: null, client_tx_id: clientTxId, tax_cents: taxCents, discount_cents: discountCents, ...(isTraining ? { training: true } : {}) };
+    const payload = {
+      items: cart.map((c) => ({ inventory_item_id: c.inventory_item_id, quantity: c.quantity, price_cents: c.price_cents })),
+      customer_id: customer?.id ?? null,
+      payment_method: method,
+      amount_tendered_cents: method === "cash" ? tendered : amountDue,
+      credit_applied_cents: creditToApply,
+      event_id: null,
+      client_tx_id: clientTxId,
+      tax_cents: taxCents,
+      discount_cents: discountCents,
+      ...(stripePaymentIntentId ? { stripe_payment_intent_id: stripePaymentIntentId } : {}),
+      ...(isTraining ? { training: true } : {}),
+    };
     try {
       const res = await fetch("/api/checkout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
       if (!res.ok) { const data = await res.json(); showError(data.error || "Checkout failed"); setProcessing(false); return; }
@@ -765,6 +861,25 @@ export default function RegisterPage() {
             )}
           </div>
           <button onClick={() => { setShowSuccess(false); setCustomer(null); }} className="mt-12 rounded-xl font-bold text-white active:scale-[0.98] transition-transform select-none px-12" style={{ height: 56, fontSize: 18, backgroundColor: "#16a34a", touchAction: "manipulation" }}>Next Customer</button>
+        </div>
+      )}
+
+      {/* ====== WAITING FOR TERMINAL ====== */}
+      {waitingForTerminal && (
+        <div className="fixed inset-0 z-[70] flex flex-col items-center justify-center bg-card">
+          <div className="text-center space-y-6">
+            <div className="text-6xl animate-pulse">💳</div>
+            <div className="text-2xl font-bold text-foreground">Waiting for card...</div>
+            <div className="text-lg font-mono font-bold text-accent tabular-nums">{formatCents(amountDue)}</div>
+            <div className="text-sm text-muted">Customer should tap, insert, or swipe on the reader</div>
+          </div>
+          <button
+            onClick={cancelTerminalPayment}
+            className="mt-12 rounded-xl font-medium text-muted border border-card-border bg-card-hover px-8 active:scale-[0.98] transition-transform"
+            style={{ height: 48, touchAction: "manipulation" }}
+          >
+            Cancel
+          </button>
         </div>
       )}
 
