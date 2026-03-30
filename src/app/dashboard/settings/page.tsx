@@ -418,6 +418,9 @@ export default function SettingsPage() {
         </div>
       </div>
 
+      {/* Terminal Reader Section */}
+      <TerminalReaderSection />
+
       {/* Theme Section */}
       <div className="max-w-2xl">
         <div className="rounded-xl border border-card-border bg-card p-6 shadow-sm dark:shadow-none">
@@ -670,6 +673,161 @@ export default function SettingsPage() {
             </div>
           </div>
         ))}
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Terminal Reader Section                                            */
+/* ------------------------------------------------------------------ */
+function TerminalReaderSection() {
+  const [readerStatus, setReaderStatus] = useState<{
+    registered: boolean;
+    reader?: { id: string; label: string; device_type: string; status: string; serial_number?: string };
+  } | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [registering, setRegistering] = useState(false);
+  const [regCode, setRegCode] = useState("");
+  const [regLabel, setRegLabel] = useState("Register 1");
+  const [error, setError] = useState<string | null>(null);
+  const [showForm, setShowForm] = useState(false);
+
+  useEffect(() => {
+    async function check() {
+      try {
+        const res = await fetch("/api/stripe/terminal/register");
+        if (res.ok) setReaderStatus(await res.json());
+      } catch { /* ignore */ }
+      setLoading(false);
+    }
+    check();
+  }, []);
+
+  async function handleRegister() {
+    if (!regCode.trim()) return;
+    setRegistering(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/stripe/terminal/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ registration_code: regCode.trim(), label: regLabel.trim() || "Register 1" }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || "Registration failed");
+      } else {
+        setReaderStatus({ registered: true, reader: data.reader });
+        setShowForm(false);
+        setRegCode("");
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Network error");
+    } finally {
+      setRegistering(false);
+    }
+  }
+
+  return (
+    <div className="max-w-2xl">
+      <div className="rounded-xl border border-card-border bg-card p-6 shadow-sm dark:shadow-none">
+        <h2 className="text-sm font-semibold text-foreground">Card Reader (Stripe Terminal)</h2>
+        <p className="mt-0.5 text-xs text-muted">
+          Connect a physical card reader to accept in-person card payments.
+        </p>
+
+        <div className="mt-4">
+          {loading ? (
+            <p className="text-sm text-muted">Checking reader status...</p>
+          ) : readerStatus?.registered ? (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="h-2 w-2 rounded-full bg-green-500" />
+                <span className="text-sm text-green-400 font-medium">Reader Connected</span>
+              </div>
+              <div className="text-xs text-muted space-y-0.5">
+                <p>Label: <span className="text-foreground">{readerStatus.reader?.label}</span></p>
+                <p>Type: <span className="text-foreground">{readerStatus.reader?.device_type}</span></p>
+                <p>Status: <span className="text-foreground">{readerStatus.reader?.status}</span></p>
+                {readerStatus.reader?.serial_number && (
+                  <p>Serial: <span className="text-foreground">{readerStatus.reader.serial_number}</span></p>
+                )}
+                <p>ID: <span className="text-foreground font-mono text-[10px]">{readerStatus.reader?.id}</span></p>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <p className="text-sm text-muted">No reader connected.</p>
+              {!showForm ? (
+                <button
+                  onClick={() => setShowForm(true)}
+                  className="px-4 py-2 bg-accent hover:opacity-90 text-white rounded-xl text-sm font-medium"
+                >
+                  Register Reader
+                </button>
+              ) : (
+                <div className="space-y-3 p-4 rounded-xl border border-card-border bg-card-hover">
+                  <div>
+                    <label className="block text-xs text-muted mb-1">Registration Code</label>
+                    <input
+                      type="text"
+                      value={regCode}
+                      onChange={(e) => setRegCode(e.target.value)}
+                      onKeyDown={(e) => {
+                        e.stopPropagation();
+                        if (e.key === "Enter") handleRegister();
+                      }}
+                      placeholder="e.g., guided-operate-navybean"
+                      className="w-full rounded-xl border border-input-border bg-input-bg px-4 py-2.5 text-sm text-foreground placeholder:text-muted focus:border-accent focus:outline-none"
+                      autoFocus
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-muted mb-1">Label (optional)</label>
+                    <input
+                      type="text"
+                      value={regLabel}
+                      onChange={(e) => setRegLabel(e.target.value)}
+                      onKeyDown={(e) => e.stopPropagation()}
+                      placeholder="Register 1"
+                      className="w-full rounded-xl border border-input-border bg-input-bg px-4 py-2.5 text-sm text-foreground placeholder:text-muted focus:border-accent focus:outline-none"
+                    />
+                  </div>
+                  {error && (
+                    <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-2 text-xs text-red-400">
+                      {error}
+                    </div>
+                  )}
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleRegister}
+                      disabled={registering || !regCode.trim()}
+                      className="px-4 py-2 bg-accent hover:opacity-90 disabled:opacity-50 text-white rounded-xl text-sm font-medium flex items-center gap-2"
+                    >
+                      {registering && (
+                        <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                        </svg>
+                      )}
+                      {registering ? "Registering..." : "Register"}
+                    </button>
+                    <button
+                      onClick={() => { setShowForm(false); setError(null); }}
+                      className="px-4 py-2 border border-card-border bg-card text-foreground rounded-xl text-sm"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                  <p className="text-xs text-muted">
+                    Enter the code shown on your Stripe Terminal reader screen. The reader must be powered on and in pairing mode.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
