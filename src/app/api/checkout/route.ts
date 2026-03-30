@@ -198,7 +198,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 5. Execute all DB writes in a transaction
+    // 5. Generate receipt token (8-char alphanumeric, URL-safe)
+    const receiptToken = Array.from(crypto.getRandomValues(new Uint8Array(6)))
+      .map((b) => "ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789"[b % 53])
+      .join("")
+      .slice(0, 8);
+
+    // 6. Execute all DB writes in a transaction
     const itemNames = items
       .map((i) => {
         const inv = invMap.get(i.inventory_item_id);
@@ -229,6 +235,7 @@ export async function POST(request: NextRequest) {
           credit_amount_cents: effectiveCreditApplied,
           description: `Sale: ${itemNames}`,
           metadata: JSON.parse(JSON.stringify({
+            receipt_token: receiptToken,
             items,
             payment_method,
             transaction_id: paymentResult.transaction_id,
@@ -402,6 +409,7 @@ export async function POST(request: NextRequest) {
       {
         success: true,
         ledger_entry_id: result.ledgerEntry.id,
+        receipt_token: receiptToken,
         change_cents,
         subtotal_cents,
         receipt,

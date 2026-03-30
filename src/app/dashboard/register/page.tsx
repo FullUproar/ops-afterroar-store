@@ -39,6 +39,8 @@ import { CartList } from "@/components/register/cart-list";
 import { PaymentButtons } from "@/components/register/payment-buttons";
 import { StatusBar } from "@/components/register/status-bar";
 import { PanelContent } from "@/components/register/panel-content";
+import { CustomerDisplay } from "@/components/register/customer-display";
+import QRCode from "qrcode";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -75,6 +77,7 @@ interface LastReceipt {
   customerName: string | null;
   timestamp: string;
   receiptNumber: string;
+  receiptToken: string | null;
 }
 
 /** Generate a receipt number: R-YYYYMMDD-NNN (sequential per day) */
@@ -197,8 +200,9 @@ export default function RegisterPage() {
   const [errorBanner, setErrorBanner] = useState<string | null>(null);
   const errorBannerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Receipt sending state
-  const [sendingReceipt, setSendingReceipt] = useState<"email" | "text" | null>(null);
+  // Receipt QR code
+  const [receiptQrUrl, setReceiptQrUrl] = useState<string | null>(null);
+  const [showCustomerDisplay, setShowCustomerDisplay] = useState(false);
 
   // Order lookup receipt (shared with MoreMenu for printing)
   const [orderLookupReceipt, setOrderLookupReceipt] = useState<ReceiptData | null>(null);
@@ -536,23 +540,6 @@ export default function RegisterPage() {
     errorBannerTimerRef.current = setTimeout(() => setErrorBanner(null), 5000);
   }
 
-  async function sendEmailReceipt() {
-    if (!lastReceipt || !customer?.email) return;
-    setSendingReceipt("email");
-    try {
-      const res = await fetch("/api/receipts/email", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          customer_email: customer.email,
-          receipt: { store_name: storeName, date: lastReceipt.timestamp, items: lastReceipt.items.map((item) => ({ name: item.name, quantity: item.quantity, price_cents: item.price_cents, total_cents: item.price_cents * item.quantity })), subtotal_cents: lastReceipt.subtotalCents, tax_cents: lastReceipt.taxCents, discount_cents: lastReceipt.discountCents, credit_applied_cents: 0, payment_method: lastReceipt.paymentMethod, total_cents: lastReceipt.totalCents, change_cents: 0, customer_name: lastReceipt.customerName },
-        }),
-      });
-      setToastMessage(res.ok ? "Receipt sent" : "Failed to send receipt");
-    } catch { setToastMessage("Failed to send receipt"); } finally { setSendingReceipt(null); }
-  }
-
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   function addToCart(item: InventoryItem) {
     showItemAdded(item.name);
     setCart((prev) => {
@@ -732,25 +719,35 @@ export default function RegisterPage() {
     try {
       const res = await fetch("/api/checkout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
       if (!res.ok) { const data = await res.json(); showError(data.error || "Checkout failed"); setProcessing(false); return; }
-      saleComplete(method);
+      const checkoutData = await res.json();
+      saleComplete(method, checkoutData.receipt_token ?? null);
     } catch {
       try {
         await enqueueTx({ clientTxId, type: "checkout", createdAt: new Date().toISOString(), status: "pending", retryCount: 0, lastError: null, payload, receipt: {} as Record<string, unknown> });
         for (const item of cart) { if (item.inventory_item_id) await decrementLocalInventory(item.inventory_item_id, item.quantity); }
         if (creditToApply > 0 && customer) await updateLocalCustomerCredit(customer.id, -creditToApply);
-        saleComplete(method);
+        saleComplete(method, null);
       } catch { showError("Failed to save transaction. Please try again."); }
     } finally { setProcessing(false); }
   }
 
-  function saleComplete(method: PaymentMethod) {
+  function saleComplete(method: PaymentMethod, receiptToken: string | null = null) {
     const cashChange = method === "cash" ? Math.max(0, tendered - total) : 0;
     const receiptCustomer = customer;
     const receiptNumber = generateReceiptNumber();
-    setLastReceipt({ items: [...cart], discounts: [...discounts], subtotalCents: subtotal, discountCents, taxCents, totalCents: total, paymentMethod: method, customerName: receiptCustomer?.name ?? null, timestamp: new Date().toISOString(), receiptNumber });
+    setLastReceipt({ items: [...cart], discounts: [...discounts], subtotalCents: subtotal, discountCents, taxCents, totalCents: total, paymentMethod: method, customerName: receiptCustomer?.name ?? null, timestamp: new Date().toISOString(), receiptNumber, receiptToken });
     (document.activeElement as HTMLElement)?.blur();
     setCart([]); setDiscounts([]); setShowPaySheet(false); setShowCashInput(false); setShowCreditConfirm(false); setShowGiftCardPayment(false); setGiftCardPayCode(""); setGiftCardPayError(null); setTenderedInput(""); setPaymentMethod("cash"); setActivePanel(null);
     clearPersistedCart(); cartIdRef.current = createEmptyCart().id;
+    // Generate QR code for receipt
+    if (receiptToken) {
+      const receiptUrl = `${window.location.origin}/r/${receiptToken}`;
+      QRCode.toDataURL(receiptUrl, { width: 240, margin: 1, color: { dark: "#000000", light: "#ffffff" } })
+        .then((url: string) => setReceiptQrUrl(url))
+        .catch(() => setReceiptQrUrl(null));
+    } else {
+      setReceiptQrUrl(null);
+    }
     if (method === "cash" && cashChange > 0) { setShowChangeDue(cashChange); } else { setShowSuccess(true); }
   }
 
@@ -792,7 +789,8 @@ export default function RegisterPage() {
       const payload = { items: cart.map((c) => ({ inventory_item_id: c.inventory_item_id, quantity: c.quantity, price_cents: c.price_cents })), customer_id: customer?.id ?? null, payment_method: "gift_card" as PaymentMethod, amount_tendered_cents: amountToCharge, credit_applied_cents: creditToApply, event_id: null, tax_cents: taxCents, discount_cents: discountCents, gift_card_code: giftCardPayCode.trim().toUpperCase(), gift_card_amount_cents: amountToCharge };
       const res = await fetch("/api/checkout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
       if (!res.ok) { const data = await res.json().catch(() => ({})); setGiftCardPayError(data.error || "Payment failed"); setGiftCardPayLoading(false); return; }
-      setShowGiftCardPayment(false); setGiftCardPayCode(""); saleComplete("gift_card" as PaymentMethod);
+      const gcData = await res.json();
+      setShowGiftCardPayment(false); setGiftCardPayCode(""); saleComplete("gift_card" as PaymentMethod, gcData.receipt_token ?? null);
     } catch { setGiftCardPayError("Payment failed"); } finally { setGiftCardPayLoading(false); }
   }
 
@@ -845,23 +843,34 @@ export default function RegisterPage() {
             <div className="text-2xl font-bold text-foreground">Sale Complete</div>
             {lastReceipt && <div className="text-4xl font-mono font-bold text-foreground tabular-nums">{formatCents(lastReceipt.totalCents)}</div>}
             {lastReceipt && <div className="text-muted text-sm font-mono">Receipt #{lastReceipt.receiptNumber}</div>}
-            {customer && (
-              <div className="flex items-center justify-center gap-3 pt-4">
-                {customer.email && (
-                  <button onClick={sendEmailReceipt} disabled={sendingReceipt === "email"} className="flex items-center gap-2 rounded-xl border border-card-border bg-card-hover px-5 text-sm font-medium text-foreground hover:bg-accent/10 active:scale-[0.97] transition-all disabled:opacity-50" style={{ height: 48, touchAction: "manipulation" }}>
-                    <span>{"\uD83D\uDCE7"}</span>{sendingReceipt === "email" ? "Sending..." : "Email Receipt"}
-                  </button>
-                )}
-                {customer.phone && (
-                  <button onClick={() => setToastMessage("SMS receipts coming soon")} className="flex items-center gap-2 rounded-xl border border-card-border bg-card-hover px-5 text-sm font-medium text-foreground hover:bg-accent/10 active:scale-[0.97] transition-all" style={{ height: 48, touchAction: "manipulation" }}>
-                    <span>{"\uD83D\uDCF1"}</span>Text Receipt
-                  </button>
-                )}
+            {/* QR Code for receipt */}
+            {receiptQrUrl && (
+              <div className="pt-4 space-y-2">
+                <div className="inline-block rounded-xl p-3" style={{ background: "#ffffff" }}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={receiptQrUrl} alt="Receipt QR" width={200} height={200} style={{ imageRendering: "pixelated" }} />
+                </div>
+                <div className="text-muted text-sm">Scan for your receipt</div>
               </div>
             )}
           </div>
-          <button onClick={() => { setShowSuccess(false); setCustomer(null); }} className="mt-12 rounded-xl font-bold text-white active:scale-[0.98] transition-transform select-none px-12" style={{ height: 56, fontSize: 18, backgroundColor: "#16a34a", touchAction: "manipulation" }}>Next Customer</button>
+          <div className="mt-8 flex flex-col items-center gap-3">
+            {receiptQrUrl && lastReceipt && (
+              <button onClick={() => setShowCustomerDisplay(true)} className="rounded-xl font-medium text-foreground border border-card-border bg-card-hover px-8 active:scale-[0.98] transition-transform" style={{ height: 48, touchAction: "manipulation" }}>Show to Customer</button>
+            )}
+            <button onClick={() => { setShowSuccess(false); setCustomer(null); setReceiptQrUrl(null); }} className="rounded-xl font-bold text-white active:scale-[0.98] transition-transform select-none px-12" style={{ height: 56, fontSize: 18, backgroundColor: "#16a34a", touchAction: "manipulation" }}>Next Customer</button>
+          </div>
         </div>
+      )}
+
+      {/* ====== CUSTOMER-FACING DISPLAY ====== */}
+      {showCustomerDisplay && receiptQrUrl && lastReceipt && (
+        <CustomerDisplay
+          qrDataUrl={receiptQrUrl}
+          totalCents={lastReceipt.totalCents}
+          storeName={storeName}
+          onDismiss={() => setShowCustomerDisplay(false)}
+        />
       )}
 
       {/* ====== WAITING FOR TERMINAL ====== */}
@@ -1041,15 +1050,23 @@ export default function RegisterPage() {
             <div className="text-muted text-lg">Change Due</div>
             <div className="text-7xl font-mono font-bold text-green-400 tabular-nums">${(showChangeDue / 100).toFixed(2)}</div>
             {lastReceipt && <div className="text-muted text-sm font-mono">Receipt #{lastReceipt.receiptNumber}</div>}
-            <div className="text-muted text-sm">Give change and tap to continue</div>
-            {customer && (
-              <div className="flex items-center justify-center gap-3 pt-4">
-                {customer.email && <button onClick={sendEmailReceipt} disabled={sendingReceipt === "email"} className="flex items-center gap-2 rounded-xl border border-card-border bg-card-hover px-5 text-sm font-medium text-foreground hover:bg-accent/10 active:scale-[0.97] transition-all disabled:opacity-50" style={{ height: 48, touchAction: "manipulation" }}><span>{"\uD83D\uDCE7"}</span>{sendingReceipt === "email" ? "Sending..." : "Email Receipt"}</button>}
-                {customer.phone && <button onClick={() => setToastMessage("SMS receipts coming soon")} className="flex items-center gap-2 rounded-xl border border-card-border bg-card-hover px-5 text-sm font-medium text-foreground hover:bg-accent/10 active:scale-[0.97] transition-all" style={{ height: 48, touchAction: "manipulation" }}><span>{"\uD83D\uDCF1"}</span>Text Receipt</button>}
+            {/* QR Code for receipt */}
+            {receiptQrUrl && (
+              <div className="pt-2 space-y-2">
+                <div className="inline-block rounded-xl p-3" style={{ background: "#ffffff" }}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={receiptQrUrl} alt="Receipt QR" width={180} height={180} style={{ imageRendering: "pixelated" }} />
+                </div>
+                <div className="text-muted text-sm">Scan for your receipt</div>
               </div>
             )}
           </div>
-          <button onClick={() => { setShowChangeDue(null); setCustomer(null); }} className="mt-12 rounded-xl font-bold text-white active:scale-[0.98] transition-transform select-none px-12" style={{ height: 56, fontSize: 18, backgroundColor: "#16a34a", touchAction: "manipulation" }}>Done</button>
+          <div className="mt-8 flex flex-col items-center gap-3">
+            {receiptQrUrl && lastReceipt && (
+              <button onClick={() => setShowCustomerDisplay(true)} className="rounded-xl font-medium text-foreground border border-card-border bg-card-hover px-8 active:scale-[0.98] transition-transform" style={{ height: 48, touchAction: "manipulation" }}>Show to Customer</button>
+            )}
+            <button onClick={() => { setShowChangeDue(null); setCustomer(null); setReceiptQrUrl(null); }} className="rounded-xl font-bold text-white active:scale-[0.98] transition-transform select-none px-12" style={{ height: 56, fontSize: 18, backgroundColor: "#16a34a", touchAction: "manipulation" }}>Done</button>
+          </div>
         </div>
       )}
 
