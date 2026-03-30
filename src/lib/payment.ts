@@ -12,7 +12,7 @@
 /*  provider based on payment method + environment config.             */
 /* ------------------------------------------------------------------ */
 
-export type PaymentMethod = "cash" | "card" | "store_credit" | "split" | "external";
+export type PaymentMethod = "cash" | "card" | "store_credit" | "split" | "external" | "gift_card";
 
 export interface PaymentResult {
   success: boolean;
@@ -454,6 +454,12 @@ export async function processPayment(
 
     case "store_credit":
       provider = new StoreCreditProvider(options?.customer_credit_balance_cents ?? 0);
+      break;
+
+    case "gift_card":
+      // Gift card deduction is handled in the checkout API route directly;
+      // this just validates the payment step succeeds.
+      provider = new ExternalPaymentProvider();
       break;
 
     case "split": {

@@ -70,7 +70,10 @@ export type LedgerType =
   | "credit_redeem"
   | "adjustment"
   | "event_fee"
-  | "refund";
+  | "refund"
+  | "void"
+  | "no_sale"
+  | "issue_flag";
   // Future: | "chargeback" (Stripe Connect)
 
 export interface LedgerEntry {
