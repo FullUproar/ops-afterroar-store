@@ -1,0 +1,52 @@
+Name,Category,SKU,Barcode,Price,Cost,Quantity,Low Stock Threshold,Condition,Foil,Game,Set,Active
+Arid Mesa,tcg_single,,,32.50,12.00,4,5,NM,,MTG,Modern Horizons 3,Yes
+Ark Nova,board_game,,,69.99,42.00,2,5,,,,,Yes
+BCW Toploader (25ct),accessory,,,4.99,2.00,50,5,,,,,Yes
+Bottled Water,food_drink,,,2.00,0.30,100,5,,,,,Yes
+Catan,board_game,,029877030712,44.99,25.00,6,5,,,,,Yes
+Cavern of Souls,tcg_single,,,50.00,30.00,3,5,NM,,MTG,LOTR,Yes
+Charizard ex,tcg_single,,,45.00,25.00,2,5,NM,,Pokemon,Prismatic Evolutions,Yes
+Chessex 7-Die Set,accessory,,,9.99,4.00,20,5,,,,,Yes
+Codenames,board_game,,,19.99,10.00,8,5,,,,,Yes
+Counterspell,tcg_single,,,1.50,0.50,20,5,NM,,MTG,Foundations,Yes
+Dragon Shield Matte Crimson,accessory,,5706569100056,11.99,6.00,25,5,,,,,Yes
+Drip Coffee (12oz),food_drink,,000000000001,3.00,0.50,999,5,,,,,Yes
+Dune: Imperium,board_game,,,49.99,28.00,3,5,,,,,Yes
+Eclipse Sleeves (100ct) Black,accessory,,074427152642,10.99,5.50,40,5,,,,,Yes
+Elsa - Spirit of Winter,tcg_single,,,15.00,8.00,3,5,NM,,Lorcana,First Chapter,Yes
+Everdell,board_game,,,59.99,35.00,3,5,,,,,Yes
+Fatal Push,tcg_single,,,3.50,1.50,8,5,NM,,MTG,Aetherdrift,Yes
+Force of Will,tcg_single,,,80.00,50.00,2,5,LP,,MTG,Alliances,Yes
+Gloomhaven,board_game,,,149.99,90.00,2,5,,,,,Yes
+Iced Americano,food_drink,,,4.50,0.75,999,5,,,,,Yes
+Latte (16oz),food_drink,,,5.50,1.00,999,5,,,,,Yes
+Lightning Bolt,tcg_single,,,2.50,1.00,12,5,NM,,MTG,Foundations,Yes
+Lightning Bolt (Foil),tcg_single,,,7.50,3.50,3,5,NM,Yes,MTG,Foundations,Yes
+MTG Aetherdrift Booster Box,sealed,,,119.99,78.00,12,5,,,MTG,,Yes
+MTG Collector Booster Box,sealed,,,299.99,200.00,3,5,,,MTG,,Yes
+MTG Commander Deck - Eldrazi,sealed,,,44.99,28.00,5,5,,,MTG,,Yes
+MTG Foundations Play Booster Box,sealed,,195166253602,129.99,85.00,8,5,,,MTG,,Yes
+MTG Mystery Booster 2 Box,sealed,,,169.99,110.00,2,5,,,MTG,,Yes
+Mana Crypt,tcg_single,,,150.00,90.00,1,5,NM,,MTG,MB2,Yes
+Mew ex,tcg_single,,,12.00,6.00,4,5,NM,,Pokemon,Prismatic Evolutions,Yes
+Monster Energy,food_drink,,070847811169,3.50,1.50,48,5,,,,,Yes
+Orcish Bowmasters,tcg_single,,,32.00,18.00,5,5,NM,,MTG,LOTR,Yes
+Path to Exile,tcg_single,,,3.00,1.00,15,5,NM,,MTG,Foundations,Yes
+Pizza Slice,food_drink,,,3.50,1.00,30,5,,,,,Yes
+Pokemon Prismatic Evolutions ETB,sealed,,820650853517,69.99,45.00,6,5,,,Pokemon,,Yes
+Ragavan Nimble Pilferer,tcg_single,,,55.00,30.00,2,5,NM,,MTG,MH2,Yes
+Root,board_game,,,59.99,35.00,3,5,,,,,Yes
+Sheoldred the Apocalypse,tcg_single,,,60.00,35.00,3,5,NM,,MTG,DMU,Yes
+Snapcaster Mage,tcg_single,,,15.00,8.00,4,5,LP,,MTG,Innistrad,Yes
+Soft Pretzel,food_drink,,,4.00,1.00,20,5,,,,,Yes
+Sol Ring,tcg_single,,,1.00,0.30,30,5,NM,,MTG,Foundations,Yes
+Spirit Island,board_game,,,79.99,48.00,2,5,,,,,Yes
+"Stitch - Rock Star (Enchanted)",tcg_single,,,120.00,70.00,1,5,NM,Yes,Lorcana,First Chapter,Yes
+Terraforming Mars,board_game,,,69.99,42.00,3,5,,,,,Yes
+The One Ring,tcg_single,,,48.00,28.00,2,5,NM,,MTG,LOTR,Yes
+Thoughtseize,tcg_single,,,18.00,9.00,6,5,LP,,MTG,Theros,Yes
+Ticket to Ride,board_game,,824968717912,44.99,25.00,5,5,,,,,Yes
+Umbreon VMAX (Alt Art),tcg_single,,,350.00,220.00,1,5,NM,,Pokemon,Evolving Skies,Yes
+WH40K Combat Patrol: Space Marines,miniature,,,160.00,100.00,2,5,,,,,Yes
+Wingspan,board_game,,644216627721,64.99,38.00,4,5,,,,,Yes
+Yu-Gi-Oh! 25th Anniversary Tin,sealed,,,29.99,18.00,10,5,,,Yu-Gi-Oh,,Yes
