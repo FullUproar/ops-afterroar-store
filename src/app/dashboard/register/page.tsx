@@ -889,13 +889,11 @@ export default function RegisterPage() {
                   // Simulate a successful terminal payment in test mode
                   if (terminalPollRef.current) { clearInterval(terminalPollRef.current); terminalPollRef.current = null; }
                   // Cancel the reader's pending action so it stops waiting
-                  if (terminalPiId) {
-                    fetch(`/api/stripe/terminal/collect?payment_intent_id=${terminalPiId}`, { method: "DELETE" }).catch(() => {});
-                  }
+                  await fetch("/api/stripe/terminal/reset", { method: "POST" }).catch(() => {});
                   setWaitingForTerminal(false);
-                  const piId = terminalPiId;
                   setTerminalPiId(null);
-                  await finalizeSale("card", piId || undefined);
+                  // Finalize without a PI — simulated payment
+                  await finalizeSale("card");
                 }}
                 className="rounded-xl font-medium text-white bg-green-600 px-8 active:scale-[0.98] transition-transform"
                 style={{ height: 48, touchAction: "manipulation" }}
