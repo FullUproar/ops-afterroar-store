@@ -5,6 +5,7 @@ import {
   requirePermission,
   handleAuthError,
 } from "@/lib/require-staff";
+import { opLog } from "@/lib/op-log";
 
 /* ------------------------------------------------------------------ */
 /*  Issue Flag System                                                   */
@@ -70,6 +71,21 @@ export async function POST(request: NextRequest) {
           staff_name: staff.name,
         },
       },
+    });
+
+    opLog({
+      storeId,
+      eventType: "issue.flagged",
+      severity: "warn",
+      message: `Issue: ${body.type} — ${body.description.trim().slice(0, 80)} · ${staff.name}`,
+      metadata: {
+        issue_id: entry.id,
+        issue_type: body.type,
+        related_item_id: body.related_item_id,
+        related_barcode: body.related_barcode,
+      },
+      staffName: staff.name,
+      userId: staff.user_id,
     });
 
     return NextResponse.json({

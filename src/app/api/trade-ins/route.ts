@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireStaff, handleAuthError } from "@/lib/require-staff";
 import { calculateTradeInPoints, earnPoints } from "@/lib/loyalty";
+import { opLog } from "@/lib/op-log";
+import { formatCents } from "@/lib/types";
 
 /* ------------------------------------------------------------------ */
 /*  GET /api/trade-ins — list trade-ins for store                     */
@@ -179,6 +181,22 @@ export async function POST(request: NextRequest) {
       }
 
       return tradeIn;
+    });
+
+    opLog({
+      storeId,
+      eventType: "trade_in.complete",
+      message: `Trade-in ${formatCents(total_payout_cents)} · ${items.length} item(s) · ${payout_type} · ${staff.name}`,
+      metadata: {
+        trade_in_id: result.id,
+        total_offer_cents,
+        total_payout_cents,
+        payout_type,
+        item_count: items.length,
+        customer_id,
+      },
+      staffName: staff.name,
+      userId: staff.user_id,
     });
 
     return NextResponse.json(

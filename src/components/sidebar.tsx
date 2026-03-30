@@ -64,6 +64,7 @@ const NAV_GROUPS: NavGroup[] = [
       "/dashboard/promotions",
       "/dashboard/preorders",
       "/dashboard/issues",
+      "/dashboard/ops-log",
       "/dashboard/help",
     ],
   },

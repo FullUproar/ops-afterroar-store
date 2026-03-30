@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requirePermission, handleAuthError } from "@/lib/require-staff";
+import { opLog } from "@/lib/op-log";
 
 const VALID_REASONS = [
   "Received shipment",
@@ -86,6 +87,24 @@ export async function POST(request: NextRequest) {
       });
 
       return updatedItem;
+    });
+
+    // Fire-and-forget op log
+    opLog({
+      storeId,
+      eventType: "inventory.adjust",
+      message: `${item.name}: ${item.quantity} → ${item.quantity + adjustment} (${reason})`,
+      metadata: {
+        item_id,
+        item_name: item.name,
+        previous_quantity: item.quantity,
+        adjustment,
+        new_quantity: item.quantity + adjustment,
+        reason,
+        notes: notes || undefined,
+      },
+      staffName: staff.name,
+      userId: staff.user_id,
     });
 
     return NextResponse.json(result);

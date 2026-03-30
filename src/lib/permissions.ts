@@ -104,6 +104,7 @@ export function canAccess(role: Role, path: string): boolean {
     "/dashboard/orders": "checkout",
     "/dashboard/help": "checkout",
     "/dashboard/issues": "reports",
+    "/dashboard/ops-log": "store.settings",
     "/dashboard/onboarding": "store.settings",
   };
 
@@ -151,6 +152,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard/transfers", label: "Transfers", icon: "⇆", permission: "inventory.adjust" },
   { href: "/dashboard/locations", label: "Locations", icon: "⊡", permission: "store.settings" },
   { href: "/dashboard/issues", label: "Issues", icon: "⚑", permission: "reports" },
+  { href: "/dashboard/ops-log", label: "Ops Log", icon: "◉", permission: "store.settings" },
   { href: "/dashboard/staff", label: "Staff", icon: "⊞", permission: "staff.manage" },
   { href: "/dashboard/settings", label: "Settings", icon: "⚙", permission: "store.settings" },
   { href: "/dashboard/help", label: "Help", icon: "?", permission: "checkout" },

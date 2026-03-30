@@ -57,8 +57,32 @@ model PosStore {
   tournaments     PosTournament[]
   catalog_pricing PosCatalogPricing[]
   orders          PosOrder[]
+  operational_logs PosOperationalLog[]
 
   @@map("pos_stores")
+}
+
+// ============================================================
+// POS OPERATIONAL LOGS
+// ============================================================
+model PosOperationalLog {
+  id          String   @id @default(cuid())
+  store_id    String
+  event_type  String
+  severity    String   @default("info")
+  message     String
+  metadata    Json     @default("{}")
+  user_id     String?
+  staff_name  String?
+  device_info String?
+  created_at  DateTime @default(now()) @db.Timestamptz()
+
+  store PosStore @relation(fields: [store_id], references: [id], onDelete: Cascade)
+
+  @@index([store_id, created_at(sort: Desc)])
+  @@index([store_id, event_type])
+  @@index([store_id, severity])
+  @@map("pos_operational_logs")
 }
 
 // ============================================================

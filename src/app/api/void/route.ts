@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requirePermission, handleAuthError } from "@/lib/require-staff";
 import { formatCents } from "@/lib/types";
+import { opLog } from "@/lib/op-log";
 
 /* ------------------------------------------------------------------ */
 /*  POST /api/void — void a recent transaction                         */
@@ -132,6 +133,21 @@ export async function POST(request: NextRequest) {
       // TODO: If card payment, initiate Stripe refund here
 
       return voidEntry;
+    });
+
+    opLog({
+      storeId,
+      eventType: "checkout.void",
+      severity: "warn",
+      message: `Voided sale ${formatCents(original.amount_cents)} · ${items.length} item(s) · ${staff.name}`,
+      metadata: {
+        void_entry_id: result.id,
+        original_ledger_entry_id: original.id,
+        amount_voided_cents: original.amount_cents,
+        items_restored: items.length,
+      },
+      staffName: staff.name,
+      userId: staff.user_id,
     });
 
     return NextResponse.json({

@@ -7,6 +7,7 @@ import { requireStaff, handleAuthError } from "@/lib/require-staff";
 import { calculatePurchasePoints, earnPoints, redeemPoints, calculateRedemptionDiscount } from "@/lib/loyalty";
 import { earnPointsFromPurchase } from "@/lib/hq-bridge";
 import { calculateTaxFromSettings } from "@/lib/tax";
+import { opLog } from "@/lib/op-log";
 
 interface CheckoutItem {
   inventory_item_id: string;
@@ -405,6 +406,23 @@ export async function POST(request: NextRequest) {
       if (cust) receipt.customer_name = cust.name;
     }
 
+    // Fire-and-forget op log
+    opLog({
+      storeId,
+      eventType: "checkout.complete",
+      message: `Sale ${formatCents(subtotal_cents)} · ${payment_method} · ${items.length} item(s) · ${staff.name}`,
+      metadata: {
+        ledger_entry_id: result.ledgerEntry.id,
+        payment_method,
+        subtotal_cents,
+        tax_cents,
+        item_count: items.length,
+        customer_id: customer_id ?? undefined,
+      },
+      userId: staff.user_id,
+      staffName: staff.name,
+    });
+
     return NextResponse.json(
       {
         success: true,
@@ -418,6 +436,11 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     );
   } catch (error) {
+    // Log checkout failures (best-effort — we don't have storeId in the catch)
+    if (error instanceof Error && !(error as unknown as { status?: number }).hasOwnProperty("status")) {
+      // Only log unexpected errors, not auth/validation errors
+      console.error("[checkout] unexpected error", error.message);
+    }
     return handleAuthError(error);
   }
 }

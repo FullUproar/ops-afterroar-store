@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireStaff, handleAuthError } from "@/lib/require-staff";
 import { prisma } from "@/lib/prisma";
 import Stripe from "stripe";
+import { opLog } from "@/lib/op-log";
 
 /**
  * POST /api/stripe/terminal/collect
@@ -67,6 +68,14 @@ export async function POST(request: Request) {
       throw readerError;
     }
 
+    // Log terminal connection
+    opLog({
+      storeId,
+      eventType: "terminal.connected",
+      message: `Terminal payment initiated · ${(amount_cents / 100).toFixed(2)} · Reader ${readerId}`,
+      metadata: { payment_intent_id: paymentIntent.id, amount_cents, reader_id: readerId },
+    });
+
     return NextResponse.json({
       payment_intent_id: paymentIntent.id,
       status: "waiting_for_reader",
@@ -87,7 +96,7 @@ export async function POST(request: Request) {
  */
 export async function GET(request: Request) {
   try {
-    await requireStaff();
+    const { storeId, staff } = await requireStaff();
 
     const url = new URL(request.url);
     const piId = url.searchParams.get("payment_intent_id");
@@ -112,6 +121,26 @@ export async function GET(request: Request) {
       status = "failed";
     } else {
       status = "waiting";
+    }
+
+    // Log terminal payment outcomes (fire-and-forget)
+    if (status === "succeeded") {
+      opLog({
+        storeId,
+        eventType: "payment.success",
+        message: `Card payment succeeded · $${((pi.amount ?? 0) / 100).toFixed(2)}`,
+        metadata: { payment_intent_id: pi.id, amount_cents: pi.amount },
+        staffName: staff.name,
+      });
+    } else if (status === "failed") {
+      opLog({
+        storeId,
+        eventType: "payment.failed",
+        severity: "warn",
+        message: `Card declined · $${((pi.amount ?? 0) / 100).toFixed(2)}`,
+        metadata: { payment_intent_id: pi.id, amount_cents: pi.amount, error: pi.last_payment_error?.message },
+        staffName: staff.name,
+      });
     }
 
     return NextResponse.json({

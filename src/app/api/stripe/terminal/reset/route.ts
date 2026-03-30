@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireStaff, handleAuthError } from "@/lib/require-staff";
 import { prisma } from "@/lib/prisma";
 import Stripe from "stripe";
+import { opLog } from "@/lib/op-log";
 
 /**
  * POST /api/stripe/terminal/reset
@@ -10,7 +11,7 @@ import Stripe from "stripe";
  */
 export async function POST() {
   try {
-    const { storeId } = await requireStaff();
+    const { storeId, staff } = await requireStaff();
 
     if (!process.env.STRIPE_SECRET_KEY) {
       return NextResponse.json({ error: "Stripe not configured" }, { status: 400 });
@@ -29,6 +30,14 @@ export async function POST() {
 
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
     await stripe.terminal.readers.cancelAction(readerId);
+
+    opLog({
+      storeId,
+      eventType: "terminal.reset",
+      message: `Reader action cancelled · ${staff.name}`,
+      metadata: { reader_id: readerId },
+      staffName: staff.name,
+    });
 
     return NextResponse.json({ success: true });
   } catch (error) {
