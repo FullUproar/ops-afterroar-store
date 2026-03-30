@@ -778,7 +778,7 @@ function TerminalReaderSection() {
                         e.stopPropagation();
                         if (e.key === "Enter") handleRegister();
                       }}
-                      placeholder="e.g., guided-operate-navybean"
+                      placeholder="e.g., sunny-cloud-dolphin"
                       className="w-full rounded-xl border border-input-border bg-input-bg px-4 py-2.5 text-sm text-foreground placeholder:text-muted focus:border-accent focus:outline-none"
                       autoFocus
                     />
