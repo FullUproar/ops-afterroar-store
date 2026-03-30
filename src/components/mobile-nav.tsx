@@ -209,7 +209,7 @@ export function MobileNav() {
   return (
     <>
       {/* Fixed bottom tab bar — 4 items: 3 favorites + More */}
-      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-card-border bg-card/95 backdrop-blur-sm pb-safe md:hidden"
+      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-card-border bg-card/95 backdrop-blur-sm pb-safe lg:hidden"
         style={{ height: "calc(64px + env(safe-area-inset-bottom, 0px))" }}
       >
         <div className="flex items-stretch h-16">
@@ -257,7 +257,7 @@ export function MobileNav() {
       {/* "More" full-screen sheet */}
       {panelState !== "closed" && (
         <div
-          className={`fixed inset-0 z-50 flex flex-col bg-background md:hidden transition-opacity duration-200 ${
+          className={`fixed inset-0 z-50 flex flex-col bg-background lg:hidden transition-opacity duration-200 ${
             panelState === "closing" ? "opacity-0 pointer-events-none" : "opacity-100"
           }`}
           style={{ touchAction: panelState === "open" ? "auto" : "none" }}

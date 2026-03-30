@@ -165,7 +165,7 @@ export function Sidebar() {
   const ungroupedItems = visibleNav.filter((item) => !groupedHrefs.has(item.href));
 
   return (
-    <aside className="hidden md:flex h-screen w-14 lg:w-56 flex-col border-r border-card-border bg-card transition-all duration-200">
+    <aside className="hidden lg:flex h-screen w-56 flex-col border-r border-card-border bg-card transition-all duration-200">
       <div className="border-b border-card-border px-2 lg:px-4 py-4 flex items-center justify-center lg:justify-start">
         <img src="/logo-ring-favicon.png" alt="Afterroar" className="h-7 w-7 lg:hidden" />
         <div className="hidden lg:block">
