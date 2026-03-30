@@ -22,15 +22,15 @@ export function PageHeader({ title, backHref, action }: PageHeaderProps) {
   return (
     <div className="flex items-center justify-between gap-3">
       <div className="flex items-center gap-2 min-w-0">
-        {/* Back arrow — visible on mobile only */}
+        {/* Back arrow — visible below desktop */}
         <button
           onClick={handleBack}
-          className="md:hidden flex items-center justify-center h-10 w-10 shrink-0 rounded-lg text-muted hover:text-foreground active:bg-card-hover transition-colors"
+          className="lg:hidden flex items-center justify-center h-12 w-12 shrink-0 rounded-lg text-muted hover:text-foreground active:bg-card-hover transition-colors"
           aria-label="Go back"
         >
           <svg
-            width="20"
-            height="20"
+            width="24"
+            height="24"
             viewBox="0 0 20 20"
             fill="none"
             stroke="currentColor"
@@ -41,7 +41,7 @@ export function PageHeader({ title, backHref, action }: PageHeaderProps) {
             <path d="M12 4l-6 6 6 6" />
           </svg>
         </button>
-        <h1 className="text-lg md:text-2xl font-semibold text-foreground truncate">
+        <h1 className="text-lg md:text-xl lg:text-2xl font-semibold text-foreground truncate">
           {title}
         </h1>
       </div>

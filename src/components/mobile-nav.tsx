@@ -210,24 +210,24 @@ export function MobileNav() {
     <>
       {/* Fixed bottom tab bar — 4 items: 3 favorites + More */}
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-card-border bg-card/95 backdrop-blur-sm pb-safe lg:hidden"
-        style={{ height: "calc(64px + env(safe-area-inset-bottom, 0px))" }}
+        style={{ height: "calc(var(--bottom-nav-h, 64px) + env(safe-area-inset-bottom, 0px))" }}
       >
-        <div className="flex items-stretch h-16">
+        <div className="flex items-stretch h-16 md:h-18">
           {favTabs.map((tab) => {
             const active = isActive(tab.href);
             return (
               <Link
                 key={tab.href}
                 href={tab.href}
-                className={`relative flex flex-1 flex-col items-center justify-center gap-0.5 transition-colors ${
+                className={`relative flex flex-1 flex-col items-center justify-center gap-0.5 md:gap-1 transition-colors ${
                   active ? "text-accent" : "text-muted"
                 }`}
               >
                 {active && (
                   <span className="absolute top-0 left-3 right-3 h-0.5 rounded-b bg-accent" />
                 )}
-                <span className="text-lg leading-none">{tab.icon}</span>
-                <span className="text-[10px] font-medium">{tab.label}</span>
+                <span className="text-lg md:text-2xl leading-none">{tab.icon}</span>
+                <span className="text-[10px] md:text-xs font-medium">{tab.label}</span>
               </Link>
             );
           })}
@@ -240,7 +240,7 @@ export function MobileNav() {
                 openMore();
               }
             }}
-            className={`relative flex flex-1 flex-col items-center justify-center gap-0.5 transition-colors ${
+            className={`relative flex flex-1 flex-col items-center justify-center gap-0.5 md:gap-1 transition-colors ${
               moreOpen ? "text-accent" : "text-muted"
             }`}
             style={{ touchAction: "manipulation" }}
@@ -248,8 +248,8 @@ export function MobileNav() {
             {moreOpen && (
               <span className="absolute top-0 left-3 right-3 h-0.5 rounded-b bg-accent" />
             )}
-            <span className="text-lg leading-none">&middot;&middot;&middot;</span>
-            <span className="text-[10px] font-medium">More</span>
+            <span className="text-lg md:text-2xl leading-none">&middot;&middot;&middot;</span>
+            <span className="text-[10px] md:text-xs font-medium">More</span>
           </button>
         </div>
       </nav>
@@ -334,14 +334,14 @@ export function MobileNav() {
                           <Link
                             href={item.href}
                             onClick={() => { setMoreOpen(false); setReplacingFav(null); }}
-                            className={`flex flex-col items-center gap-1.5 rounded-xl px-2 py-3 min-h-16 transition-colors ${
+                            className={`flex flex-col items-center gap-1.5 md:gap-2 rounded-xl px-2 py-3 md:py-4 min-h-16 md:min-h-20 transition-colors ${
                               active
                                 ? "bg-accent-light text-accent"
                                 : "text-muted hover:text-foreground active:bg-card-hover"
                             }`}
                           >
-                            <span className="text-xl leading-none">{item.icon}</span>
-                            <span className="text-[11px] font-medium text-center leading-tight">
+                            <span className="text-xl md:text-2xl leading-none">{item.icon}</span>
+                            <span className="text-[11px] md:text-xs font-medium text-center leading-tight">
                               {item.label}
                             </span>
                           </Link>

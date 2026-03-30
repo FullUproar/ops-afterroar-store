@@ -145,15 +145,15 @@ button:active, a:active, [role="button"]:active {
   transition: transform 0.1s;
 }
 
-/* Mobile-first tap targets and refinements */
-@media (max-width: 767px) {
+/* Touch-first: phones AND tablets (below desktop breakpoint) */
+@media (max-width: 1023px) {
   button, a, [role="button"] {
     min-height: 44px;
   }
 
-  /* Hide scrollbars on mobile for cleaner look */
-  ::-webkit-scrollbar {
-    display: none;
+  /* Bigger base text on tablet for readability */
+  body {
+    font-size: 16px;
   }
 
   /* Prevent zoom on input focus (iOS) */
@@ -161,9 +161,21 @@ button:active, a:active, [role="button"]:active {
     font-size: 16px !important;
   }
 
+  /* Bigger form inputs on touch devices */
+  input, select, textarea {
+    min-height: 48px;
+  }
+
   /* Prevent overscroll bounce on mobile */
   html {
     overscroll-behavior: none;
+  }
+}
+
+/* Tablet: taller bottom nav */
+@media (min-width: 768px) and (max-width: 1023px) {
+  :root {
+    --bottom-nav-h: 72px;
   }
 }
 

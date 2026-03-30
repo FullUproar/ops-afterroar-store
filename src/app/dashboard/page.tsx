@@ -80,33 +80,36 @@ export default async function DashboardPage() {
   return (
     <DashboardModeGuard>
     <div className="space-y-6 md:space-y-8">
-      <h1 className="hidden md:block text-xl md:text-2xl font-semibold text-foreground">Welcome back</h1>
+      <h1 className="hidden lg:block text-2xl font-semibold text-foreground">Welcome back</h1>
 
       {/* Getting Started Checklist */}
       <GettingStarted />
 
-      {/* Quick Actions — mobile-first, most common staff tasks */}
-      <div className="grid grid-cols-3 gap-3 md:hidden">
+      {/* Quick Actions — mobile/tablet, most common staff tasks */}
+      <div className="grid grid-cols-3 gap-3 lg:hidden">
         <Link
           href="/dashboard/register"
-          className="flex flex-col items-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-600 px-3 py-4 text-white active:bg-emerald-700 transition-colors shadow-sm"
+          className="flex flex-col items-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-600 px-3 py-4 md:py-5 text-white active:bg-emerald-700 transition-colors shadow-sm"
+          style={{ minHeight: 56 }}
         >
           <span className="text-2xl">{"\u25C8"}</span>
-          <span className="text-xs font-semibold">New Sale</span>
+          <span className="text-xs md:text-sm font-semibold">New Sale</span>
         </Link>
         <Link
           href="/dashboard/trade-ins"
-          className="flex flex-col items-center gap-2 rounded-xl border border-accent/20 bg-card px-3 py-4 text-foreground active:bg-card-hover transition-colors shadow-sm dark:shadow-none"
+          className="flex flex-col items-center gap-2 rounded-xl border border-accent/20 bg-card px-3 py-4 md:py-5 text-foreground active:bg-card-hover transition-colors shadow-sm dark:shadow-none"
+          style={{ minHeight: 56 }}
         >
           <span className="text-2xl text-accent">{"\u21C4"}</span>
-          <span className="text-xs font-semibold">Trade-In</span>
+          <span className="text-xs md:text-sm font-semibold">Trade-In</span>
         </Link>
         <Link
           href="/dashboard/events"
-          className="flex flex-col items-center gap-2 rounded-xl border border-accent/20 bg-card px-3 py-4 text-foreground active:bg-card-hover transition-colors shadow-sm dark:shadow-none"
+          className="flex flex-col items-center gap-2 rounded-xl border border-accent/20 bg-card px-3 py-4 md:py-5 text-foreground active:bg-card-hover transition-colors shadow-sm dark:shadow-none"
+          style={{ minHeight: 56 }}
         >
           <span className="text-2xl text-accent">{"\u2605"}</span>
-          <span className="text-xs font-semibold">Check In</span>
+          <span className="text-xs md:text-sm font-semibold">Check In</span>
         </Link>
       </div>
 
@@ -116,10 +119,10 @@ export default async function DashboardPage() {
           <Link
             key={stat.label}
             href={stat.href}
-            className="rounded-xl border border-card-border bg-card p-4 md:p-6 active:bg-card-hover transition-colors shadow-sm dark:shadow-none"
+            className="rounded-xl border border-card-border bg-card p-4 md:p-5 lg:p-6 active:bg-card-hover transition-colors shadow-sm dark:shadow-none"
           >
             <p className="text-xs md:text-sm text-muted">{stat.label}</p>
-            <p className="mt-1 md:mt-2 text-2xl md:text-3xl font-semibold tabular-nums text-foreground">
+            <p className="mt-1 md:mt-2 text-2xl lg:text-3xl font-semibold tabular-nums text-foreground">
               {stat.value}
             </p>
           </Link>
@@ -138,11 +141,11 @@ export default async function DashboardPage() {
         ) : (
           <>
             {/* Mobile: card list (no table) */}
-            <div className="space-y-3 md:hidden">
+            <div className="space-y-3 lg:hidden">
               {mobileLedger.map((entry) => (
                 <div
                   key={entry.id}
-                  className="flex items-center justify-between rounded-xl border border-card-border bg-card px-4 py-3.5 shadow-sm dark:shadow-none"
+                  className="flex items-center justify-between rounded-xl border border-card-border bg-card px-4 py-3.5 md:px-5 md:py-4 shadow-sm dark:shadow-none"
                 >
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
@@ -167,7 +170,7 @@ export default async function DashboardPage() {
             </div>
 
             {/* Desktop: full table */}
-            <div className="hidden md:block overflow-x-auto rounded-xl border border-card-border shadow-sm dark:shadow-none">
+            <div className="hidden lg:block overflow-x-auto rounded-xl border border-card-border shadow-sm dark:shadow-none">
               <table className="w-full text-left text-sm">
                 <thead className="border-b border-card-border bg-card">
                   <tr>

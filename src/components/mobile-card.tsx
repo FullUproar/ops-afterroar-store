@@ -16,14 +16,14 @@ export function MobileCard({ title, subtitle, right, onClick, children }: Mobile
   return (
     <Wrapper
       onClick={onClick}
-      className={`flex w-full items-center gap-3 rounded-xl border border-card-border bg-card px-4 py-3.5 text-left shadow-sm transition-colors dark:shadow-none ${
+      className={`flex w-full items-center gap-3 rounded-xl border border-card-border bg-card px-4 py-3.5 md:px-5 md:py-4 text-left shadow-sm transition-colors dark:shadow-none ${
         onClick ? "active:bg-card-hover cursor-pointer" : ""
       }`}
     >
       <div className="flex-1 min-w-0">
-        <div className="truncate text-sm font-semibold text-foreground leading-snug">{title}</div>
+        <div className="truncate text-sm md:text-base font-semibold text-foreground leading-snug">{title}</div>
         {subtitle && (
-          <div className="truncate text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">{subtitle}</div>
+          <div className="truncate text-xs md:text-sm text-zinc-500 dark:text-zinc-400 mt-0.5">{subtitle}</div>
         )}
         {children}
       </div>
