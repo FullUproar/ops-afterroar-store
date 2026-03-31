@@ -169,10 +169,12 @@ export function useScanner(options: UseScannerOptions): UseScannerReturn {
     }
 
     // Use capture phase to intercept before other handlers
-    window.addEventListener("keydown", handleKeyDown, true);
+    // Use bubble phase (not capture) — capture phase can interfere with
+    // on-screen keyboard behavior on Android tablets
+    window.addEventListener("keydown", handleKeyDown, false);
 
     return () => {
-      window.removeEventListener("keydown", handleKeyDown, true);
+      window.removeEventListener("keydown", handleKeyDown, false);
     };
   }, [enabled]);
 

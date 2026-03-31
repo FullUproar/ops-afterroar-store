@@ -297,7 +297,9 @@ export function BarcodeLearnModal({
 
       {/* Modal — never changes size */}
       <div
-        className="relative w-full sm:max-w-lg max-h-[90vh] overflow-y-auto bg-card border border-card-border rounded-t-2xl sm:rounded-2xl shadow-xl"
+        className={`relative w-full sm:max-w-lg overflow-y-auto bg-card border border-card-border rounded-t-2xl sm:rounded-2xl shadow-xl ${
+          editingField ? "max-h-[40vh]" : "max-h-[90vh]"
+        }`}
         onClick={(e) => e.stopPropagation()}
         onTouchStart={(e) => e.stopPropagation()}
       >
