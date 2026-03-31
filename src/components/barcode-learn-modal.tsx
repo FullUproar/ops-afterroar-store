@@ -295,14 +295,11 @@ export function BarcodeLearnModal({
         onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
       />
 
-      {/* Modal + optional keypad side panel */}
-      <div className={`relative flex ${editingField ? "sm:gap-0" : ""}`}
+      {/* Modal — never changes size */}
+      <div
+        className="relative w-full sm:max-w-lg max-h-[90vh] overflow-y-auto bg-card border border-card-border rounded-t-2xl sm:rounded-2xl shadow-xl"
         onClick={(e) => e.stopPropagation()}
         onTouchStart={(e) => e.stopPropagation()}
-      >
-      {/* Main modal — always same width */}
-      <div
-        className="w-full sm:max-w-lg max-h-[95vh] overflow-y-auto bg-card border border-card-border rounded-t-2xl sm:rounded-2xl shadow-xl"
         onClick={(e) => e.stopPropagation()}
         onTouchStart={(e) => e.stopPropagation()}
       >
@@ -591,35 +588,17 @@ export function BarcodeLearnModal({
         </div>
       </div>
 
-      {/* Keypad side panel — slides out to the right like an open book */}
+      {/* Keypad — fixed overlay anchored to bottom right, doesn't affect modal layout */}
       {editingField && (
-        <div className="hidden sm:flex w-72 flex-col bg-card border border-l-0 border-card-border rounded-r-2xl shadow-xl overflow-hidden">
-          <div className="px-3 py-2 border-b border-card-border text-sm font-medium text-muted text-center">
+        <div className="fixed bottom-0 right-0 z-[210] w-full sm:w-80 bg-card border border-card-border sm:rounded-tl-2xl shadow-2xl"
+          style={{ height: "55vh", maxHeight: 420 }}
+          onClick={(e) => e.stopPropagation()}
+          onTouchStart={(e) => e.stopPropagation()}
+        >
+          <div className="px-3 py-2 border-b border-card-border text-base font-medium text-foreground text-center">
             {editingField === "price" ? "Price ($)" : editingField === "cost" ? "Cost ($)" : "Quantity"}
           </div>
-          <div className="flex-1 min-h-0">
-            <NumericKeypad
-              value={editingField === "price" ? price : editingField === "cost" ? cost : quantity}
-              onChange={(v) => {
-                if (editingField === "price") setPrice(v);
-                else if (editingField === "cost") setCost(v);
-                else setQuantity(v);
-              }}
-              onSubmit={() => setEditingField(null)}
-              submitLabel="Done"
-              integerMode={editingField === "qty"}
-            />
-          </div>
-        </div>
-      )}
-
-      {/* Mobile keypad — below the modal */}
-      {editingField && (
-        <div className="sm:hidden fixed inset-x-0 bottom-0 z-[201] bg-card border-t border-card-border" style={{ height: "50vh" }}>
-          <div className="px-3 py-1.5 border-b border-card-border text-sm font-medium text-muted text-center">
-            {editingField === "price" ? "Price ($)" : editingField === "cost" ? "Cost ($)" : "Quantity"}
-          </div>
-          <div className="h-full">
+          <div className="flex-1" style={{ height: "calc(100% - 40px)" }}>
             <NumericKeypad
               value={editingField === "price" ? price : editingField === "cost" ? cost : quantity}
               onChange={(v) => {
