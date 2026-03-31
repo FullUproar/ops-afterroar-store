@@ -12,6 +12,7 @@ interface NumericKeypadProps {
   changeCents?: number;
   showChange?: boolean;
   processing?: boolean;
+  integerMode?: boolean; // no decimals, no $ sign — for quantities
 }
 
 function haptic() {
@@ -28,12 +29,14 @@ export function NumericKeypad({
   changeCents = 0,
   showChange = false,
   processing = false,
+  integerMode = false,
 }: NumericKeypadProps) {
   const currentCents = Math.round(parseFloat(value || "0") * 100);
 
   const handleDigit = useCallback(
     (digit: string) => {
       haptic();
+      if (digit === "." && integerMode) return; // no decimals in integer mode
       let next = value;
       if (digit === ".") {
         if (next.includes(".")) return;
@@ -93,7 +96,7 @@ export function NumericKeypad({
       {/* Display + Change */}
       <div className="flex items-center justify-between px-4 py-2 border-b border-card-border">
         <div className="text-4xl font-mono font-bold text-foreground tabular-nums">
-          ${displayValue}
+          {integerMode ? (displayValue === "0.00" ? "0" : value || "0") : `$${displayValue}`}
         </div>
         {showChange && (
           <div className={`text-xl font-bold tabular-nums font-mono ${
@@ -157,8 +160,10 @@ export function NumericKeypad({
 
       {/* Number Grid — compact */}
       <div className="flex-1 grid grid-cols-3 grid-rows-4 gap-1 px-3 py-1 min-h-0">
-        {["7", "8", "9", "4", "5", "6", "1", "2", "3", "0", ".", "\u232B"].map(
-          (key) => (
+        {["7", "8", "9", "4", "5", "6", "1", "2", "3", "0", integerMode ? "" : ".", "\u232B"].map(
+          (key, idx) => key === "" ? (
+            <div key={`empty-${idx}`} />
+          ) : (
             <button
               key={key}
               type="button"

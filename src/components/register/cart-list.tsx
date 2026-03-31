@@ -30,7 +30,7 @@ interface CartListProps {
   editQtyValue: string;
   onSetEditingQtyIndex: (index: number | null) => void;
   onSetEditQtyValue: (value: string) => void;
-  onCommitQtyEdit: (index: number) => void;
+  onCommitQtyEdit: (index: number, directValue?: number) => void;
   onRemoveItem: (index: number) => void;
   onRemoveDiscount: (id: string) => void;
   cartEndRef: React.RefObject<HTMLDivElement | null>;
@@ -120,31 +120,50 @@ export function CartList({
                     </span>
                   </div>
 
-                  {/* Quantity -- tap to type, stopPropagation for scanner */}
+                  {/* Quantity — tap once = +/- stepper, tap number again = keypad */}
                   {editingQtyIndex === index ? (
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      pattern="[0-9]*"
-                      value={editQtyValue}
-                      onChange={(e) => onSetEditQtyValue(e.target.value.replace(/\D/g, ""))}
-                      onBlur={() => onCommitQtyEdit(index)}
-                      onKeyDown={(e) => {
-                        e.stopPropagation();
-                        if (e.key === "Enter") onCommitQtyEdit(index);
-                        if (e.key === "Escape") { onSetEditingQtyIndex(null); (document.activeElement as HTMLElement)?.blur(); }
-                      }}
-                      autoFocus
-                      className="w-16 rounded-md border border-accent bg-input-bg px-2 py-1 text-center text-lg font-bold text-foreground focus:outline-none"
-                      style={{ minHeight: "auto" }}
-                    />
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => {
+                          const newQty = Math.max(1, item.quantity - 1);
+                          onSetEditQtyValue(String(newQty));
+                          onCommitQtyEdit(index, newQty);
+                        }}
+                        className="shrink-0 w-9 h-9 rounded-lg bg-card-hover text-foreground text-xl font-bold flex items-center justify-center active:scale-90 transition-transform"
+                        style={{ touchAction: "manipulation" }}
+                      >
+                        −
+                      </button>
+                      <button
+                        onClick={() => {
+                          // Second tap on number — switch to keypad mode
+                          onSetEditQtyValue(String(item.quantity));
+                          onSetEditingQtyIndex(-1000 - index); // Signal keypad mode with negative offset
+                        }}
+                        className="shrink-0 w-10 rounded-lg border border-accent bg-accent/10 text-accent text-lg font-bold tabular-nums flex items-center justify-center"
+                        style={{ height: 36, touchAction: "manipulation" }}
+                      >
+                        {item.quantity}
+                      </button>
+                      <button
+                        onClick={() => {
+                          const newQty = item.quantity + 1;
+                          onSetEditQtyValue(String(newQty));
+                          onCommitQtyEdit(index, newQty);
+                        }}
+                        className="shrink-0 w-9 h-9 rounded-lg bg-card-hover text-foreground text-xl font-bold flex items-center justify-center active:scale-90 transition-transform"
+                        style={{ touchAction: "manipulation" }}
+                      >
+                        +
+                      </button>
+                    </div>
                   ) : (
                     <button
                       onClick={() => {
                         onSetEditingQtyIndex(index);
                         onSetEditQtyValue(String(item.quantity));
                       }}
-                      className="shrink-0 rounded-md bg-card-hover px-3 py-1.5 text-lg font-medium text-foreground tabular-nums active:scale-95 transition-transform"
+                      className="shrink-0 rounded-lg bg-card-hover px-3 py-1.5 text-lg font-medium text-foreground tabular-nums active:scale-95 transition-transform"
                       style={{ minHeight: 36 }}
                     >
                       x{item.quantity}

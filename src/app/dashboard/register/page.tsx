@@ -586,12 +586,15 @@ export default function RegisterPage() {
     setCart((prev) => prev.filter((_, i) => i !== index));
   }
 
-  function commitQtyEdit(index: number) {
-    const newQty = parseInt(editQtyValue, 10);
+  function commitQtyEdit(index: number, directValue?: number) {
+    const newQty = directValue ?? parseInt(editQtyValue, 10);
     if (!newQty || newQty <= 0) { removeItem(index); } else {
       setCart((prev) => prev.map((c, i) => i === index ? { ...c, quantity: Math.min(newQty, c.max_quantity) } : c));
     }
-    setEditingQtyIndex(null); setEditQtyValue("");
+    if (directValue === undefined) {
+      setEditingQtyIndex(null);
+    }
+    setEditQtyValue("");
     (document.activeElement as HTMLElement)?.blur();
   }
 
