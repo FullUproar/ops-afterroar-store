@@ -613,7 +613,6 @@ export function BarcodeLearnModal({
           </div>
         </div>
       )}
-      </div>
     </div>
   );
 }
