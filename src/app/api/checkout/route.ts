@@ -6,7 +6,8 @@ import { getStoreSettings } from "@/lib/store-settings-shared";
 import { requireStaff, handleAuthError } from "@/lib/require-staff";
 import { calculatePurchasePoints, earnPoints, redeemPoints, calculateRedemptionDiscount } from "@/lib/loyalty";
 import { earnPointsFromPurchase } from "@/lib/hq-bridge";
-import { calculateTaxFromSettings } from "@/lib/tax";
+import { calculateTaxFromSettings, getDefaultTaxRate } from "@/lib/tax";
+import { getStripe } from "@/lib/stripe";
 import { opLog } from "@/lib/op-log";
 
 interface CheckoutItem {
@@ -135,10 +136,61 @@ export async function POST(request: NextRequest) {
     );
     const subtotal_cents = Math.max(0, rawSubtotal - discount_cents);
 
-    // 2b. Server-side tax calculation
+    // 2b. Server-side tax calculation — try Stripe Tax first, fall back to manual rate
     const storeRawSettings = (staffWithStore?.store?.settings ?? {}) as Record<string, unknown>;
-    const taxResult = calculateTaxFromSettings(subtotal_cents, storeRawSettings);
-    const tax_cents = clientTaxCents ?? taxResult.taxCents;
+    let tax_cents = 0;
+    let taxSource: "stripe" | "manual" | "none" = "none";
+    let taxRateUsed = 0;
+
+    if (clientTaxCents !== undefined) {
+      // Client provided tax — trust it (was calculated from the same store settings)
+      tax_cents = clientTaxCents;
+      taxSource = "manual";
+    } else {
+      // Try Stripe Tax first
+      const stripe = getStripe();
+      let stripeTaxSuccess = false;
+
+      if (stripe && subtotal_cents > 0) {
+        try {
+          const storeAddress = storeRawSettings.store_address as Record<string, string> | undefined;
+          const taxCalc = await stripe.tax.calculations.create({
+            currency: "usd",
+            line_items: items.map((item) => ({
+              amount: item.price_cents * item.quantity,
+              reference: item.inventory_item_id || "manual",
+              tax_code: "txcd_99999999", // general merchandise default
+            })),
+            customer_details: {
+              address: {
+                country: "US",
+                state: storeAddress?.state || process.env.DEFAULT_TAX_STATE || undefined,
+                postal_code: storeAddress?.postal_code || storeAddress?.zip || process.env.DEFAULT_TAX_ZIP || undefined,
+                city: storeAddress?.city || undefined,
+                line1: storeAddress?.line1 || undefined,
+              },
+              address_source: "billing",
+            },
+          });
+          tax_cents = taxCalc.tax_amount_exclusive;
+          taxSource = "stripe";
+          // Calculate effective rate for metadata
+          taxRateUsed = subtotal_cents > 0 ? Math.round((tax_cents / subtotal_cents) * 10000) / 100 : 0;
+          stripeTaxSuccess = true;
+        } catch {
+          // Stripe Tax not enabled or errored — fall through to manual
+        }
+      }
+
+      if (!stripeTaxSuccess) {
+        // Manual fallback: store settings → DEFAULT_TAX_RATE env → 0
+        const taxResult = calculateTaxFromSettings(subtotal_cents, storeRawSettings);
+        tax_cents = taxResult.taxCents;
+        const settingsRate = (storeRawSettings.tax_rate_percent as number) || getDefaultTaxRate();
+        taxRateUsed = settingsRate;
+        taxSource = settingsRate > 0 ? "manual" : "none";
+      }
+    }
 
     // 2c. Gift card + loyalty deductions
     const giftCardApplied = gift_card_amount_cents ?? 0;
@@ -248,6 +300,8 @@ export async function POST(request: NextRequest) {
             ...(discount_cents > 0 ? { discount_cents, discount_reason } : {}),
             ...(giftCardApplied > 0 ? { gift_card_code, gift_card_amount_cents: giftCardApplied } : {}),
             ...(loyaltyApplied > 0 ? { loyalty_points_redeemed: loyalty_points_redeem, loyalty_discount_cents: loyaltyApplied } : {}),
+            tax_source: taxSource,
+            ...(taxRateUsed > 0 ? { tax_rate: taxRateUsed } : {}),
             ...(client_tx_id ? { client_tx_id } : {}),
             ...(body.training ? { training: true } : {}),
           })),
@@ -432,6 +486,7 @@ export async function POST(request: NextRequest) {
         subtotal_cents,
         receipt,
         loyalty_points_earned: result.pointsEarned,
+        tax_source: taxSource,
       },
       { status: 201 }
     );

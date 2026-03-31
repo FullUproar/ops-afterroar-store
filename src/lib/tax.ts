@@ -50,10 +50,25 @@ export function calculateTaxFromSettings(
   taxExempt = false
 ): TaxResult {
   const settings = getStoreSettings(storeSettings);
+  const rate = settings.tax_rate_percent || getDefaultTaxRate();
   return calculateTax(
     subtotalCents,
-    settings.tax_rate_percent,
+    rate,
     settings.tax_included_in_price,
     taxExempt
   );
+}
+
+/**
+ * Get the default tax rate from store settings or environment.
+ * Priority: DEFAULT_TAX_RATE env var → 0
+ * (Store settings override is handled in calculateTaxFromSettings)
+ */
+export function getDefaultTaxRate(): number {
+  const envRate = process.env.DEFAULT_TAX_RATE;
+  if (envRate) {
+    const parsed = parseFloat(envRate);
+    if (!isNaN(parsed) && parsed >= 0) return parsed;
+  }
+  return 0;
 }

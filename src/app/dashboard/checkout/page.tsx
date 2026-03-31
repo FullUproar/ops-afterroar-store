@@ -1217,7 +1217,19 @@ export default function CheckoutPage() {
             />
 
             {/* Panel — full screen on mobile, side panel on desktop */}
-            <div className="relative z-50 flex w-full md:max-w-md flex-col bg-background md:border-l md:border-card-border shadow-2xl md:animate-slide-in-right animate-slide-up">
+            <div
+              ref={(el: HTMLDivElement | null) => {
+                if (!el) return;
+                const handler = (e: FocusEvent) => {
+                  const target = e.target as HTMLElement;
+                  if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.tagName === "SELECT") {
+                    setTimeout(() => target.scrollIntoView({ behavior: "smooth", block: "center" }), 300);
+                  }
+                };
+                el.addEventListener("focusin", handler);
+                return () => el.removeEventListener("focusin", handler);
+              }}
+              className="relative z-50 flex w-full md:max-w-md flex-col bg-background md:border-l md:border-card-border shadow-2xl md:animate-slide-in-right animate-slide-up">
               {/* Header */}
               <div className="flex items-center justify-between border-b border-card-border px-6 py-4">
                 <h2 className="text-lg font-semibold text-foreground">Payment</h2>
@@ -1545,6 +1557,17 @@ export default function CheckoutPage() {
             }}
           >
             <div
+              ref={(el: HTMLDivElement | null) => {
+                if (!el) return;
+                const handler = (e: FocusEvent) => {
+                  const target = e.target as HTMLElement;
+                  if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.tagName === "SELECT") {
+                    setTimeout(() => target.scrollIntoView({ behavior: "smooth", block: "center" }), 300);
+                  }
+                };
+                el.addEventListener("focusin", handler);
+                return () => el.removeEventListener("focusin", handler);
+              }}
               className="w-full h-full md:h-auto md:max-w-md rounded-none md:rounded-xl border-0 md:border border-card-border bg-card p-4 shadow-2xl"
               onMouseDown={(e) => e.stopPropagation()}
             >

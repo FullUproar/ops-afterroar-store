@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { SearchInput } from "@/components/search-input";
 import { useStore } from "@/lib/store-context";
 import {
@@ -868,7 +868,18 @@ export default function InventoryPage() {
           }}
         >
           <div
-            className="w-full max-w-md rounded-xl border border-card-border bg-card p-6 shadow-2xl mx-4"
+            ref={(el: HTMLDivElement | null) => {
+              if (!el) return;
+              const handler = (e: FocusEvent) => {
+                const target = e.target as HTMLElement;
+                if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.tagName === "SELECT") {
+                  setTimeout(() => target.scrollIntoView({ behavior: "smooth", block: "center" }), 300);
+                }
+              };
+              el.addEventListener("focusin", handler);
+              return () => el.removeEventListener("focusin", handler);
+            }}
+            className="w-full max-w-md rounded-xl border border-card-border bg-card p-6 shadow-2xl mx-4 max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-1">

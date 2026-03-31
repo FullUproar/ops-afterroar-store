@@ -236,6 +236,17 @@ export default function StaffPage() {
           onKeyDown={(e) => e.key === "Escape" && setShowInvite(false)}
         >
           <div
+            ref={(el: HTMLDivElement | null) => {
+              if (!el) return;
+              const handler = (e: FocusEvent) => {
+                const target = e.target as HTMLElement;
+                if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.tagName === "SELECT") {
+                  setTimeout(() => target.scrollIntoView({ behavior: "smooth", block: "center" }), 300);
+                }
+              };
+              el.addEventListener("focusin", handler);
+              return () => el.removeEventListener("focusin", handler);
+            }}
             className="w-full max-w-md rounded-xl border border-card-border bg-card p-6 shadow-2xl mx-4"
             onClick={(e) => e.stopPropagation()}
           >

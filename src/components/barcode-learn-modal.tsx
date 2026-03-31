@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { formatCents, parseDollars, type ItemCategory } from "@/lib/types";
 import type { InventoryItem } from "@/lib/types";
-import { NumericKeypad } from "@/components/numeric-keypad";
+
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -100,8 +100,6 @@ export function BarcodeLearnModal({
   const [price, setPrice] = useState("");
   const [cost, setCost] = useState("");
   const [quantity, setQuantity] = useState("1");
-  const [editingField, setEditingField] = useState<"price" | "cost" | "qty" | null>(null);
-
   // Assign to existing
   const [assignQuery, setAssignQuery] = useState("");
   const [assignResults, setAssignResults] = useState<InventoryItem[]>([]);

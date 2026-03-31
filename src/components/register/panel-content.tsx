@@ -1,6 +1,7 @@
 "use client";
 
-import { formatCents, parseDollars } from "@/lib/types";
+import { useEffect, useRef } from "react";
+import { formatCents } from "@/lib/types";
 import type { InventoryItem, Customer } from "@/lib/types";
 import { MoreMenu } from "./more-menu";
 
@@ -98,7 +99,25 @@ export function PanelContent(props: PanelContentProps) {
     setShowGiftCardPayment, setShowPaySheet, orderLookupReceipt, setOrderLookupReceipt,
   } = props;
 
-  switch (activePanel) {
+  // Scroll focused input into view when keyboard opens (Android tablet fix)
+  const panelRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    function handleFocus(e: FocusEvent) {
+      const target = e.target as HTMLElement;
+      if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.tagName === "SELECT") {
+        setTimeout(() => {
+          target.scrollIntoView({ behavior: "smooth", block: "center" });
+        }, 300);
+      }
+    }
+    const el = panelRef.current;
+    if (el) {
+      el.addEventListener("focusin", handleFocus);
+      return () => el.removeEventListener("focusin", handleFocus);
+    }
+  }, []);
+
+  const content = (() => { switch (activePanel) {
     case "search":
       return (
         <div className="p-3 space-y-2">
@@ -243,5 +262,8 @@ export function PanelContent(props: PanelContentProps) {
 
     default:
       return null;
-  }
+  } })();
+
+  if (!content) return null;
+  return <div ref={panelRef}>{content}</div>;
 }

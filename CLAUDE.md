@@ -54,11 +54,16 @@ All Store Ops models are prefixed with `Pos`:
 - Permissions: `src/lib/permissions.ts` — owner/manager/cashier roles
 - Store context: `useStore()` hook provides `can()`, `effectiveRole`, `isGodAdmin`
 - Payment: `src/lib/payment.ts` — abstraction layer (Stripe live in test mode)
+- Stripe Terminal: S710 reader registration, connection tokens, payment collection (`src/app/api/stripe/terminal/`)
+- Tax: `src/lib/tax.ts` — Stripe Tax (primary, auto-fallback) + manual rate from store settings / `DEFAULT_TAX_RATE` env
 - Types: `src/lib/types.ts` — `formatCents()`, `parseDollars()`
-- Scanner: `src/hooks/use-scanner.ts` — global keydown listener, NO hidden inputs
+- Scanner: `src/hooks/use-scanner.ts` — capture phase global keydown listener, NO hidden inputs
+- Barcode learn: scan unknown → UPC lookup (upcitemdb) → BGG enrichment → catalog product → add to inventory
 - HQ Bridge: `src/lib/hq-bridge.ts` — validated write functions for HQ tables
 - TCG Pricing: `src/lib/tcg-pricing.ts` — condition multipliers, buylist calculations
 - Market Cache: `src/lib/market-price-cache.ts` — Scryfall price cache (1hr TTL)
+- Op Log: `src/lib/op-log.ts` — operational logging to `pos_operational_logs` table (fire-and-forget)
+- Receipt QR: token-based receipt lookup (`/r/[token]`), customer-facing display
 
 ## Dual Mode Layout
 - **Dashboard Mode**: full sidebar, all features, data-heavy (owner/manager default)
@@ -77,11 +82,26 @@ All Store Ops models are prefixed with `Pos`:
 - `more-menu.tsx` — 9 sub-panels (price check, credit, returns, loyalty, gift card, no sale, flag issue, void last, order lookup)
 
 ## Scanner Integration
-- USB/Bluetooth HID scanners work via global keydown listener
+- USB/Bluetooth HID scanners work via capture phase global keydown listener
 - Scanner ONLY fires when NO input element has focus
 - When any input has focus, scanner does nothing (user is typing)
-- Barcode learn flow: scan unknown → UPC lookup → BGG enrichment → add to inventory
+- Barcode learn flow: scan unknown → UPC lookup → BGG enrichment → catalog product → add to inventory
 - Camera barcode scanning via BarcodeDetector API
+- focusin scroll trick on all modals/panels with inputs (Android tablet keyboard fix)
+
+## Onboarding & Training
+- Onboarding wizard: 5-step setup flow (store info, tax, staff, inventory, go live)
+- Training mode: toggle in settings, all transactions marked `training: true`, no real charges
+- Help center: 27 articles covering all features, searchable, in-app
+
+## Hardware
+- Stripe Terminal S710 reader (registration, connection tokens, payment collection)
+- Samsung Galaxy Tab (primary tablet target)
+- Inateck USB barcode scanner (HID mode)
+
+## eBay Integration
+- Account deletion compliance webhook (`/api/ebay/account-deletion`)
+- Marketplace sync (planned)
 
 ## Test Accounts
 - Owner: Google sign-in (shawnoah.pollock@gmail.com or info@fulluproar.com)
@@ -99,6 +119,9 @@ All Store Ops models are prefixed with `Pos`:
 - GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET — shared with HQ
 - NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY — Stripe test key (pk_test_...)
 - STRIPE_SECRET_KEY — Stripe test key (sk_test_...)
+- DEFAULT_TAX_RATE — fallback tax rate percent (e.g. 7) when store settings not configured
+- DEFAULT_TAX_STATE — fallback state code for Stripe Tax address (e.g. "TX")
+- DEFAULT_TAX_ZIP — fallback zip code for Stripe Tax address
 - EBAY_USER_TOKEN — eBay API OAuth token
 - EBAY_VERIFICATION_TOKEN — eBay account deletion webhook token
 - EBAY_ENDPOINT_URL — eBay webhook endpoint URL

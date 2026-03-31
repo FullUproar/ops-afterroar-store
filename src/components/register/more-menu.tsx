@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { formatCents, parseDollars } from "@/lib/types";
 import type { InventoryItem, Customer } from "@/lib/types";
 
@@ -82,6 +82,24 @@ export function MoreMenu({
   orderLookupReceipt,
   setOrderLookupReceipt,
 }: MoreMenuProps) {
+  // Scroll focused input into view when keyboard opens (Android tablet fix)
+  const menuRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    function handleFocus(e: FocusEvent) {
+      const target = e.target as HTMLElement;
+      if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.tagName === "SELECT") {
+        setTimeout(() => {
+          target.scrollIntoView({ behavior: "smooth", block: "center" });
+        }, 300);
+      }
+    }
+    const el = menuRef.current;
+    if (el) {
+      el.addEventListener("focusin", handleFocus);
+      return () => el.removeEventListener("focusin", handleFocus);
+    }
+  }, []);
+
   // ---- Price Check ----
   const [priceCheckQuery, setPriceCheckQuery] = useState("");
   const [priceCheckResults, setPriceCheckResults] = useState<InventoryItem[]>([]);
@@ -471,7 +489,7 @@ export function MoreMenu({
   }
 
   // ---- Render ----
-  switch (activePanel) {
+  const content = (() => { switch (activePanel) {
     /* ============ MORE MENU ============ */
     case "more":
       return (
@@ -1328,5 +1346,8 @@ export function MoreMenu({
 
     default:
       return null;
-  }
+  } })();
+
+  if (!content) return null;
+  return <div ref={menuRef}>{content}</div>;
 }
