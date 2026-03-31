@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { formatCents, parseDollars, type ItemCategory } from "@/lib/types";
 import type { InventoryItem } from "@/lib/types";
+import { NumericKeypad } from "@/components/numeric-keypad";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -80,6 +81,7 @@ export function BarcodeLearnModal({
   const [price, setPrice] = useState("");
   const [cost, setCost] = useState("");
   const [quantity, setQuantity] = useState("1");
+  const [editingField, setEditingField] = useState<"price" | "cost" | "qty" | null>(null);
 
   // Assign to existing
   const [assignQuery, setAssignQuery] = useState("");
@@ -496,54 +498,61 @@ export function BarcodeLearnModal({
                     </select>
                   </div>
 
-                  {/* Price + Cost row */}
-                  <div className="grid grid-cols-2 gap-3">
+                  {/* Price + Cost + Quantity — tap to edit with keypad */}
+                  <div className="grid grid-cols-3 gap-3">
                     <div>
-                      <label className="block text-base font-medium text-muted mb-1">
-                        Price ($)
-                      </label>
-                      <input
-                        type="text"
-                        inputMode="decimal"
-                        value={price}
-                        onChange={(e) => setPrice(e.target.value)}
-                        onKeyDown={(e) => e.stopPropagation()}
-                        className="w-full rounded-xl border border-input-border bg-input-bg px-3 py-2.5 text-lg text-foreground placeholder:text-muted focus:border-accent focus:outline-none"
-                        placeholder="0.00"
-                      />
+                      <label className="block text-base font-medium text-muted mb-1">Price</label>
+                      <button
+                        type="button"
+                        onClick={() => setEditingField(editingField === "price" ? null : "price")}
+                        className={`w-full rounded-xl border px-3 py-3 text-lg font-mono font-bold text-left transition-colors ${
+                          editingField === "price" ? "border-accent bg-accent/10 text-accent" : "border-input-border bg-input-bg text-foreground"
+                        }`}
+                      >
+                        ${price || "0.00"}
+                      </button>
                     </div>
                     <div>
-                      <label className="block text-base font-medium text-muted mb-1">
-                        Cost ($)
-                      </label>
-                      <input
-                        type="text"
-                        inputMode="decimal"
-                        value={cost}
-                        onChange={(e) => setCost(e.target.value)}
-                        onKeyDown={(e) => e.stopPropagation()}
-                        className="w-full rounded-xl border border-input-border bg-input-bg px-3 py-2.5 text-lg text-foreground placeholder:text-muted focus:border-accent focus:outline-none"
-                        placeholder="0.00"
-                      />
+                      <label className="block text-base font-medium text-muted mb-1">Cost</label>
+                      <button
+                        type="button"
+                        onClick={() => setEditingField(editingField === "cost" ? null : "cost")}
+                        className={`w-full rounded-xl border px-3 py-3 text-lg font-mono font-bold text-left transition-colors ${
+                          editingField === "cost" ? "border-accent bg-accent/10 text-accent" : "border-input-border bg-input-bg text-foreground"
+                        }`}
+                      >
+                        ${cost || "0.00"}
+                      </button>
+                    </div>
+                    <div>
+                      <label className="block text-base font-medium text-muted mb-1">Qty</label>
+                      <button
+                        type="button"
+                        onClick={() => setEditingField(editingField === "qty" ? null : "qty")}
+                        className={`w-full rounded-xl border px-3 py-3 text-lg font-mono font-bold text-left transition-colors ${
+                          editingField === "qty" ? "border-accent bg-accent/10 text-accent" : "border-input-border bg-input-bg text-foreground"
+                        }`}
+                      >
+                        {quantity || "1"}
+                      </button>
                     </div>
                   </div>
 
-                  {/* Quantity */}
-                  <div>
-                    <label className="block text-base font-medium text-muted mb-1">
-                      Quantity
-                    </label>
-                    <input
-                      type="number"
-                      inputMode="numeric"
-                      min="1"
-                      value={quantity}
-                      onChange={(e) => setQuantity(e.target.value)}
-                      onKeyDown={(e) => e.stopPropagation()}
-                      className="w-full rounded-xl border border-input-border bg-input-bg px-3 py-2.5 text-lg text-foreground placeholder:text-muted focus:border-accent focus:outline-none"
-                      placeholder="1"
-                    />
-                  </div>
+                  {/* Inline numeric keypad for active field */}
+                  {editingField && (
+                    <div className="rounded-xl border border-card-border overflow-hidden" style={{ height: 320 }}>
+                      <NumericKeypad
+                        value={editingField === "price" ? price : editingField === "cost" ? cost : quantity}
+                        onChange={(v) => {
+                          if (editingField === "price") setPrice(v);
+                          else if (editingField === "cost") setCost(v);
+                          else setQuantity(v);
+                        }}
+                        onSubmit={() => setEditingField(null)}
+                        submitLabel="Done"
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
 
