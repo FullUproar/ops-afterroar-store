@@ -265,7 +265,7 @@ export default function RegisterPage() {
   }, []);
 
   // ---- USB barcode scanner integration ----
-  const scannerEnabled = !showPaySheet && activePanel !== "scan" && activePanel !== "customer" && activePanel !== "more" && activePanel !== "price_check" && activePanel !== "store_credit" && activePanel !== "returns" && activePanel !== "gift_card" && activePanel !== "flag_issue" && activePanel !== "order_lookup";
+  const scannerEnabled = !showPaySheet && !learnBarcode && activePanel !== "scan" && activePanel !== "customer" && activePanel !== "more" && activePanel !== "price_check" && activePanel !== "store_credit" && activePanel !== "returns" && activePanel !== "gift_card" && activePanel !== "flag_issue" && activePanel !== "order_lookup";
 
   const {
     lastScan,
