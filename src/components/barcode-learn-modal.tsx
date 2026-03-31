@@ -295,11 +295,9 @@ export function BarcodeLearnModal({
         onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
       />
 
-      {/* Modal — never changes size */}
+      {/* Modal */}
       <div
-        className={`relative w-full sm:max-w-lg overflow-y-auto bg-card border border-card-border rounded-t-2xl sm:rounded-2xl shadow-xl ${
-          editingField ? "max-h-[40vh]" : "max-h-[90vh]"
-        }`}
+        className="relative w-full sm:max-w-lg max-h-[90vh] overflow-y-auto bg-card border border-card-border rounded-t-2xl sm:rounded-2xl shadow-xl"
         onClick={(e) => e.stopPropagation()}
         onTouchStart={(e) => e.stopPropagation()}
       >
@@ -500,49 +498,44 @@ export function BarcodeLearnModal({
                     </select>
                   </div>
 
-                  {/* Price + Cost + Quantity — tap to edit with keypad */}
-                  <div className={editingField ? "flex flex-col sm:flex-row gap-4" : ""}>
-                    <div className={editingField ? "sm:w-1/3" : ""}>
-                      <div className="grid grid-cols-3 gap-3">
-                        <div>
-                          <label className="block text-base font-medium text-muted mb-1">Price</label>
-                          <button
-                            type="button"
-                            onClick={() => setEditingField(editingField === "price" ? null : "price")}
-                            className={`w-full rounded-xl border px-3 py-3 text-lg font-mono font-bold text-left transition-colors ${
-                              editingField === "price" ? "border-accent bg-accent/10 text-accent" : "border-input-border bg-input-bg text-foreground"
-                            }`}
-                          >
-                            ${price || "0.00"}
-                          </button>
-                        </div>
-                        <div>
-                          <label className="block text-base font-medium text-muted mb-1">Cost</label>
-                          <button
-                            type="button"
-                            onClick={() => setEditingField(editingField === "cost" ? null : "cost")}
-                            className={`w-full rounded-xl border px-3 py-3 text-lg font-mono font-bold text-left transition-colors ${
-                              editingField === "cost" ? "border-accent bg-accent/10 text-accent" : "border-input-border bg-input-bg text-foreground"
-                            }`}
-                          >
-                            ${cost || "0.00"}
-                          </button>
-                        </div>
-                        <div>
-                          <label className="block text-base font-medium text-muted mb-1">Qty</label>
-                          <button
-                            type="button"
-                            onClick={() => setEditingField(editingField === "qty" ? null : "qty")}
-                            className={`w-full rounded-xl border px-3 py-3 text-lg font-mono font-bold text-left transition-colors ${
-                              editingField === "qty" ? "border-accent bg-accent/10 text-accent" : "border-input-border bg-input-bg text-foreground"
-                            }`}
-                          >
-                            {quantity || "1"}
-                          </button>
-                        </div>
-                      </div>
+                  {/* Price + Cost + Quantity — native inputs, OS keyboard */}
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-base font-medium text-muted mb-1">Price ($)</label>
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        value={price}
+                        onChange={(e) => setPrice(e.target.value)}
+                        onKeyDown={(e) => e.stopPropagation()}
+                        className="w-full rounded-xl border border-input-border bg-input-bg px-3 py-3 text-lg font-mono font-bold text-foreground placeholder:text-muted focus:border-accent focus:outline-none"
+                        placeholder="0.00"
+                      />
                     </div>
-
+                    <div>
+                      <label className="block text-base font-medium text-muted mb-1">Cost ($)</label>
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        value={cost}
+                        onChange={(e) => setCost(e.target.value)}
+                        onKeyDown={(e) => e.stopPropagation()}
+                        className="w-full rounded-xl border border-input-border bg-input-bg px-3 py-3 text-lg font-mono font-bold text-foreground placeholder:text-muted focus:border-accent focus:outline-none"
+                        placeholder="0.00"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-base font-medium text-muted mb-1">Qty</label>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={quantity}
+                        onChange={(e) => setQuantity(e.target.value.replace(/\D/g, ""))}
+                        onKeyDown={(e) => e.stopPropagation()}
+                        className="w-full rounded-xl border border-input-border bg-input-bg px-3 py-3 text-lg font-mono font-bold text-foreground placeholder:text-muted focus:border-accent focus:outline-none"
+                        placeholder="1"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
@@ -588,31 +581,6 @@ export function BarcodeLearnModal({
         </div>
       </div>
 
-      {/* Keypad — fixed overlay anchored to bottom right, doesn't affect modal layout */}
-      {editingField && (
-        <div className="fixed bottom-0 right-0 z-[210] w-full sm:w-80 bg-card border border-card-border sm:rounded-tl-2xl shadow-2xl"
-          style={{ height: "55vh", maxHeight: 420 }}
-          onClick={(e) => e.stopPropagation()}
-          onTouchStart={(e) => e.stopPropagation()}
-        >
-          <div className="px-3 py-2 border-b border-card-border text-base font-medium text-foreground text-center">
-            {editingField === "price" ? "Price ($)" : editingField === "cost" ? "Cost ($)" : "Quantity"}
-          </div>
-          <div className="flex-1" style={{ height: "calc(100% - 40px)" }}>
-            <NumericKeypad
-              value={editingField === "price" ? price : editingField === "cost" ? cost : quantity}
-              onChange={(v) => {
-                if (editingField === "price") setPrice(v);
-                else if (editingField === "cost") setCost(v);
-                else setQuantity(v);
-              }}
-              onSubmit={() => setEditingField(null)}
-              submitLabel="Done"
-              integerMode={editingField === "qty"}
-            />
-          </div>
-        </div>
-      )}
     </div>
   );
 }
