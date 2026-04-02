@@ -13,6 +13,7 @@ interface StaffMember {
   avatar_url: string | null;
   role: string;
   active: boolean;
+  has_pin: boolean;
   created_at: string;
 }
 
@@ -27,6 +28,37 @@ export default function StaffPage() {
   const [inviteName, setInviteName] = useState("");
   const [inviteRole, setInviteRole] = useState("cashier");
   const [inviting, setInviting] = useState(false);
+
+  // PIN management
+  const [pinModal, setPinModal] = useState<{ staffId: string; staffName: string } | null>(null);
+  const [pinValue, setPinValue] = useState("");
+  const [pinSaving, setPinSaving] = useState(false);
+  const [pinMessage, setPinMessage] = useState<string | null>(null);
+
+  async function handleSetPin() {
+    if (!pinModal || !pinValue || pinValue.length < 4) return;
+    setPinSaving(true);
+    setPinMessage(null);
+    try {
+      const res = await fetch("/api/clock", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ staff_id: pinModal.staffId, pin: pinValue }),
+      });
+      if (res.ok) {
+        setPinMessage("PIN set!");
+        loadStaff();
+        setTimeout(() => { setPinModal(null); setPinValue(""); setPinMessage(null); }, 1500);
+      } else {
+        const data = await res.json();
+        setPinMessage(data.error || "Failed to set PIN");
+      }
+    } catch {
+      setPinMessage("Connection error");
+    } finally {
+      setPinSaving(false);
+    }
+  }
 
   const loadStaff = useCallback(async () => {
     try {
@@ -136,6 +168,7 @@ export default function StaffPage() {
                 <th className="px-4 py-3 font-medium">Email</th>
                 <th className="px-4 py-3 font-medium">Role</th>
                 <th className="px-4 py-3 font-medium">Status</th>
+                <th className="px-4 py-3 font-medium">PIN</th>
                 <th className="px-4 py-3 font-medium">Joined</th>
                 <th className="px-4 py-3 font-medium text-center">Actions</th>
               </tr>
@@ -201,6 +234,28 @@ export default function StaffPage() {
                         {member.active ? "Active" : "Inactive"}
                       </span>
                     </td>
+                    <td className="px-4 py-3">
+                      {member.has_pin ? (
+                        <div className="flex items-center gap-2">
+                          <span className="inline-block rounded-full bg-green-900/50 text-green-400 px-2 py-0.5 text-xs font-medium">Set</span>
+                          {!isCurrentUser && member.role !== "owner" && (
+                            <button
+                              onClick={() => { setPinModal({ staffId: member.id, staffName: member.name }); setPinValue(""); setPinMessage(null); }}
+                              className="text-xs text-muted hover:text-foreground transition-colors"
+                            >
+                              Reset
+                            </button>
+                          )}
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => { setPinModal({ staffId: member.id, staffName: member.name }); setPinValue(""); setPinMessage(null); }}
+                          className="rounded px-2 py-1 text-xs font-medium bg-accent/20 text-accent hover:bg-accent/30 transition-colors"
+                        >
+                          Set PIN
+                        </button>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-muted">
                       {new Date(member.created_at).toLocaleDateString()}
                     </td>
@@ -225,6 +280,61 @@ export default function StaffPage() {
               })}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* PIN Modal */}
+      {pinModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-overlay-bg"
+          onClick={() => setPinModal(null)}
+        >
+          <div
+            className="w-full max-w-sm rounded-xl border border-card-border bg-card p-6 shadow-2xl mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-foreground">
+                {pinModal.staffName}&apos;s PIN
+              </h2>
+              <button onClick={() => setPinModal(null)} className="text-muted hover:text-foreground text-lg" style={{ minHeight: "auto" }}>&times;</button>
+            </div>
+            <p className="text-sm text-muted mb-4">
+              Set a 4-8 digit PIN for mobile clock-in and register access.
+            </p>
+            <input
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              maxLength={8}
+              value={pinValue}
+              onChange={(e) => { setPinValue(e.target.value.replace(/\D/g, "")); setPinMessage(null); }}
+              onKeyDown={(e) => { e.stopPropagation(); if (e.key === "Enter" && pinValue.length >= 4) handleSetPin(); }}
+              placeholder="Enter 4-8 digit PIN"
+              autoFocus
+              className="w-full rounded-xl border border-input-border bg-input-bg px-4 py-3 text-center text-2xl font-mono tracking-[0.3em] text-foreground placeholder:text-muted placeholder:tracking-normal placeholder:text-base focus:border-accent focus:outline-none"
+            />
+            {pinMessage && (
+              <p className={`mt-2 text-sm text-center ${pinMessage === "PIN set!" ? "text-green-400" : "text-red-400"}`}>
+                {pinMessage}
+              </p>
+            )}
+            <div className="flex gap-3 mt-4">
+              <button
+                onClick={() => setPinModal(null)}
+                className="flex-1 rounded-xl border border-card-border py-2.5 text-sm text-muted hover:text-foreground hover:bg-card-hover transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSetPin}
+                disabled={pinSaving || pinValue.length < 4}
+                className="flex-1 rounded-xl bg-accent py-2.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-40 transition-colors"
+              >
+                {pinSaving ? "Setting..." : "Set PIN"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

@@ -28,6 +28,7 @@ export async function GET() {
         avatar_url: s.user.avatarUrl,
         role: s.role,
         active: s.active,
+        has_pin: !!s.pin_hash,
         created_at: s.created_at,
       }))
     );
