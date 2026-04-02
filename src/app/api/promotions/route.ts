@@ -29,6 +29,7 @@ export async function GET(request: NextRequest) {
     const promotions = await db.posPromotion.findMany({
       where,
       orderBy: [{ priority: "desc" }, { created_at: "desc" }],
+      take: 200,
     });
 
     // Filter expired if active_only

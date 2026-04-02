@@ -13,6 +13,7 @@ import { StatusBadge } from "@/components/mobile-card";
 import { PageHeader } from "@/components/page-header";
 import { BarcodeScanner } from "@/components/barcode-scanner";
 import { BarcodeLearnModal } from "@/components/barcode-learn-modal";
+import { useScanner } from "@/hooks/use-scanner";
 
 const CATEGORIES: { value: ItemCategory; label: string }[] = [
   { value: "tcg_single", label: "TCG Single" },
@@ -102,6 +103,12 @@ export default function InventoryPage() {
   const [showScanner, setShowScanner] = useState(false);
   const [learnBarcode, setLearnBarcode] = useState<string | null>(null);
   const [scanMessage, setScanMessage] = useState<string | null>(null);
+
+  // USB/Bluetooth barcode scanner support (same as register)
+  useScanner({
+    onScan: (code) => handleInventoryScan(code),
+    enabled: !showScanner && !learnBarcode && !showAddForm,
+  });
 
   // Initial load
   useEffect(() => {
@@ -334,6 +341,7 @@ export default function InventoryPage() {
 
   async function handleInventoryScan(code: string) {
     setShowScanner(false);
+    setScanMessage(null);
 
     // Check if item already exists
     try {
@@ -342,16 +350,16 @@ export default function InventoryPage() {
         const data: InventoryItem[] = await res.json();
         const match = data.find((d) => d.barcode === code);
         if (match) {
-          // Highlight existing item
+          // Highlight existing item and filter to it
           setSearchQuery(code);
-          setScanMessage(`Found: ${match.name} (qty: ${match.quantity})`);
-          setTimeout(() => setScanMessage(null), 4000);
+          setScanMessage(`\u2713 ${match.name} — ${match.quantity} in stock`);
+          setTimeout(() => setScanMessage(null), 5000);
           return;
         }
       }
     } catch {}
 
-    // Not found — open learn modal
+    // Not found — open learn modal for UPC lookup + auto-fill
     setLearnBarcode(code);
   }
 
@@ -385,8 +393,9 @@ export default function InventoryPage() {
             </a>
             <button
               onClick={() => setShowScanner(true)}
-              className="rounded-xl border border-card-border px-4 py-2 text-sm font-medium text-muted hover:bg-card-hover transition-colors"
+              className="flex items-center gap-2 rounded-xl border border-card-border px-4 py-2 text-sm font-medium text-muted hover:bg-card-hover transition-colors"
             >
+              <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" title="Scanner listening" />
               Scan to Add
             </button>
             <button
