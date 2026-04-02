@@ -317,49 +317,46 @@ export async function generateInsights(
 
   // ---- LIQUIDITY RUNWAY ----
   if (monthlyFixedCosts > 0) {
-    // Runway = how many days can you cover fixed costs with daily net cash
-    const runwayDays = dailyNetCash > 0
-      ? Math.round(dailyNetCash > dailyFixedCosts * 100 ? 999 : 90) // healthy
-      : dailyFixedCosts > 0
-        ? Math.max(0, Math.round(Math.abs(dailyRevenue - dailyPayouts) / (dailyFixedCosts * 100) * 30))
-        : 999;
-
-    // Simpler: estimate based on revenue vs obligations
-    const monthlyRevenue = revenue30d; // already in cents
-    const monthlyObligations = monthlyFixedCosts * 100 + payouts30d; // in cents
+    const monthlyRevenue = revenue30d;
+    const monthlyObligations = monthlyFixedCosts * 100 + payouts30d;
     const monthlyNetCash = monthlyRevenue - monthlyObligations;
-    const actualRunwayDays = monthlyNetCash > 0
-      ? 90 // you're cash-positive, no urgency
-      : monthlyFixedCosts > 0
-        ? Math.max(0, Math.round((monthlyRevenue / (monthlyFixedCosts * 100)) * 30))
-        : 90;
 
-    if (actualRunwayDays <= 30) {
+    // If store has entered their current cash balance, calculate real runway
+    const cashBalanceCents = (settings.current_cash_balance_cents as number) || 0;
+
+    if (monthlyNetCash <= 0) {
+      // Losing money — calculate how long cash lasts
+      const dailyBurnRate = Math.abs(monthlyNetCash) / 30;
+      const runwayDays = cashBalanceCents > 0 && dailyBurnRate > 0
+        ? Math.max(0, Math.round(cashBalanceCents / dailyBurnRate))
+        : Math.max(0, Math.round((monthlyRevenue / (monthlyFixedCosts * 100)) * 30));
+
       insights.push({
         id: "liquidity-runway",
         type: "warning",
-        priority: actualRunwayDays <= 14 ? "high" : "medium",
+        priority: runwayDays <= 14 ? "high" : "medium",
         icon: "\u{1F6A8}",
-        title: `Cash Runway: ~${actualRunwayDays} days`,
-        message: actualRunwayDays <= 7
+        title: `Cash Runway: ~${runwayDays} days`,
+        message: runwayDays <= 7
           ? `At your current pace, you'll have trouble covering rent and payroll within a week. Time to run a sale on slow movers, push events harder, or hold off on new orders.`
-          : actualRunwayDays <= 14
+          : runwayDays <= 14
             ? `Your cash is getting tight. Revenue isn't covering your fixed costs at this pace. Consider a flash sale on bench warmers, or shift buylists to store credit to conserve cash.`
             : `You've got about a month of runway. Not an emergency, but keep an eye on it. Focus on turning inventory faster and filling your event calendar.`,
-        metric: `${actualRunwayDays}d`,
+        metric: `${runwayDays}d`,
         action: { label: "View Cash Flow", href: "/dashboard/cash-flow" },
         category: "cash_flow",
       });
     } else {
-      // Healthy — show as a celebration
+      // Profitable — show actual margin, not a fake "90 days"
+      const marginPercent = Math.round((monthlyNetCash / monthlyRevenue) * 100);
       insights.push({
         id: "liquidity-runway",
         type: "celebration",
         priority: "low",
         icon: "\u{1F4AA}",
-        title: "Cash runway looks healthy",
-        message: `Your revenue is covering your fixed costs with room to spare. Monthly nut: $${monthlyFixedCosts.toLocaleString()}, monthly revenue: ${formatCents(monthlyRevenue)}. Keep it up.`,
-        metric: "90d+",
+        title: "Cash flow is positive",
+        message: `Revenue (${formatCents(monthlyRevenue)}) covers your monthly nut ($${monthlyFixedCosts.toLocaleString()}) with ${formatCents(monthlyNetCash)} to spare. That's a ${marginPercent}% operating margin after fixed costs.`,
+        metric: `+${formatCents(monthlyNetCash)}`,
         action: { label: "View Cash Flow", href: "/dashboard/cash-flow" },
         category: "cash_flow",
       });
@@ -1158,11 +1155,18 @@ export async function getStoreSnapshot(
 
   const monthlyObligations = monthlyFixed * 100 + payouts30d;
   const monthlyNetCash = revenue30d - monthlyObligations;
-  const cashRunwayDays = monthlyNetCash > 0
-    ? 90
-    : monthlyFixed > 0
-      ? Math.max(0, Math.round((revenue30d / (monthlyFixed * 100)) * 30))
-      : 90;
+  const cashBalanceCents = (settings.current_cash_balance_cents as number) || 0;
+  let cashRunwayDays: number;
+  if (monthlyNetCash > 0) {
+    cashRunwayDays = 999; // Profitable — not burning cash
+  } else if (monthlyFixed > 0) {
+    const dailyBurnRate = Math.abs(monthlyNetCash) / 30;
+    cashRunwayDays = cashBalanceCents > 0 && dailyBurnRate > 0
+      ? Math.max(0, Math.round(cashBalanceCents / dailyBurnRate))
+      : Math.max(0, Math.round((revenue30d / (monthlyFixed * 100)) * 30));
+  } else {
+    cashRunwayDays = 999;
+  }
 
   const totalInvCost = inventory.reduce((s, i) => s + i.cost_cents * i.quantity, 0);
 

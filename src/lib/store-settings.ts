@@ -330,6 +330,7 @@ export const SETTINGS_SECTIONS = [
       { key: "intel_monthly_insurance", label: "Insurance ($)", type: "number" as const, min: 0, max: 50000 },
       { key: "intel_monthly_payroll", label: "Payroll ($)", type: "number" as const, min: 0, max: 500000 },
       { key: "intel_monthly_other_fixed", label: "Other Fixed Costs ($)", type: "number" as const, min: 0, max: 100000, tooltip: "Subscriptions, loan payments, POS fees, etc." },
+      { key: "current_cash_balance_cents", label: "Current Cash on Hand (cents)", type: "number" as const, min: 0, max: 100000000, tooltip: "Your current cash balance in cents (e.g. 500000 = $5,000). Used to calculate real cash runway. Update weekly for best results." },
     ],
   },
   {

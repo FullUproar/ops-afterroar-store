@@ -86,8 +86,18 @@ interface LastReceipt {
   changeCents: number;
 }
 
-/** Generate a receipt number: R-YYYYMMDD-NNN (sequential per day) */
-function generateReceiptNumber(): string {
+/** Generate a receipt number from server (atomic counter) with localStorage fallback */
+async function generateReceiptNumber(): Promise<string> {
+  try {
+    const res = await fetch("/api/receipts/number", { method: "POST" });
+    if (res.ok) {
+      const data = await res.json();
+      return data.receipt_number;
+    }
+  } catch {
+    // Fall through to localStorage fallback
+  }
+  // Fallback for offline
   const now = new Date();
   const dateStr = now.getFullYear().toString() +
     String(now.getMonth() + 1).padStart(2, "0") +
@@ -889,10 +899,10 @@ export default function RegisterPage() {
     } finally { setProcessing(false); }
   }
 
-  function saleComplete(method: PaymentMethod, receiptToken: string | null = null) {
+  async function saleComplete(method: PaymentMethod, receiptToken: string | null = null) {
     const cashChange = method === "cash" ? Math.max(0, tendered - total) : 0;
     const receiptCustomer = customer;
-    const receiptNumber = generateReceiptNumber();
+    const receiptNumber = await generateReceiptNumber();
     setLastReceipt({ items: [...cart], discounts: [...discounts], subtotalCents: subtotal, discountCents, taxCents, totalCents: total, paymentMethod: method, customerName: receiptCustomer?.name ?? null, timestamp: new Date().toISOString(), receiptNumber, receiptToken, cardBrand: lastCardBrand, cardLast4: lastCardLast4, tenderedCents: method === "cash" ? tendered : total, changeCents: cashChange });
     (document.activeElement as HTMLElement)?.blur();
     setCart([]); setDiscounts([]); setShowPaySheet(false); setShowCashInput(false); setShowCreditConfirm(false); setShowGiftCardPayment(false); setGiftCardPayCode(""); setGiftCardPayError(null); setTenderedInput(""); setPaymentMethod("cash"); setActivePanel(null); setHasZeroStockOverride(false); setLastCardBrand(null); setLastCardLast4(null);
