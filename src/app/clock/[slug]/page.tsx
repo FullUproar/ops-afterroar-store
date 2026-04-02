@@ -52,6 +52,8 @@ export default function MobileTimeclockPage() {
   const [lastAction, setLastAction] = useState<string | null>(null);
   const [processing, setProcessing] = useState(false);
   const [locationStatus, setLocationStatus] = useState<ClockLocation>("no_gps");
+  const [showAdjust, setShowAdjust] = useState(false);
+  const [adjustTime, setAdjustTime] = useState("");
 
   // Time display
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -133,6 +135,7 @@ export default function MobileTimeclockPage() {
           staff_id: selectedStaff.id,
           pin,
           action,
+          ...(action === "clock_out" && adjustTime ? { adjusted_time: new Date(adjustTime).toISOString() } : {}),
           lat: userLat,
           lng: userLng,
         }),
@@ -156,7 +159,10 @@ export default function MobileTimeclockPage() {
       } else {
         setClockInTime(null);
         const hours = Number(data.entry.hours_worked);
-        setLastAction(`Clocked out — ${hours.toFixed(1)} hours`);
+        const adjusted = data.adjusted ? " (adjusted)" : "";
+        setLastAction(`Clocked out — ${hours.toFixed(1)} hours${adjusted}`);
+        setShowAdjust(false);
+        setAdjustTime("");
       }
     } catch {
       setAuthError("Connection error. Try again.");
@@ -322,13 +328,50 @@ export default function MobileTimeclockPage() {
               {processing ? "..." : "CLOCK IN"}
             </button>
           ) : (
-            <button
-              onClick={() => handlePunch("clock_out")}
-              disabled={processing}
-              className="w-full rounded-2xl bg-red-600 py-5 text-xl font-bold text-white shadow-lg shadow-red-600/20 active:bg-red-700 disabled:opacity-40 transition-all"
-            >
-              {processing ? "..." : "CLOCK OUT"}
-            </button>
+            <>
+              <button
+                onClick={() => { setShowAdjust(false); setAdjustTime(""); handlePunch("clock_out"); }}
+                disabled={processing}
+                className="w-full rounded-2xl bg-red-600 py-5 text-xl font-bold text-white shadow-lg shadow-red-600/20 active:bg-red-700 disabled:opacity-40 transition-all"
+              >
+                {processing ? "..." : "CLOCK OUT"}
+              </button>
+              {!showAdjust ? (
+                <button
+                  onClick={() => setShowAdjust(true)}
+                  className="w-full text-center text-xs text-zinc-500 hover:text-zinc-300 transition-colors py-1"
+                >
+                  I forgot to clock out earlier
+                </button>
+              ) : (
+                <div className="rounded-xl border border-zinc-700 bg-zinc-900 p-3 space-y-2">
+                  <p className="text-xs text-zinc-400">When did you actually leave?</p>
+                  <input
+                    type="datetime-local"
+                    value={adjustTime}
+                    onChange={(e) => setAdjustTime(e.target.value)}
+                    max={new Date().toISOString().slice(0, 16)}
+                    className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-sm text-zinc-200 focus:border-amber-500 focus:outline-none"
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handlePunch("clock_out")}
+                      disabled={processing || !adjustTime}
+                      className="flex-1 rounded-lg bg-amber-600 py-2.5 text-sm font-semibold text-white disabled:opacity-40 active:bg-amber-700 transition-colors"
+                    >
+                      {processing ? "..." : "Clock Out at This Time"}
+                    </button>
+                    <button
+                      onClick={() => { setShowAdjust(false); setAdjustTime(""); }}
+                      className="rounded-lg border border-zinc-700 px-3 py-2.5 text-sm text-zinc-400 active:bg-zinc-800 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-zinc-600">This will be logged as an adjusted clock-out.</p>
+                </div>
+              )}
+            </>
           )}
 
           {/* Switch user */}

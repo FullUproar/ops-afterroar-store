@@ -59,6 +59,7 @@ export async function POST(request: NextRequest) {
     staff_id: string;
     pin: string;
     action: "clock_in" | "clock_out";
+    adjusted_time?: string | null; // ISO string, clock_out only, must be before now
     lat?: number | null;
     lng?: number | null;
   };
@@ -68,7 +69,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const { store_slug, staff_id, pin, action, lat, lng } = body;
+  const { store_slug, staff_id, pin, action, adjusted_time, lat, lng } = body;
 
   if (!store_slug || !staff_id || !pin || !action) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
@@ -155,7 +156,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Not clocked in" }, { status: 400 });
     }
 
-    const clockOut = new Date();
+    const now = new Date();
+    let clockOut = now;
+
+    // Allow adjusted clock-out time (must be after clock-in and before now)
+    if (adjusted_time) {
+      const adj = new Date(adjusted_time);
+      if (isNaN(adj.getTime())) {
+        return NextResponse.json({ error: "Invalid adjusted time" }, { status: 400 });
+      }
+      if (adj > now) {
+        return NextResponse.json({ error: "Adjusted time can't be in the future" }, { status: 400 });
+      }
+      if (adj <= new Date(openEntry.clock_in)) {
+        return NextResponse.json({ error: "Adjusted time must be after clock-in" }, { status: 400 });
+      }
+      clockOut = adj;
+    }
+
     const hoursWorked = (clockOut.getTime() - new Date(openEntry.clock_in).getTime()) / 3600000;
 
     const entry = await db.posTimeEntry.update({
@@ -163,12 +181,14 @@ export async function POST(request: NextRequest) {
       data: {
         clock_out: clockOut,
         hours_worked: Math.round(hoursWorked * 100) / 100,
+        notes: adjusted_time ? `Adjusted clock-out (original: ${now.toISOString()})` : openEntry.notes,
       },
     });
 
     return NextResponse.json({
       clocked_in: false,
       staff_name: staff.name,
+      adjusted: !!adjusted_time,
       entry: {
         id: entry.id,
         clock_in: entry.clock_in,
