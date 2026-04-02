@@ -33,6 +33,7 @@ interface CheckoutBody {
   loyalty_discount_cents?: number;
   training?: boolean;
   allow_negative_stock?: boolean;
+  stripe_payment_intent_id?: string; // Terminal already collected — skip processPayment
 }
 
 export async function POST(request: NextRequest) {
@@ -231,19 +232,37 @@ export async function POST(request: NextRequest) {
     // 4. Process payment
     const cashPortion = subtotal_cents - effectiveCreditApplied;
 
-    // Get store's Stripe connected account (if any) for card payments
-    const storeSettings = (staffWithStore?.store?.settings ?? {}) as Record<string, unknown>;
-    const stripeConnectedAccountId = storeSettings.stripe_connected_account_id as string | undefined;
+    // If a stripe_payment_intent_id was provided, the terminal already collected
+    // the payment — skip processPayment and use the existing PI as the reference.
+    const terminalPiId = body.stripe_payment_intent_id as string | undefined;
 
-    const paymentResult = await processPayment(
-      payment_method === "store_credit" ? "store_credit" : payment_method,
-      cashPortion,
-      {
-        customer_credit_balance_cents: effectiveCreditApplied > 0 ? effectiveCreditApplied : undefined,
-        stripe_connected_account_id: stripeConnectedAccountId,
-        metadata: { afterroar_store_id: storeId },
-      }
-    );
+    let paymentResult: Awaited<ReturnType<typeof processPayment>>;
+
+    if (terminalPiId && payment_method === "card") {
+      // Terminal already charged — just record the transaction
+      paymentResult = {
+        success: true,
+        transaction_id: terminalPiId,
+        method: "card",
+        provider: "stripe_terminal",
+        stripe_payment_intent_id: terminalPiId,
+        live: true,
+      };
+    } else {
+      // Normal payment flow
+      const storeSettings = (staffWithStore?.store?.settings ?? {}) as Record<string, unknown>;
+      const stripeConnectedAccountId = storeSettings.stripe_connected_account_id as string | undefined;
+
+      paymentResult = await processPayment(
+        payment_method === "store_credit" ? "store_credit" : payment_method,
+        cashPortion,
+        {
+          customer_credit_balance_cents: effectiveCreditApplied > 0 ? effectiveCreditApplied : undefined,
+          stripe_connected_account_id: stripeConnectedAccountId,
+          metadata: { afterroar_store_id: storeId },
+        }
+      );
+    }
 
     if (!paymentResult.success) {
       return NextResponse.json(
