@@ -269,6 +269,46 @@ export default function CustomerDetailPage() {
                   </span>
                 )}
               </div>
+
+              {/* LTV + Format Tags + Tags */}
+              {(() => {
+                const sales = (customer.ledger_entries || []).filter((e: LedgerEntry) => e.type === "sale");
+                const lifetimeSpend = sales.reduce((s: number, e: LedgerEntry) => s + e.amount_cents, 0);
+                const ninetyDaysAgo = new Date(Date.now() - 90 * 86400000);
+                const last90d = sales.filter((e: LedgerEntry) => new Date(e.created_at) >= ninetyDaysAgo);
+                const last90dSpend = last90d.reduce((s: number, e: LedgerEntry) => s + e.amount_cents, 0);
+                const annualLTV = Math.round(last90dSpend * (365 / 90));
+                const formats = (customer as unknown as Record<string, unknown>).formats as string[] | undefined;
+                const tags = (customer as unknown as Record<string, unknown>).tags as string[] | undefined;
+
+                return (
+                  <div className="mt-3 space-y-2">
+                    <div className="flex gap-4 text-xs text-muted">
+                      <span>Lifetime: <strong className="text-foreground">{formatCents(lifetimeSpend)}</strong></span>
+                      <span>Last 90d: <strong className="text-foreground">{formatCents(last90dSpend)}</strong></span>
+                      <span>Projected LTV: <strong className="text-accent">{formatCents(annualLTV)}/yr</strong></span>
+                    </div>
+                    {formats && formats.length > 0 && (
+                      <div className="flex gap-1 flex-wrap">
+                        {formats.map((f: string) => (
+                          <span key={f} className="px-2 py-0.5 rounded-full bg-blue-900/30 text-blue-400 text-[10px] font-medium border border-blue-500/20">
+                            {f}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    {tags && tags.length > 0 && (
+                      <div className="flex gap-1 flex-wrap">
+                        {tags.map((t: string) => (
+                          <span key={t} className="px-2 py-0.5 rounded-full bg-amber-900/30 text-amber-400 text-[10px] font-medium border border-amber-500/20">
+                            {t}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
             <div className="flex gap-2">
               <button

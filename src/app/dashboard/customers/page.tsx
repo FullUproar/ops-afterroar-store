@@ -172,12 +172,21 @@ export default function CustomersPage() {
       <PageHeader
         title="Customers"
         action={
-          <button
-            onClick={() => setShowForm(!showForm)}
-            className="px-4 py-2 bg-accent hover:opacity-90 text-white rounded-lg text-sm font-medium transition-colors"
-          >
-            {showForm ? 'Cancel' : 'Add Customer'}
-          </button>
+          <div className="flex gap-2">
+            <a
+              href={`/api/customers/export${segmentFilter !== 'all' ? `?segment=${segmentFilter}` : ''}`}
+              download
+              className="px-3 py-2 border border-card-border bg-card hover:bg-card-hover text-muted rounded-lg text-sm font-medium transition-colors"
+            >
+              Export CSV
+            </a>
+            <button
+              onClick={() => setShowForm(!showForm)}
+              className="px-4 py-2 bg-accent hover:opacity-90 text-white rounded-lg text-sm font-medium transition-colors"
+            >
+              {showForm ? 'Cancel' : 'Add Customer'}
+            </button>
+          </div>
         }
       />
 
