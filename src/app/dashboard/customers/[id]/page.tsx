@@ -535,7 +535,9 @@ export default function CustomerDetailPage() {
                 <tr className="border-b border-card-border text-muted text-left">
                   <th className="px-4 py-3 font-medium">Date</th>
                   <th className="px-4 py-3 font-medium">Items</th>
-                  <th className="px-4 py-3 font-medium text-right">Credit Issued</th>
+                  <th className="px-4 py-3 font-medium">Payout</th>
+                  <th className="px-4 py-3 font-medium text-right">Offer</th>
+                  <th className="px-4 py-3 font-medium text-right">Total</th>
                 </tr>
               </thead>
               <tbody>
@@ -544,9 +546,36 @@ export default function CustomerDetailPage() {
                     <td className="px-4 py-3 text-foreground/70">
                       {new Date(ti.created_at).toLocaleDateString()}
                     </td>
-                    <td className="px-4 py-3 text-foreground/70">{ti.item_count ?? '-'}</td>
-                    <td className="px-4 py-3 text-right text-green-400 font-medium">
-                      {formatCents(ti.credit_amount_cents ?? 0)}
+                    <td className="px-4 py-3">
+                      {ti.items?.length > 0 ? (
+                        <div className="space-y-0.5">
+                          {ti.items.slice(0, 3).map((item: any, idx: number) => (
+                            <div key={idx} className="text-xs text-foreground/70 truncate max-w-[200px]">
+                              {item.name}{item.quantity > 1 ? ` x${item.quantity}` : ""}
+                            </div>
+                          ))}
+                          {ti.items.length > 3 && (
+                            <div className="text-xs text-muted">+{ti.items.length - 3} more</div>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-muted">-</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`text-xs rounded-full px-2 py-0.5 ${
+                        ti.payout_type === "credit"
+                          ? "bg-blue-900/30 text-blue-400"
+                          : "bg-green-900/30 text-green-400"
+                      }`}>
+                        {ti.payout_type || "cash"}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-right text-foreground/70 tabular-nums">
+                      {formatCents(ti.total_offer_cents || 0)}
+                    </td>
+                    <td className="px-4 py-3 text-right font-medium tabular-nums text-accent">
+                      {formatCents(ti.total_payout_cents || 0)}
                     </td>
                   </tr>
                 ))}

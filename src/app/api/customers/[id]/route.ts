@@ -28,6 +28,9 @@ export async function GET(
         where: { customer_id: id },
         orderBy: { created_at: "desc" },
         take: 50,
+        include: {
+          items: { select: { name: true, offer_price_cents: true, market_price_cents: true, quantity: true } },
+        },
       }),
       db.posLoyaltyEntry.findMany({
         where: { customer_id: id },

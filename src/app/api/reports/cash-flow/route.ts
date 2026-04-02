@@ -120,6 +120,7 @@ export async function GET() {
             select: {
               inventory_item_id: true,
               name: true,
+              category: true,
               quantity: true,
               offer_price_cents: true,
             },
@@ -511,6 +512,23 @@ export async function GET() {
       }
     }
 
+    // Per-category trade-in ROI
+    const tradeInByCategory = new Map<string, { cost: number; revenue: number; items: number }>();
+    for (const ti of tradeInsAllTime) {
+      for (const item of ti.items) {
+        const cat = item.category || "other";
+        const existing = tradeInByCategory.get(cat) || { cost: 0, revenue: 0, items: 0 };
+        existing.cost += item.offer_price_cents * item.quantity;
+        existing.items += item.quantity;
+        if (item.inventory_item_id) {
+          const salesCount = itemSalesCount.get(item.inventory_item_id) || 0;
+          const inv = itemMap.get(item.inventory_item_id);
+          if (inv) existing.revenue += salesCount * inv.price_cents;
+        }
+        tradeInByCategory.set(cat, existing);
+      }
+    }
+
     const tradeInROI = {
       total_cost_cents: tradeInTotalCost,
       total_items_received: tradeInTotalItems,
@@ -519,6 +537,13 @@ export async function GET() {
       roi_percent: tradeInTotalCost > 0
         ? Math.round(((tradeInRevenue - tradeInTotalCost) / tradeInTotalCost) * 100)
         : 0,
+      by_category: [...tradeInByCategory.entries()].map(([cat, data]) => ({
+        category: cat,
+        cost_cents: data.cost,
+        revenue_cents: data.revenue,
+        items: data.items,
+        roi_percent: data.cost > 0 ? Math.round(((data.revenue - data.cost) / data.cost) * 100) : 0,
+      })).sort((a, b) => b.revenue_cents - a.revenue_cents),
     };
 
     // ---- Trade-In Summary This Month ----

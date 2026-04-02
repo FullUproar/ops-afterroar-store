@@ -7,6 +7,7 @@ import { useStoreSettings } from '@/lib/store-settings';
 import { BarcodeScanner } from '@/components/barcode-scanner';
 import { PageHeader } from '@/components/page-header';
 import { HelpTooltip } from '@/components/help-tooltip';
+import { calculateOffer, type Condition, DEFAULT_CONDITION_MULTIPLIERS } from '@/lib/tcg-pricing';
 
 /* ---------- types ---------- */
 
@@ -100,6 +101,13 @@ export default function NewTradeInPage() {
   /* ---- helpers ---- */
 
   function addItemFromSearch(inv: InventoryResult) {
+    const defaultCondition: Condition = "LP";
+    const isTCG = inv.category === "tcg_single";
+    // Use TCG pricing engine for singles, 50% for everything else
+    const offerCents = isTCG
+      ? calculateOffer({ marketPriceCents: inv.price_cents, condition: defaultCondition, isFoil: false })
+      : Math.round(inv.price_cents * 0.5);
+
     setItems((prev) => [
       ...prev,
       {
@@ -107,8 +115,8 @@ export default function NewTradeInPage() {
         name: inv.name,
         category: inv.category,
         market_price_cents: inv.price_cents,
-        offer_price_cents: Math.round(inv.price_cents * 0.5),
-        condition: 'LP',
+        offer_price_cents: offerCents,
+        condition: defaultCondition,
         quantity: 1,
         inventory_item_id: inv.id,
       },
@@ -139,7 +147,19 @@ export default function NewTradeInPage() {
   }
 
   function updateItem(key: number, patch: Partial<TradeItem>) {
-    setItems((prev) => prev.map((i) => (i.key === key ? { ...i, ...patch } : i)));
+    setItems((prev) => prev.map((i) => {
+      if (i.key !== key) return i;
+      const updated = { ...i, ...patch };
+      // Auto-recalculate offer when condition changes for TCG singles
+      if (patch.condition && i.category === "tcg_single" && i.market_price_cents > 0) {
+        updated.offer_price_cents = calculateOffer({
+          marketPriceCents: i.market_price_cents,
+          condition: patch.condition as Condition,
+          isFoil: false,
+        });
+      }
+      return updated;
+    }));
   }
 
   function removeItem(key: number) {
