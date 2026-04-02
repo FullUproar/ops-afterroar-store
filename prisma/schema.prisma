@@ -60,6 +60,7 @@ model PosStore {
   operational_logs PosOperationalLog[]
   mobile_sessions      PosMobileSession[]
   access_code_attempts PosAccessCodeAttempt[]
+  customer_notes       PosCustomerNote[]
 
   @@map("pos_stores")
 }
@@ -308,9 +309,26 @@ model PosCustomer {
   game_checkouts     PosGameCheckout[]
   tournament_players PosTournamentPlayer[]
   orders             PosOrder[]
+  tags               String[]             @default([])
+  customer_notes     PosCustomerNote[]
 
   @@index([store_id])
   @@map("pos_customers")
+}
+
+model PosCustomerNote {
+  id          String   @id @default(cuid())
+  store_id    String
+  customer_id String
+  staff_name  String?
+  content     String
+  created_at  DateTime @default(now()) @db.Timestamptz()
+
+  store    PosStore    @relation(fields: [store_id], references: [id], onDelete: Cascade)
+  customer PosCustomer @relation(fields: [customer_id], references: [id], onDelete: Cascade)
+
+  @@index([customer_id, created_at(sort: Desc)])
+  @@map("pos_customer_notes")
 }
 
 // ============================================================

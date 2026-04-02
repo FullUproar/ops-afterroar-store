@@ -18,7 +18,7 @@ export async function GET(
       return NextResponse.json({ error: "Customer not found" }, { status: 404 });
     }
 
-    const [ledger_entries, trade_ins, loyalty_entries] = await Promise.all([
+    const [ledger_entries, trade_ins, loyalty_entries, event_checkins, customer_notes] = await Promise.all([
       db.posLedgerEntry.findMany({
         where: { customer_id: id },
         orderBy: { created_at: "desc" },
@@ -37,13 +37,43 @@ export async function GET(
         orderBy: { created_at: "desc" },
         take: 50,
       }),
+      // Event attendance history
+      db.posEventCheckin.findMany({
+        where: { customer_id: id },
+        orderBy: { checked_in_at: "desc" },
+        take: 50,
+        include: {
+          event: { select: { name: true, event_type: true, starts_at: true } },
+        },
+      }),
+      // Customer notes
+      db.posCustomerNote.findMany({
+        where: { customer_id: id },
+        orderBy: { created_at: "desc" },
+        take: 50,
+      }),
     ]);
+
+    // Derive format tags from event types
+    const formatSet = new Set<string>();
+    for (const ci of event_checkins) {
+      if (ci.event?.event_type) formatSet.add(ci.event.event_type);
+    }
 
     return NextResponse.json({
       ...customer,
+      formats: [...formatSet],
       ledger_entries,
       trade_ins,
       loyalty_entries,
+      event_checkins: event_checkins.map((ci) => ({
+        id: ci.id,
+        event_name: ci.event?.name,
+        event_type: ci.event?.event_type,
+        checked_in_at: ci.checked_in_at,
+        fee_paid: ci.fee_paid,
+      })),
+      customer_notes,
     });
   } catch (error) {
     return handleAuthError(error);
@@ -65,6 +95,7 @@ export async function PATCH(
     if (body.email !== undefined) updates.email = body.email;
     if (body.phone !== undefined) updates.phone = body.phone;
     if (body.notes !== undefined) updates.notes = body.notes;
+    if (body.tags !== undefined) updates.tags = body.tags;
 
     if (Object.keys(updates).length === 0) {
       return NextResponse.json({ error: "No fields to update" }, { status: 400 });
@@ -161,6 +192,24 @@ export async function POST(
       });
 
       return NextResponse.json(updated);
+    }
+
+    if (body.action === "add_note") {
+      const { content } = body;
+      if (!content?.trim()) {
+        return NextResponse.json({ error: "Note content is required" }, { status: 400 });
+      }
+
+      const note = await prisma.posCustomerNote.create({
+        data: {
+          store_id: storeId,
+          customer_id: id,
+          staff_name: staff.name,
+          content: content.trim(),
+        },
+      });
+
+      return NextResponse.json(note, { status: 201 });
     }
 
     return NextResponse.json({ error: "Invalid action" }, { status: 400 });
