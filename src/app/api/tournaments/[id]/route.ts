@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requirePermission, handleAuthError } from "@/lib/require-staff";
+import {
+  generateSwissPairings,
+  calculateStandings,
+  recommendedRounds,
+  type SwissPlayer,
+} from "@/lib/swiss-pairing";
 
 export async function GET(
   _request: NextRequest,
@@ -354,6 +360,249 @@ export async function POST(
       });
 
       return NextResponse.json({ success: true });
+    }
+
+    // --- START SWISS ---
+    if (body.action === "start_swiss") {
+      if (tournament.status !== "registration") {
+        return NextResponse.json({ error: "Tournament already started" }, { status: 400 });
+      }
+
+      const activePlayers = tournament.players.filter((p) => !p.dropped);
+      if (activePlayers.length < 2) {
+        return NextResponse.json({ error: "Need at least 2 players" }, { status: 400 });
+      }
+
+      const totalRounds = body.rounds || recommendedRounds(activePlayers.length);
+
+      // Build Swiss player data
+      const swissPlayers: SwissPlayer[] = activePlayers.map((p) => ({
+        id: p.id,
+        name: p.player_name,
+        matchPoints: 0,
+        wins: 0,
+        losses: 0,
+        draws: 0,
+        dropped: false,
+        opponents: [],
+        hadBye: false,
+      }));
+
+      // Generate round 1 pairings
+      const pairings = generateSwissPairings(swissPlayers);
+
+      // Create matches
+      for (let i = 0; i < pairings.length; i++) {
+        const p = pairings[i];
+        const isBye = !p.player2_id;
+
+        await db.posTournamentMatch.create({
+          data: {
+            tournament_id: id,
+            round_number: 1,
+            match_number: i + 1,
+            player1_id: p.player1_id,
+            player2_id: p.player2_id,
+            winner_id: isBye ? p.player1_id : null,
+            status: isBye ? "completed" : "pending",
+            table_number: p.table_number,
+          },
+        });
+
+        // Award bye win
+        if (isBye) {
+          await db.posTournamentPlayer.update({
+            where: { id: p.player1_id },
+            data: { wins: { increment: 1 } },
+          });
+        }
+      }
+
+      await db.posTournament.update({
+        where: { id },
+        data: {
+          status: "active",
+          bracket_type: "swiss",
+          current_round: 1,
+          total_rounds: totalRounds,
+          updated_at: new Date(),
+        },
+      });
+
+      const result = await db.posTournament.findFirst({
+        where: { id },
+        include: { players: true, matches: { orderBy: [{ round_number: "asc" }, { match_number: "asc" }] } },
+      });
+      return NextResponse.json(result);
+    }
+
+    // --- NEXT SWISS ROUND ---
+    if (body.action === "next_round") {
+      if (tournament.bracket_type !== "swiss" || tournament.status !== "active") {
+        return NextResponse.json({ error: "Tournament is not an active Swiss tournament" }, { status: 400 });
+      }
+
+      const currentRound = tournament.current_round || 1;
+      const totalRounds = tournament.total_rounds || 3;
+
+      // Check all current round matches are complete
+      const pendingMatches = tournament.matches.filter(
+        (m) => m.round_number === currentRound && m.status !== "completed"
+      );
+      if (pendingMatches.length > 0) {
+        return NextResponse.json({
+          error: `${pendingMatches.length} match${pendingMatches.length > 1 ? "es" : ""} still pending in round ${currentRound}`,
+        }, { status: 400 });
+      }
+
+      // Check if tournament is complete
+      if (currentRound >= totalRounds) {
+        // Calculate final standings
+        const swissPlayers: SwissPlayer[] = tournament.players.map((p) => {
+          const opponents = tournament.matches
+            .filter((m) => m.player1_id === p.id || m.player2_id === p.id)
+            .map((m) => m.player1_id === p.id ? m.player2_id : m.player1_id)
+            .filter((id): id is string => !!id);
+
+          return {
+            id: p.id,
+            name: p.player_name,
+            matchPoints: (p.wins * 3) + p.draws,
+            wins: p.wins,
+            losses: p.losses,
+            draws: p.draws,
+            dropped: p.dropped,
+            opponents,
+            hadBye: tournament.matches.some(
+              (m) => (m.player1_id === p.id || m.player2_id === p.id) && (!m.player1_id || !m.player2_id)
+            ),
+          };
+        });
+
+        const standings = calculateStandings(swissPlayers);
+
+        // Update standings
+        for (const s of standings) {
+          await db.posTournamentPlayer.update({
+            where: { id: s.id },
+            data: { standing: s.standing },
+          });
+        }
+
+        await db.posTournament.update({
+          where: { id },
+          data: { status: "completed", updated_at: new Date() },
+        });
+
+        const result = await db.posTournament.findFirst({
+          where: { id },
+          include: { players: { orderBy: { standing: "asc" } }, matches: { orderBy: [{ round_number: "asc" }, { match_number: "asc" }] } },
+        });
+        return NextResponse.json({ ...result, standings: standings.map((s) => ({ id: s.id, name: s.name, standing: s.standing, matchPoints: s.matchPoints, omwPercent: s.omwPercent, wins: s.wins, losses: s.losses, draws: s.draws })) });
+      }
+
+      // Generate next round pairings
+      const nextRound = currentRound + 1;
+      const swissPlayers: SwissPlayer[] = tournament.players.map((p) => {
+        const opponents = tournament.matches
+          .filter((m) => (m.player1_id === p.id || m.player2_id === p.id) && m.status === "completed")
+          .map((m) => m.player1_id === p.id ? m.player2_id : m.player1_id)
+          .filter((id): id is string => !!id);
+
+        return {
+          id: p.id,
+          name: p.player_name,
+          matchPoints: (p.wins * 3) + p.draws,
+          wins: p.wins,
+          losses: p.losses,
+          draws: p.draws,
+          dropped: p.dropped,
+          opponents,
+          hadBye: tournament.matches.some(
+            (m) => (m.player1_id === p.id || m.player2_id === p.id) && (!m.player1_id || !m.player2_id)
+          ),
+        };
+      });
+
+      const pairings = generateSwissPairings(swissPlayers);
+
+      for (let i = 0; i < pairings.length; i++) {
+        const p = pairings[i];
+        const isBye = !p.player2_id;
+
+        await db.posTournamentMatch.create({
+          data: {
+            tournament_id: id,
+            round_number: nextRound,
+            match_number: i + 1,
+            player1_id: p.player1_id,
+            player2_id: p.player2_id,
+            winner_id: isBye ? p.player1_id : null,
+            status: isBye ? "completed" : "pending",
+            table_number: p.table_number,
+          },
+        });
+
+        if (isBye) {
+          await db.posTournamentPlayer.update({
+            where: { id: p.player1_id },
+            data: { wins: { increment: 1 } },
+          });
+        }
+      }
+
+      await db.posTournament.update({
+        where: { id },
+        data: { current_round: nextRound, updated_at: new Date() },
+      });
+
+      const result = await db.posTournament.findFirst({
+        where: { id },
+        include: { players: true, matches: { orderBy: [{ round_number: "asc" }, { match_number: "asc" }] } },
+      });
+      return NextResponse.json(result);
+    }
+
+    // --- PRIZE PAYOUT ---
+    if (body.action === "prize_payout") {
+      const { prizes } = body as { prizes: Array<{ player_id: string; credit_cents: number }> };
+      if (!prizes || !Array.isArray(prizes)) {
+        return NextResponse.json({ error: "prizes array required" }, { status: 400 });
+      }
+
+      const { storeId, staff } = await requirePermission("events.manage");
+
+      for (const prize of prizes) {
+        if (!prize.player_id || !prize.credit_cents || prize.credit_cents <= 0) continue;
+
+        const player = tournament.players.find((p) => p.id === prize.player_id);
+        if (!player?.customer_id) continue;
+
+        // Create ledger entry for prize payout
+        await db.posLedgerEntry.create({
+          data: {
+            store_id: storeId,
+            type: "credit_issue",
+            customer_id: player.customer_id,
+            staff_id: staff.id,
+            amount_cents: prize.credit_cents,
+            description: `Tournament prize: ${tournament.name} (${player.player_name})`,
+            metadata: JSON.parse(JSON.stringify({
+              tournament_id: id,
+              player_id: player.id,
+              standing: player.standing,
+            })),
+          },
+        });
+
+        // Update customer credit balance
+        await db.posCustomer.update({
+          where: { id: player.customer_id },
+          data: { credit_balance_cents: { increment: prize.credit_cents } },
+        });
+      }
+
+      return NextResponse.json({ success: true, prizes_awarded: prizes.length });
     }
 
     return NextResponse.json({ error: "Unknown action" }, { status: 400 });
