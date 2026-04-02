@@ -69,6 +69,12 @@ export interface StoreSettings {
   intel_seasonal_warnings: boolean;        // Enable seasonal Q4/January cliff warnings (default true)
   intel_advisor_enabled: boolean;          // Enable AI-powered store advisor (default true)
   intel_advisor_tone: string;              // "gamer" | "professional" | "casual" (default "gamer")
+
+  // Timeclock
+  timeclock_geofence_enabled: boolean;
+  timeclock_geofence_lat: number;
+  timeclock_geofence_lng: number;
+  timeclock_geofence_radius_meters: number;
 }
 
 /** Sensible defaults — a store works immediately with zero config */
@@ -134,6 +140,12 @@ export const SETTINGS_DEFAULTS: StoreSettings = {
   intel_seasonal_warnings: true,
   intel_advisor_enabled: true,
   intel_advisor_tone: "gamer",
+
+  // Timeclock
+  timeclock_geofence_enabled: false,
+  timeclock_geofence_lat: 0,
+  timeclock_geofence_lng: 0,
+  timeclock_geofence_radius_meters: 150,
 };
 
 /** Settings section metadata for the settings UI */
@@ -283,6 +295,17 @@ export const SETTINGS_SECTIONS = [
       { key: "intel_at_risk_days", label: "Flag at-risk customers after (days)", type: "number" as const, min: 7, max: 90, tooltip: "Regular customers who haven't visited in this many days get flagged. Lower = more proactive outreach." },
       { key: "intel_buylist_cash_comfort_days", label: "Cash comfort zone (days)", type: "number" as const, min: 7, max: 60, tooltip: "When your cash runway drops below this many days, buylist pricing automatically shifts toward store credit." },
       { key: "intel_credit_liability_warn_percent", label: "Credit liability warning threshold (%)", type: "number" as const, min: 10, max: 200, tooltip: "Alert when total outstanding store credit exceeds this percentage of your monthly revenue." },
+    ],
+  },
+  {
+    key: "timeclock",
+    label: "Time Clock",
+    description: "Employee clock-in settings and geofencing",
+    fields: [
+      { key: "timeclock_geofence_enabled", label: "Enable GPS geofencing", type: "toggle" as const, tooltip: "When enabled, clock-ins are tagged as 'at store' or 'remote' based on GPS. Never blocks clock-in — just tags it." },
+      { key: "timeclock_geofence_lat", label: "Store Latitude", type: "number" as const, min: -90, max: 90, step: 0.000001 },
+      { key: "timeclock_geofence_lng", label: "Store Longitude", type: "number" as const, min: -180, max: 180, step: 0.000001 },
+      { key: "timeclock_geofence_radius_meters", label: "Geofence Radius (meters)", type: "number" as const, min: 50, max: 5000, tooltip: "How close to the store GPS must be to count as 'at store'. Default 150m (~500ft)." },
     ],
   },
   {

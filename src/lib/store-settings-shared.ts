@@ -29,6 +29,11 @@ export interface StoreSettings {
   intel_seasonal_warnings: boolean;
   intel_advisor_enabled: boolean;
   intel_advisor_tone: string;
+  // Timeclock
+  timeclock_geofence_enabled: boolean;
+  timeclock_geofence_lat: number;
+  timeclock_geofence_lng: number;
+  timeclock_geofence_radius_meters: number;
   [key: string]: unknown;
 }
 
@@ -58,6 +63,11 @@ export const SETTINGS_DEFAULTS: StoreSettings = {
   intel_seasonal_warnings: true,
   intel_advisor_enabled: true,
   intel_advisor_tone: "gamer",
+  // Timeclock
+  timeclock_geofence_enabled: false,
+  timeclock_geofence_lat: 0,
+  timeclock_geofence_lng: 0,
+  timeclock_geofence_radius_meters: 150,
 };
 
 /** Server-safe: get typed settings from a store record */

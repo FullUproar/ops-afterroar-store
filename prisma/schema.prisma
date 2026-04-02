@@ -197,6 +197,8 @@ model PosStaff {
   role       String   @default("cashier")
   name       String
   active     Boolean  @default(true)
+  pin_hash   String?
+  badge_code String?
   created_at DateTime @default(now()) @db.Timestamptz()
 
   user           User             @relation(fields: [user_id], references: [id], onDelete: Cascade)
@@ -218,14 +220,17 @@ model PosStaff {
 // POS TIME CLOCK
 // ============================================================
 model PosTimeEntry {
-  id           String    @id @default(cuid())
-  store_id     String
-  staff_id     String
-  clock_in     DateTime  @db.Timestamptz()
-  clock_out    DateTime? @db.Timestamptz()
-  hours_worked Decimal?  @db.Decimal(5, 2)
-  notes        String?
-  created_at   DateTime  @default(now()) @db.Timestamptz()
+  id                String    @id @default(cuid())
+  store_id          String
+  staff_id          String
+  clock_in          DateTime  @db.Timestamptz()
+  clock_out         DateTime? @db.Timestamptz()
+  hours_worked      Decimal?  @db.Decimal(5, 2)
+  notes             String?
+  clock_in_lat      Float?
+  clock_in_lng      Float?
+  clock_in_location String?   // 'on_site' | 'remote' | 'no_gps'
+  created_at        DateTime  @default(now()) @db.Timestamptz()
 
   staff PosStaff @relation(fields: [staff_id], references: [id])
 

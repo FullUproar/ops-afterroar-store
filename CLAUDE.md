@@ -71,6 +71,10 @@ All Store Ops models are prefixed with `Pos`:
 - Feature Gating: `src/components/feature-gate.tsx` — store plans (free/base/pro/enterprise) + add-on modules (intelligence, events, tcg_engine, ecommerce, multi_location, cafe, advanced_reports, api_access)
 - Permission Categories: pos, inventory, customers, trade_returns, events, reports, admin — each with specific toggles
 - `requireFeature()` and `requirePermissionAndFeature()` in require-staff.ts for server-side gating
+- Mobile Timeclock: `/clock/[slug]` — PIN-based employee clock-in from phone, no session needed, PWA installable
+- Geofence: GPS tagging on clock-in (on_site/remote/no_gps), never blocks, just tags. Store configurable.
+- Staff PINs: `pos_staff.pin_hash` — 4-8 digit PIN, set by owner/manager via PATCH `/api/clock`
+- Clock API: GET/POST `/api/clock` — public (PIN auth), no session required
 
 ## Dual Mode Layout
 - **Dashboard Mode**: full sidebar, all features, data-heavy (owner/manager default)

@@ -1,0 +1,25 @@
+{
+  "name": "Afterroar Clock",
+  "short_name": "Clock In",
+  "description": "Employee time clock for Afterroar Store Ops",
+  "start_url": "/clock",
+  "scope": "/clock",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0a0a1a",
+  "theme_color": "#FF8200",
+  "icons": [
+    {
+      "src": "/logo-ring-favicon.png",
+      "sizes": "72x72",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/logo-ring.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

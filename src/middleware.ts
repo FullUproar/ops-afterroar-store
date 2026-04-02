@@ -16,9 +16,11 @@ export async function middleware(request: NextRequest) {
     path.startsWith("/api/ebay/") ||
     path.startsWith("/api/stripe/webhook") ||
     path.startsWith("/api/test-barcodes") ||
+    path.startsWith("/api/clock") ||
     path === "/brand" ||
     path.startsWith("/test-barcodes") ||
-    path.startsWith("/r/");
+    path.startsWith("/r/") ||
+    path.startsWith("/clock");
 
   // JWT check (no DB access needed — runs on Edge)
   // NextAuth v5 uses "authjs" cookie prefix, not "next-auth"
