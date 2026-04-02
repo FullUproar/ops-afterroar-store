@@ -81,6 +81,7 @@ export default function EventsPage() {
   const [repeatWeekly, setRepeatWeekly] = useState(false);
   const [repeatWeeks, setRepeatWeeks] = useState(4);
   const [saving, setSaving] = useState(false);
+  const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
 
   const settings = (store?.settings ?? {}) as Record<string, unknown>;
   const isConnected = Boolean(settings.venueId);
@@ -144,6 +145,10 @@ export default function EventsPage() {
           title="Events"
           action={
             <div className="flex gap-2">
+              <div className="flex rounded-lg border border-card-border overflow-hidden">
+                <button onClick={() => setViewMode("list")} className={`px-3 py-2 text-xs font-medium transition-colors ${viewMode === "list" ? "bg-card-hover text-foreground" : "text-muted hover:text-foreground"}`} style={{ minHeight: "auto" }}>List</button>
+                <button onClick={() => setViewMode("calendar")} className={`px-3 py-2 text-xs font-medium transition-colors ${viewMode === "calendar" ? "bg-card-hover text-foreground" : "text-muted hover:text-foreground"}`} style={{ minHeight: "auto" }}>Calendar</button>
+              </div>
               {isConnected && (
                 <button
                   onClick={() => { setShowForm(true); setCreateAsHQ(true); }}
@@ -311,6 +316,8 @@ export default function EventsPage() {
             Create Your First Event
           </button>
         </div>
+      ) : viewMode === "calendar" ? (
+        <EventCalendar events={events} expandedId={expandedId} onEventClick={(id) => setExpandedId(expandedId === id ? null : id)} />
       ) : (
         <>
           {/* Mobile card view */}
@@ -650,5 +657,99 @@ function EventRow({
         </tr>
       )}
     </>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Event Calendar — monthly grid view                                 */
+/* ------------------------------------------------------------------ */
+
+function EventCalendar({ events, expandedId, onEventClick }: { events: EventWithCount[]; expandedId: string | null; onEventClick: (id: string) => void }) {
+  const [currentMonth, setCurrentMonth] = useState(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  });
+
+  const year = currentMonth.getFullYear();
+  const month = currentMonth.getMonth();
+  const firstDay = new Date(year, month, 1).getDay(); // 0=Sun
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const monthName = currentMonth.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+
+  // Build calendar grid
+  const cells: Array<{ day: number | null; events: EventWithCount[] }> = [];
+  for (let i = 0; i < firstDay; i++) cells.push({ day: null, events: [] });
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dayEvents = events.filter((e) => {
+      const eDate = new Date(e.starts_at);
+      return eDate.getFullYear() === year && eDate.getMonth() === month && eDate.getDate() === d;
+    });
+    cells.push({ day: d, events: dayEvents });
+  }
+  // Pad to fill last row
+  while (cells.length % 7 !== 0) cells.push({ day: null, events: [] });
+
+  const today = new Date();
+  const isToday = (d: number) => d === today.getDate() && month === today.getMonth() && year === today.getFullYear();
+
+  return (
+    <div className="rounded-xl border border-card-border bg-card shadow-sm dark:shadow-none overflow-hidden">
+      {/* Month nav */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-card-border">
+        <button onClick={() => setCurrentMonth(new Date(year, month - 1, 1))} className="text-muted hover:text-foreground text-lg px-2" style={{ minHeight: "auto" }}>{"\u25C0"}</button>
+        <h3 className="text-sm font-semibold text-foreground">{monthName}</h3>
+        <button onClick={() => setCurrentMonth(new Date(year, month + 1, 1))} className="text-muted hover:text-foreground text-lg px-2" style={{ minHeight: "auto" }}>{"\u25B6"}</button>
+      </div>
+
+      {/* Day headers */}
+      <div className="grid grid-cols-7 border-b border-card-border">
+        {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
+          <div key={d} className="text-center text-[10px] text-muted font-medium py-1.5">{d}</div>
+        ))}
+      </div>
+
+      {/* Calendar grid */}
+      <div className="grid grid-cols-7">
+        {cells.map((cell, i) => (
+          <div
+            key={i}
+            className={`min-h-[80px] border-b border-r border-card-border p-1 ${
+              cell.day === null ? "bg-card-hover/30" : isToday(cell.day) ? "bg-accent/5" : ""
+            }`}
+          >
+            {cell.day && (
+              <>
+                <div className={`text-xs font-medium mb-0.5 ${isToday(cell.day) ? "text-accent font-bold" : "text-muted"}`}>
+                  {cell.day}
+                </div>
+                <div className="space-y-0.5">
+                  {cell.events.map((evt) => (
+                    <button
+                      key={evt.id}
+                      onClick={() => onEventClick(evt.id)}
+                      className={`w-full text-left rounded px-1 py-0.5 text-[10px] font-medium truncate transition-colors ${
+                        expandedId === evt.id
+                          ? "bg-accent text-white"
+                          : evt.event_type === "fnm"
+                            ? "bg-indigo-900/40 text-indigo-300 hover:bg-indigo-900/60"
+                            : evt.event_type === "prerelease"
+                              ? "bg-amber-900/40 text-amber-300 hover:bg-amber-900/60"
+                              : evt.event_type === "tournament"
+                                ? "bg-red-900/40 text-red-300 hover:bg-red-900/60"
+                                : "bg-card-hover text-foreground/70 hover:bg-card-hover"
+                      }`}
+                      style={{ minHeight: "auto" }}
+                      title={`${evt.name} — ${new Date(evt.starts_at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`}
+                    >
+                      {evt.name}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
