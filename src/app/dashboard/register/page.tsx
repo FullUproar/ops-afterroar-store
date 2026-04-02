@@ -126,6 +126,126 @@ interface ReceiptData {
 }
 
 /* ------------------------------------------------------------------ */
+/*  Print Receipt HTML builder                                         */
+/* ------------------------------------------------------------------ */
+
+function buildPrintReceiptHtml(receipt: LastReceipt, storeName: string): string {
+  const fc = (cents: number) => "$" + (cents / 100).toFixed(2);
+  const items = receipt.items.map((i) =>
+    `<tr><td style="padding:2px 0">${i.name}</td><td style="padding:2px 8px;text-align:center">${i.quantity}</td><td style="text-align:right;padding:2px 0">${fc(i.price_cents * i.quantity)}</td></tr>`
+  ).join("");
+
+  return `<!DOCTYPE html><html><head><title>Receipt</title><style>
+    body{font-family:monospace;font-size:12px;width:280px;margin:0 auto;padding:10px;color:#000}
+    h1{font-size:16px;text-align:center;margin:0 0 4px}
+    .center{text-align:center}
+    .line{border-top:1px dashed #000;margin:6px 0}
+    table{width:100%;border-collapse:collapse}
+    .total{font-size:16px;font-weight:bold}
+    @media print{body{width:auto}}
+  </style></head><body>
+    <h1>${storeName}</h1>
+    <p class="center" style="margin:2px 0">${new Date(receipt.timestamp).toLocaleString()}</p>
+    <p class="center" style="margin:2px 0">Receipt #${receipt.receiptNumber}</p>
+    <div class="line"></div>
+    <table><thead><tr><th style="text-align:left">Item</th><th>Qty</th><th style="text-align:right">Total</th></tr></thead><tbody>${items}</tbody></table>
+    <div class="line"></div>
+    <table>
+      <tr><td>Subtotal</td><td style="text-align:right">${fc(receipt.subtotalCents)}</td></tr>
+      ${receipt.discountCents > 0 ? `<tr><td>Discount</td><td style="text-align:right">-${fc(receipt.discountCents)}</td></tr>` : ""}
+      ${receipt.taxCents > 0 ? `<tr><td>Tax</td><td style="text-align:right">${fc(receipt.taxCents)}</td></tr>` : ""}
+      <tr class="total"><td>Total</td><td style="text-align:right">${fc(receipt.totalCents)}</td></tr>
+    </table>
+    <div class="line"></div>
+    <p class="center">Payment: ${receipt.paymentMethod.toUpperCase()}</p>
+    ${receipt.customerName ? `<p class="center">Customer: ${receipt.customerName}</p>` : ""}
+    <p class="center" style="margin-top:12px;font-size:10px">Thank you for shopping with us!</p>
+  </body></html>`;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Email Receipt Button                                               */
+/* ------------------------------------------------------------------ */
+
+function ReceiptEmailButton({ receiptToken, customerEmail }: { receiptToken: string; customerEmail?: string | null }) {
+  const [showInput, setShowInput] = useState(false);
+  const [email, setEmail] = useState(customerEmail || "");
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState(false);
+
+  async function sendEmail() {
+    if (!email.trim() || !email.includes("@")) return;
+    setSending(true);
+    try {
+      const res = await fetch("/api/receipts/email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim(), receipt_token: receiptToken }),
+      });
+      if (res.ok) {
+        setSent(true);
+        setTimeout(() => { setSent(false); setShowInput(false); }, 2000);
+      }
+    } catch {
+      // fail silently
+    } finally {
+      setSending(false);
+    }
+  }
+
+  if (sent) {
+    return (
+      <span className="flex items-center gap-2 rounded-xl border border-green-500/30 bg-green-500/10 px-4 text-sm font-medium text-green-400" style={{ height: 44 }}>
+        {"\u2713"} Sent
+      </span>
+    );
+  }
+
+  if (!showInput) {
+    return (
+      <button
+        onClick={() => setShowInput(true)}
+        className="flex items-center gap-2 rounded-xl border border-card-border bg-card-hover px-4 text-sm font-medium text-foreground active:scale-[0.98] transition-transform"
+        style={{ height: 44, touchAction: "manipulation" }}
+      >
+        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+        Email
+      </button>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-1">
+      <input
+        type="email"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        onKeyDown={(e) => { e.stopPropagation(); if (e.key === "Enter") sendEmail(); }}
+        placeholder="email@example.com"
+        autoFocus
+        className="rounded-xl border border-input-border bg-input-bg px-3 text-sm text-foreground placeholder:text-muted focus:border-accent focus:outline-none"
+        style={{ height: 44, width: 200 }}
+      />
+      <button
+        onClick={sendEmail}
+        disabled={sending || !email.includes("@")}
+        className="rounded-xl bg-accent px-3 text-sm font-medium text-white disabled:opacity-40"
+        style={{ height: 44 }}
+      >
+        {sending ? "..." : "Send"}
+      </button>
+      <button
+        onClick={() => setShowInput(false)}
+        className="text-muted hover:text-foreground text-lg px-1"
+        style={{ minHeight: "auto" }}
+      >
+        {"\u00D7"}
+      </button>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /*  Register Page — full-screen receipt-tape-first POS terminal        */
 /* ------------------------------------------------------------------ */
 export default function RegisterPage() {
@@ -883,10 +1003,37 @@ export default function RegisterPage() {
               </div>
             )}
           </div>
-          <div className="mt-8 flex flex-col items-center gap-3">
-            {receiptQrUrl && lastReceipt && (
-              <button onClick={() => setShowCustomerDisplay(true)} className="rounded-xl font-medium text-foreground border border-card-border bg-card-hover px-8 active:scale-[0.98] transition-transform" style={{ height: 48, touchAction: "manipulation" }}>Show to Customer</button>
+
+          {/* Receipt delivery options */}
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
+            <button
+              onClick={() => {
+                if (!lastReceipt) return;
+                const w = window.open("", "_blank", "width=380,height=600");
+                if (!w) return;
+                w.document.write(buildPrintReceiptHtml(lastReceipt, storeName));
+                w.document.close();
+                w.focus();
+                w.print();
+              }}
+              className="flex items-center gap-2 rounded-xl border border-card-border bg-card-hover px-4 text-sm font-medium text-foreground active:scale-[0.98] transition-transform"
+              style={{ height: 44, touchAction: "manipulation" }}
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
+              Print
+            </button>
+            {lastReceipt?.receiptToken && (
+              <ReceiptEmailButton receiptToken={lastReceipt.receiptToken} customerEmail={customer?.email} />
             )}
+            {receiptQrUrl && lastReceipt && (
+              <button onClick={() => setShowCustomerDisplay(true)} className="flex items-center gap-2 rounded-xl border border-card-border bg-card-hover px-4 text-sm font-medium text-foreground active:scale-[0.98] transition-transform" style={{ height: 44, touchAction: "manipulation" }}>
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
+                Show QR
+              </button>
+            )}
+          </div>
+
+          <div className="mt-6">
             <button onClick={() => { setShowSuccess(false); setCustomer(null); setReceiptQrUrl(null); }} className="rounded-xl font-bold text-white active:scale-[0.98] transition-transform select-none px-12" style={{ height: 56, fontSize: 18, backgroundColor: "#16a34a", touchAction: "manipulation" }}>Next Customer</button>
           </div>
         </div>
@@ -1132,10 +1279,36 @@ export default function RegisterPage() {
               </div>
             )}
           </div>
-          <div className="mt-8 flex flex-col items-center gap-3">
-            {receiptQrUrl && lastReceipt && (
-              <button onClick={() => setShowCustomerDisplay(true)} className="rounded-xl font-medium text-foreground border border-card-border bg-card-hover px-8 active:scale-[0.98] transition-transform" style={{ height: 48, touchAction: "manipulation" }}>Show to Customer</button>
+          {/* Receipt delivery options */}
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
+            <button
+              onClick={() => {
+                if (!lastReceipt) return;
+                const w = window.open("", "_blank", "width=380,height=600");
+                if (!w) return;
+                w.document.write(buildPrintReceiptHtml(lastReceipt, storeName));
+                w.document.close();
+                w.focus();
+                w.print();
+              }}
+              className="flex items-center gap-2 rounded-xl border border-card-border bg-card-hover px-4 text-sm font-medium text-foreground active:scale-[0.98] transition-transform"
+              style={{ height: 44, touchAction: "manipulation" }}
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
+              Print
+            </button>
+            {lastReceipt?.receiptToken && (
+              <ReceiptEmailButton receiptToken={lastReceipt.receiptToken} customerEmail={customer?.email} />
             )}
+            {receiptQrUrl && lastReceipt && (
+              <button onClick={() => setShowCustomerDisplay(true)} className="flex items-center gap-2 rounded-xl border border-card-border bg-card-hover px-4 text-sm font-medium text-foreground active:scale-[0.98] transition-transform" style={{ height: 44, touchAction: "manipulation" }}>
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
+                Show QR
+              </button>
+            )}
+          </div>
+
+          <div className="mt-4">
             <button onClick={() => { setShowChangeDue(null); setCustomer(null); setReceiptQrUrl(null); }} className="rounded-xl font-bold text-white active:scale-[0.98] transition-transform select-none px-12" style={{ height: 56, fontSize: 18, backgroundColor: "#16a34a", touchAction: "manipulation" }}>Done</button>
           </div>
         </div>

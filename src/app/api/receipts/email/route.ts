@@ -25,8 +25,10 @@ interface ReceiptData {
 }
 
 interface EmailReceiptBody {
-  customer_email: string;
-  receipt: ReceiptData;
+  customer_email?: string;
+  email?: string; // alias
+  receipt?: ReceiptData;
+  receipt_token?: string;
 }
 
 function formatCents(cents: number): string {
@@ -144,13 +146,45 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
     }
 
-    const { customer_email, receipt } = body;
+    const customerEmail = body.customer_email || body.email;
 
-    if (!customer_email?.trim()) {
+    if (!customerEmail?.trim()) {
       return NextResponse.json(
-        { error: "customer_email is required" },
+        { error: "email is required" },
         { status: 400 }
       );
+    }
+
+    let receipt = body.receipt;
+
+    // If receipt_token provided, look up the receipt from the ledger
+    if (!receipt && body.receipt_token) {
+      const { db } = await requireStaff();
+      const entry = await db.posLedgerEntry.findFirst({
+        where: { metadata: { path: ["receipt_token"], equals: body.receipt_token } },
+        include: { staff: { select: { name: true } }, customer: { select: { name: true } } },
+      });
+
+      if (entry) {
+        const meta = (entry.metadata ?? {}) as Record<string, unknown>;
+        const items = (meta.items ?? []) as Array<{ inventory_item_id: string; quantity: number; price_cents: number }>;
+        const store = await db.posStore.findFirst({ select: { name: true, settings: true } });
+        const storeName = (store?.settings as Record<string, unknown>)?.store_display_name as string || store?.name || "Store";
+
+        receipt = {
+          store_name: storeName,
+          date: entry.created_at.toISOString(),
+          items: items.map((i) => ({ name: i.inventory_item_id, quantity: i.quantity, price_cents: i.price_cents, total_cents: i.price_cents * i.quantity })),
+          subtotal_cents: entry.amount_cents,
+          tax_cents: (meta.tax_cents as number) || 0,
+          discount_cents: (meta.discount_cents as number) || 0,
+          credit_applied_cents: entry.credit_amount_cents || 0,
+          payment_method: (meta.payment_method as string) || "card",
+          total_cents: entry.amount_cents + ((meta.tax_cents as number) || 0),
+          change_cents: 0,
+          customer_name: entry.customer?.name ?? null,
+        };
+      }
     }
 
     if (!receipt) {
@@ -160,6 +194,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const customer_email = customerEmail;
     const receiptHtml = buildReceiptHtml(receipt);
 
     // Send via Resend if API key is configured
