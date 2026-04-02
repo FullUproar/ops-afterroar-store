@@ -26,11 +26,8 @@ export default async function DashboardPage() {
   });
 
   if (!staff) {
-    return (
-      <div className="flex min-h-[50vh] items-center justify-center">
-        <p className="text-muted">No store found. Please contact support.</p>
-      </div>
-    );
+    // User exists but has no store — redirect to store creation
+    redirect("/setup");
   }
 
   // Cashiers go straight to the register — no dashboard stats for them
