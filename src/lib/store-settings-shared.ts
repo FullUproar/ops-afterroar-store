@@ -34,6 +34,9 @@ export interface StoreSettings {
   timeclock_geofence_lat: number;
   timeclock_geofence_lng: number;
   timeclock_geofence_radius_meters: number;
+  // Staff lock screen
+  staff_lock_enabled: boolean;
+  staff_lock_timeout_minutes: number;
   // NUX (new user experience)
   nux_dismissed: boolean;
   // Mobile register
@@ -79,6 +82,9 @@ export const SETTINGS_DEFAULTS: StoreSettings = {
   timeclock_geofence_lat: 0,
   timeclock_geofence_lng: 0,
   timeclock_geofence_radius_meters: 150,
+  // Staff lock screen
+  staff_lock_enabled: false,
+  staff_lock_timeout_minutes: 0,
   // NUX
   nux_dismissed: false,
   // Mobile register

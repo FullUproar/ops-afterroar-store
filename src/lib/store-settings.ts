@@ -81,6 +81,9 @@ export interface StoreSettings {
   timeclock_geofence_lat: number;
   timeclock_geofence_lng: number;
   timeclock_geofence_radius_meters: number;
+  // Staff lock screen
+  staff_lock_enabled: boolean;
+  staff_lock_timeout_minutes: number;
   // NUX
   nux_dismissed: boolean;
   // Mobile register
@@ -164,6 +167,9 @@ export const SETTINGS_DEFAULTS: StoreSettings = {
   intel_advisor_enabled: true,
   intel_advisor_tone: "gamer",
 
+  // Staff lock screen
+  staff_lock_enabled: false,
+  staff_lock_timeout_minutes: 0,
   // NUX
   nux_dismissed: false,
   // Mobile register
@@ -335,6 +341,15 @@ export const SETTINGS_SECTIONS = [
       { key: "intel_at_risk_days", label: "Flag at-risk customers after (days)", type: "number" as const, min: 7, max: 90, tooltip: "Regular customers who haven't visited in this many days get flagged. Lower = more proactive outreach." },
       { key: "intel_buylist_cash_comfort_days", label: "Cash comfort zone (days)", type: "number" as const, min: 7, max: 60, tooltip: "When your cash runway drops below this many days, buylist pricing automatically shifts toward store credit." },
       { key: "intel_credit_liability_warn_percent", label: "Credit liability warning threshold (%)", type: "number" as const, min: 10, max: 200, tooltip: "Alert when total outstanding store credit exceeds this percentage of your monthly revenue." },
+    ],
+  },
+  {
+    key: "staff_lock",
+    label: "Staff Lock Screen",
+    description: "Require staff PIN before using the system. Locks between shifts.",
+    fields: [
+      { key: "staff_lock_enabled", label: "Enable staff lock screen", type: "toggle" as const, tooltip: "When enabled, staff must enter their PIN to use the system. The device stays logged in between shifts." },
+      { key: "staff_lock_timeout_minutes", label: "Auto-lock after idle (minutes, 0 = never)", type: "number" as const, min: 0, max: 480, tooltip: "Automatically lock the screen after this many minutes of no activity. Set to 0 to disable." },
     ],
   },
   {

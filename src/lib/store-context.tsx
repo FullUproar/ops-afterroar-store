@@ -28,6 +28,12 @@ interface StaffData {
   store_id: string;
 }
 
+interface ActiveStaffData {
+  id: string;
+  name: string;
+  role: string;
+}
+
 interface StoreContextValue {
   store: StoreData | null;
   staff: StaffData | null;
@@ -40,6 +46,11 @@ interface StoreContextValue {
   can: (permission: Permission) => boolean;
   hasModule: (feature: FeatureModule) => boolean;
   userEmail: string | null;
+  // Layer 2: active staff
+  activeStaff: ActiveStaffData | null;
+  staffLocked: boolean;
+  setActiveStaff: (staff: ActiveStaffData) => void;
+  endShift: () => void;
 }
 
 const StoreContext = createContext<StoreContextValue>({
@@ -52,8 +63,12 @@ const StoreContext = createContext<StoreContextValue>({
   isTestMode: false,
   setTestRole: () => {},
   can: () => false,
-  hasModule: () => true, // default to true so features don't break before plan is loaded
+  hasModule: () => true,
   userEmail: null,
+  activeStaff: null,
+  staffLocked: false,
+  setActiveStaff: () => {},
+  endShift: () => {},
 });
 
 export function StoreProvider({ children }: { children: React.ReactNode }) {
@@ -62,6 +77,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [staff, setStaff] = useState<StaffData | null>(null);
   const [loading, setLoading] = useState(true);
   const [testRole, setTestRole] = useState<Role | null>(null);
+  const [activeStaff, setActiveStaffState] = useState<ActiveStaffData | null>(null);
+  const [activeStaffChecked, setActiveStaffChecked] = useState(false);
 
   useEffect(() => {
     if (status === "loading") return;
@@ -73,15 +90,27 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
     async function loadStoreData() {
       try {
-        const res = await fetch("/api/me");
-        if (res.ok) {
-          const data = await res.json();
+        const [meRes, authRes] = await Promise.all([
+          fetch("/api/me"),
+          fetch("/api/staff-auth"),
+        ]);
+
+        if (meRes.ok) {
+          const data = await meRes.json();
           setStaff(data.staff);
           setStore(data.store);
+        }
+
+        if (authRes.ok) {
+          const data = await authRes.json();
+          if (data.staff) {
+            setActiveStaffState(data.staff);
+          }
         }
       } catch {
         // silently fail
       }
+      setActiveStaffChecked(true);
       setLoading(false);
     }
 
@@ -92,19 +121,26 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const isGodAdmin = userEmail === GOD_ADMIN_EMAIL;
   const actualRole = (staff?.role as Role) ?? null;
   const isTestMode = isGodAdmin && testRole !== null;
-  const effectiveRole = isTestMode ? testRole : actualRole;
 
-  // Extract permission overrides from store settings
+  // If staff lock is enabled, use active staff's role. Otherwise use session staff.
+  const staffLockEnabled = !!(store?.settings?.staff_lock_enabled);
+  const staffLocked = staffLockEnabled && !activeStaff && activeStaffChecked;
+
+  // Effective role: test mode > active staff > session staff
+  const effectiveRole = isTestMode
+    ? testRole
+    : activeStaff
+      ? (activeStaff.role as Role)
+      : actualRole;
+
+  // Permission overrides from store settings
   const roleOverrides = (store?.settings?.role_permissions ?? null) as RolePermissionOverrides | null;
-
-  // Extract plan + addons from store settings
-  const plan = ((store?.settings?.plan as string) || "enterprise") as StorePlan; // default to enterprise during dev
+  const plan = ((store?.settings?.plan as string) || "enterprise") as StorePlan;
   const addons = ((store?.settings?.addons as string[]) || []) as FeatureModule[];
 
   const can = useCallback(
     (permission: Permission) => {
       if (!effectiveRole) return false;
-      // God admin bypasses all restrictions
       if (isGodAdmin && !isTestMode) return true;
       return hasPermission(effectiveRole, permission, roleOverrides);
     },
@@ -113,12 +149,24 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const hasModuleFn = useCallback(
     (feature: FeatureModule) => {
-      // God admin sees everything
       if (isGodAdmin && !isTestMode) return true;
       return hasFeature(plan, addons, feature);
     },
     [plan, addons, isGodAdmin, isTestMode]
   );
+
+  const setActiveStaff = useCallback((staffData: ActiveStaffData) => {
+    setActiveStaffState(staffData);
+  }, []);
+
+  const endShift = useCallback(async () => {
+    setActiveStaffState(null);
+    try {
+      await fetch("/api/staff-auth", { method: "DELETE" });
+    } catch {
+      // non-critical
+    }
+  }, []);
 
   return (
     <StoreContext.Provider
@@ -134,6 +182,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         can,
         hasModule: hasModuleFn,
         userEmail,
+        activeStaff,
+        staffLocked,
+        setActiveStaff,
+        endShift,
       }}
     >
       {children}

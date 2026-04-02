@@ -91,10 +91,8 @@ function storeExpanded(state: Record<string, boolean>) {
 
 export function Sidebar() {
   const pathname = usePathname();
-  const { store, staff, effectiveRole, isTestMode, can } = useStore();
+  const { store, staff, effectiveRole, isTestMode, can, hasModule, activeStaff, endShift } = useStore();
   const { mode, setMode } = useMode();
-
-  const { hasModule } = useStore();
 
   // Build visible items per group — filter by permission AND feature module
   const visibleNav = NAV_ITEMS.filter(
@@ -246,9 +244,9 @@ export function Sidebar() {
       </nav>
 
       <div className="border-t border-card-border px-2 lg:px-4 py-3">
-        {staff && (
+        {(activeStaff || staff) && (
           <p className="truncate text-xs text-muted hidden lg:block">
-            {staff.name} &middot;{" "}
+            {activeStaff?.name || staff?.name} &middot;{" "}
             <span className={isTestMode ? "text-purple-400" : ""}>
               {effectiveRole}
             </span>
@@ -256,6 +254,16 @@ export function Sidebar() {
               <span className="ml-1 text-purple-500">(test)</span>
             )}
           </p>
+        )}
+        {activeStaff && (
+          <button
+            onClick={endShift}
+            className="mt-2 w-full text-xs text-amber-400 hover:text-amber-300 transition-colors flex items-center justify-center lg:justify-start gap-1"
+            title="End shift and lock screen"
+          >
+            <span>{"\u{1F319}"}</span>
+            <span className="hidden lg:inline">End Shift</span>
+          </button>
         )}
         <button
           onClick={handleSignOut}

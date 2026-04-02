@@ -11,6 +11,7 @@ import {
   hasPermission,
   hasFeature,
 } from "./permissions";
+import { getActiveStaffFromCookie } from "./active-staff";
 
 /* ------------------------------------------------------------------ */
 /*  requireStaff() — shared auth + tenant scoping helper               */
@@ -75,23 +76,44 @@ export async function requireStaff(): Promise<StaffContext> {
     throw new AuthError();
   }
 
-  const staffWithStore = await prisma.posStaff.findFirst({
+  // Find the session user's staff record (Layer 1)
+  const sessionStaff = await prisma.posStaff.findFirst({
     where: { user_id: session.user.id, active: true },
     include: { store: { select: { settings: true } } },
   });
-  if (!staffWithStore) {
+  if (!sessionStaff) {
     throw new NoStoreError();
   }
 
-  // Extract store settings, then strip the relation for the public staff object
-  const storeSettings = (staffWithStore.store?.settings ?? {}) as Record<string, unknown>;
+  const storeSettings = (sessionStaff.store?.settings ?? {}) as Record<string, unknown>;
+
+  // Check for Layer 2: active staff cookie
+  let staffId = sessionStaff.id;
+  let staffRole = sessionStaff.role;
+  let staffName = sessionStaff.name;
+  let staffUserId = sessionStaff.user_id;
+
+  const activeStaffPayload = await getActiveStaffFromCookie();
+  if (activeStaffPayload && activeStaffPayload.storeId === sessionStaff.store_id) {
+    const activeRecord = await prisma.posStaff.findFirst({
+      where: { id: activeStaffPayload.staffId, store_id: activeStaffPayload.storeId, active: true },
+      select: { id: true, user_id: true, role: true, name: true },
+    });
+    if (activeRecord) {
+      staffId = activeRecord.id;
+      staffRole = activeRecord.role;
+      staffName = activeRecord.name;
+      staffUserId = activeRecord.user_id;
+    }
+  }
+
   const staff = {
-    id: staffWithStore.id,
-    user_id: staffWithStore.user_id,
-    store_id: staffWithStore.store_id,
-    role: staffWithStore.role,
-    name: staffWithStore.name,
-    active: staffWithStore.active,
+    id: staffId,
+    user_id: staffUserId,
+    store_id: sessionStaff.store_id,
+    role: staffRole,
+    name: staffName,
+    active: true,
   };
 
   const db = getTenantClient(staff.store_id);

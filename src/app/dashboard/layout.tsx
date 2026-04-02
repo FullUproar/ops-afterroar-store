@@ -9,6 +9,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { ShortcutsHelp } from "@/components/shortcuts-help";
 import { ToastProvider } from "@/components/toast";
 import { DashboardLayoutInner } from "@/components/dashboard-layout-inner";
+import { StaffLockGate } from "@/components/staff-lock-gate";
 
 export default function DashboardLayout({
   children,
@@ -23,11 +24,13 @@ export default function DashboardLayout({
           <ThemeProvider>
           <OfflineProvider>
           <ToastProvider>
-            <TrainingBanner />
-            <DashboardLayoutInner>
-              {children}
-            </DashboardLayoutInner>
-            <ShortcutsHelp />
+            <StaffLockGate>
+              <TrainingBanner />
+              <DashboardLayoutInner>
+                {children}
+              </DashboardLayoutInner>
+              <ShortcutsHelp />
+            </StaffLockGate>
           </ToastProvider>
           </OfflineProvider>
           </ThemeProvider>
