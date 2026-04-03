@@ -480,14 +480,24 @@ export async function POST(request: NextRequest) {
           // Purchase summary for Passport receipt holder
           // No dollar amounts per bridge spec — categories + board game names only
           const categoryCounts = new Map<string, number>();
-          const boardGameNames: string[] = [];
+          const boardGames: Array<{ name: string; catalog_product_id?: string; bgg_id?: string }> = [];
           for (const item of items) {
             const inv = invMap.get(item.inventory_item_id);
             const cat = inv?.category || "other";
             categoryCounts.set(cat, (categoryCounts.get(cat) || 0) + item.quantity);
-            // Include board game names for game library integration
+            // Include board game details for game library integration
             if (cat === "board_game" && inv?.name) {
-              boardGameNames.push(inv.name);
+              // Get full item for catalog link and BGG ID
+              const fullItem = await prisma.posInventoryItem.findFirst({
+                where: { id: item.inventory_item_id, store_id: storeId },
+                select: { catalog_product_id: true, attributes: true },
+              });
+              const attrs = (fullItem?.attributes ?? {}) as Record<string, unknown>;
+              boardGames.push({
+                name: inv.name,
+                catalog_product_id: fullItem?.catalog_product_id || undefined,
+                bgg_id: (attrs.bgg_id as string) || (attrs.bgg as Record<string, unknown>)?.id as string || undefined,
+              });
             }
           }
           await enqueueHQ(storeId, "purchase_summary", {
@@ -495,7 +505,7 @@ export async function POST(request: NextRequest) {
             storeId,
             itemCount: items.reduce((s, i) => s + i.quantity, 0),
             categories: Object.fromEntries(categoryCounts),
-            boardGames: boardGameNames.length > 0 ? boardGameNames : undefined,
+            boardGames: boardGames.length > 0 ? boardGames : undefined,
             receiptToken,
             receiptUrl: `https://www.afterroar.store/r/${receiptToken}`,
           });
