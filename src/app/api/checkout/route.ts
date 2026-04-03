@@ -385,6 +385,27 @@ export async function POST(request: NextRequest) {
           discountCents: loyaltyApplied,
           referenceId: ledgerEntry.id,
         });
+
+        // Sync redemption to HQ if customer is linked
+        const redeemCust = await tx.posCustomer.findUnique({
+          where: { id: customer_id },
+          select: { afterroar_user_id: true },
+        });
+        if (redeemCust?.afterroar_user_id) {
+          try {
+            const { enqueueHQ } = await import("@/lib/hq-outbox");
+            await enqueueHQ(storeId, "points_earned", {
+              userId: redeemCust.afterroar_user_id,
+              storeId,
+              points: -loyalty_points_redeem, // Negative = redemption
+              category: "redemption",
+              transactionId: ledgerEntry.id,
+              discountCents: loyaltyApplied,
+            });
+          } catch {
+            // Non-blocking
+          }
+        }
       }
 
       // Deduct inventory quantities
