@@ -64,7 +64,13 @@ export default function TournamentsPage() {
   const [formName, setFormName] = useState('');
   const [formFormat, setFormFormat] = useState('');
   const [formMaxPlayers, setFormMaxPlayers] = useState('');
+  const [formBracketType, setFormBracketType] = useState<'swiss' | 'single_elimination'>('swiss');
   const [saving, setSaving] = useState(false);
+
+  // Round timer
+  const [roundStartTime, setRoundStartTime] = useState<Date | null>(null);
+  const [roundMinutes, setRoundMinutes] = useState(50);
+  const [timerDisplay, setTimerDisplay] = useState('');
 
   // Add player
   const [playerName, setPlayerName] = useState('');
@@ -104,7 +110,7 @@ export default function TournamentsPage() {
         body: JSON.stringify({
           name: formName.trim(),
           format: formFormat || null,
-          bracket_type: 'single_elimination',
+          bracket_type: formBracketType,
           max_players: formMaxPlayers || null,
         }),
       });
@@ -142,17 +148,50 @@ export default function TournamentsPage() {
 
   async function handleStart() {
     if (!activeTournament) return;
+    const action = activeTournament.bracket_type === "swiss" ? "start_swiss" : "start";
     const res = await fetch(`/api/tournaments/${activeTournament.id}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'start' }),
+      body: JSON.stringify({ action }),
     });
     if (res.ok) {
       const data = await res.json();
       setActiveTournament(data);
+      setRoundStartTime(new Date());
       loadTournaments();
     }
   }
+
+  async function handleNextRound() {
+    if (!activeTournament) return;
+    const res = await fetch(`/api/tournaments/${activeTournament.id}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'next_round' }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      setActiveTournament(data);
+      setRoundStartTime(new Date());
+    }
+  }
+
+  // Round timer effect
+  useEffect(() => {
+    if (!roundStartTime) return;
+    const interval = setInterval(() => {
+      const elapsed = Math.floor((Date.now() - roundStartTime.getTime()) / 1000);
+      const remaining = roundMinutes * 60 - elapsed;
+      if (remaining <= 0) {
+        setTimerDisplay("TIME!");
+      } else {
+        const m = Math.floor(remaining / 60);
+        const s = remaining % 60;
+        setTimerDisplay(`${m}:${String(s).padStart(2, "0")}`);
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [roundStartTime, roundMinutes]);
 
   async function handleReportMatch() {
     if (!activeTournament || !reportMatch || !reportWinnerId) return;
@@ -352,6 +391,44 @@ export default function TournamentsPage() {
           </div>
         )}
 
+        {/* Round Timer + Next Round (Swiss) */}
+        {activeTournament.status === "active" && activeTournament.bracket_type === "swiss" && (
+          <div className="bg-card border border-card-border rounded-xl p-4 flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="text-center">
+                <div className={`text-3xl font-mono font-bold tabular-nums ${timerDisplay === "TIME!" ? "text-red-400 animate-pulse" : "text-foreground"}`}>
+                  {timerDisplay || "--:--"}
+                </div>
+                <div className="text-[10px] text-muted">Round Timer</div>
+              </div>
+              {!roundStartTime && (
+                <button onClick={() => setRoundStartTime(new Date())} className="px-3 py-1.5 bg-accent text-white rounded text-sm font-medium" style={{ minHeight: "auto" }}>
+                  Start Timer
+                </button>
+              )}
+              <div className="flex items-center gap-1">
+                <input type="number" min={10} max={90} value={roundMinutes} onChange={(e) => setRoundMinutes(parseInt(e.target.value) || 50)} className="w-14 bg-card-hover border border-input-border rounded px-2 py-1 text-foreground text-sm text-center" />
+                <span className="text-xs text-muted">min</span>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              {(() => {
+                const currentRoundMatches = rounds[activeTournament.current_round] || [];
+                const allComplete = currentRoundMatches.length > 0 && currentRoundMatches.every((m) => m.status === "completed");
+                return allComplete ? (
+                  <button onClick={handleNextRound} className="px-4 py-2 bg-green-700 hover:bg-green-600 text-white rounded text-sm font-medium">
+                    {activeTournament.current_round >= (activeTournament.total_rounds || 99) ? "Finalize Tournament" : `Start Round ${activeTournament.current_round + 1}`}
+                  </button>
+                ) : (
+                  <span className="text-xs text-muted px-3 py-2">
+                    {currentRoundMatches.filter((m) => m.status !== "completed").length} match{currentRoundMatches.filter((m) => m.status !== "completed").length !== 1 ? "es" : ""} pending
+                  </span>
+                );
+              })()}
+            </div>
+          </div>
+        )}
+
         {/* Standings */}
         {(activeTournament.status === 'active' || activeTournament.status === 'completed') && standings.length > 0 && (
           <div className="bg-card border border-card-border rounded-xl p-4">
@@ -506,6 +583,13 @@ export default function TournamentsPage() {
                 className="w-full bg-card-hover border border-input-border rounded px-3 py-2 text-foreground text-sm"
                 placeholder="No limit"
               />
+            </div>
+            <div>
+              <label className="block text-sm text-muted mb-1">Bracket Type</label>
+              <div className="flex gap-1 rounded-lg bg-card-hover p-1">
+                <button type="button" onClick={() => setFormBracketType("swiss")} className={`flex-1 rounded px-3 py-1.5 text-sm font-medium transition-colors ${formBracketType === "swiss" ? "bg-card text-foreground shadow-sm" : "text-muted"}`} style={{ minHeight: "auto" }}>Swiss</button>
+                <button type="button" onClick={() => setFormBracketType("single_elimination")} className={`flex-1 rounded px-3 py-1.5 text-sm font-medium transition-colors ${formBracketType === "single_elimination" ? "bg-card text-foreground shadow-sm" : "text-muted"}`} style={{ minHeight: "auto" }}>Single Elim</button>
+              </div>
             </div>
           </div>
           <div className="flex gap-3">
