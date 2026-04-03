@@ -571,12 +571,23 @@ export default function RegisterPage() {
       // Check if this is an Afterroar Passport QR/barcode (CUID format)
       if (barcode.startsWith("c") && barcode.length >= 20 && /^[a-z0-9]+$/.test(barcode)) {
         try {
+          // First: check local DB for existing customer with this afterroar_user_id
           const custRes = await fetch(`/api/customers?q=${encodeURIComponent(barcode)}`);
           if (custRes.ok) {
             const custData = await custRes.json();
             if (custData.length > 0) {
               setCustomer(custData[0]);
               showItemAdded(`${custData[0].name} attached`);
+              return;
+            }
+          }
+          // Not found locally — look up on HQ Passport API and auto-create
+          const passportRes = await fetch(`/api/passport/lookup?afterroar_user_id=${encodeURIComponent(barcode)}`);
+          if (passportRes.ok) {
+            const passport = await passportRes.json();
+            if (passport.customer) {
+              setCustomer(passport.customer);
+              showItemAdded(`${passport.customer.name} attached`);
               return;
             }
           }
