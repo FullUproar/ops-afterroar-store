@@ -1597,6 +1597,19 @@ export default function RegisterPage() {
                 Custom Amount
               </button>
             )}
+            {/* Keep the change — only for cash when there IS change */}
+            {pendingPaymentMethod === "cash" && tendered > amountDue && (
+              <button
+                onClick={() => {
+                  const changeTip = tendered - amountDue;
+                  setShowTipPrompt(false);
+                  proceedWithSale(pendingPaymentMethod, changeTip);
+                }}
+                className="w-full py-3 rounded-xl bg-green-600/10 border border-green-600/30 text-green-600 hover:bg-green-600/20 transition-colors font-medium"
+              >
+                Keep the Change &mdash; {formatCents(tendered - amountDue)}
+              </button>
+            )}
             {/* No tip */}
             <button
               onClick={() => {
