@@ -59,7 +59,12 @@ All Store Ops models are prefixed with `Pos`:
 - Types: `src/lib/types.ts` — `formatCents()`, `parseDollars()`
 - Scanner: `src/hooks/use-scanner.ts` — capture phase global keydown listener, NO hidden inputs
 - Barcode learn: scan unknown → UPC lookup (upcitemdb) → BGG enrichment → catalog product → add to inventory
-- HQ Bridge: `src/lib/hq-bridge.ts` — validated write functions for HQ tables
+- HQ Bridge: `src/lib/hq-bridge.ts` — enqueues to outbox (no more direct SQL to HQ)
+- HQ Outbox: `src/lib/hq-outbox.ts` — async writes to HQ webhook, exponential backoff, dead-letter
+- Outbox Drain: `/api/hq-bridge/drain` — Vercel Cron (every minute), drains pending events to HQ
+- Bridge Events: checkin, points_earned, tournament_result, event_attendance, purchase_summary
+- Public Catalog: `/api/public/catalog` — shared product catalog for HQ pull (board games with BGG IDs)
+- Federated Catalog: `pos_catalog_products` — shared game data across stores, BGG as canonical ID
 - TCG Pricing: `src/lib/tcg-pricing.ts` — condition multipliers, buylist calculations
 - Market Cache: `src/lib/market-price-cache.ts` — Scryfall price cache (1hr TTL)
 - Op Log: `src/lib/op-log.ts` — operational logging to `pos_operational_logs` table (fire-and-forget)
@@ -94,7 +99,7 @@ All Store Ops models are prefixed with `Pos`:
 - `action-bar.tsx` — Search, Scan, Customer, Quick Add, Manual, Discount, More
 - `cart-list.tsx` — receipt tape with qty edit, delete, discounts
 - `payment-buttons.tsx` — Cash/Card/Gift Card/Credit/Other
-- `status-bar.tsx` — customer, park/recall, last receipt
+- `status-bar.tsx` — heartbeat clock (system health check), date, status messages (display only, no interactions)
 - `panel-content.tsx` — search, customer, quick add, manual, discount panels
 - `more-menu.tsx` — 9 sub-panels (price check, credit, returns, loyalty, gift card, no sale, flag issue, void last, order lookup)
 
@@ -107,7 +112,9 @@ All Store Ops models are prefixed with `Pos`:
 - focusin scroll trick on all modals/panels with inputs (Android tablet keyboard fix)
 
 ## Onboarding & Training
-- Onboarding wizard: 5-step setup flow (store info, tax, staff, inventory, go live)
+- Onboarding wizard: 6-step setup flow (store info, products, staff, payment, test sale, go live)
+- Demo data seeder: POST /api/store/seed-demo — one-click sample inventory, customers, events
+- NUX system: `<NuxHint>` + `<EmptyState>` components, globally dismissable via nux_dismissed setting
 - Training mode: toggle in settings, all transactions marked `training: true`, no real charges
 - Help center: 27 articles covering all features, searchable, in-app
 
@@ -138,18 +145,50 @@ All Store Ops models are prefixed with `Pos`:
 - Prize payouts as store credit via ledger
 
 ## Cafe Module
-- Tab system: `pos_tabs` + `pos_tab_items`
-- Lifecycle: open → add items → KDS status updates → close (settles to ledger)
-- Event attribution: tabs can link to event_id
-- KDS endpoint: returns pending items for kitchen display
-- API: GET/POST /api/cafe
+- Tab system: `pos_tabs` + `pos_tab_items` with unified F&B + retail
+- Lifecycle: open → add items (menu or inventory) → KDS status updates → close (settles to ledger)
+- Menu builder: `pos_menu_items` + `pos_menu_modifiers` (structured modifiers with pricing)
+- Table fees: flat, hourly, free-with-purchase. Auto-waive at spend threshold.
+- QR table ordering: `/order/[slug]/[table]` — customer scans, orders from phone, items appear on KDS
+- Age verification: flag on tab, gate for alcohol items
+- Tab operations: transfer (move table), split (move items to new tab)
+- Hourly timer: live elapsed time + accrued fee display on open tabs
+- API: GET/POST /api/cafe (open_tab, add_item, add_inventory_item, add_menu_to_tab, set_table_fee, waive_table_fee, age_verify, transfer_tab, split_tab, close_tab, kds, get_menu, add_menu_item, add_modifier)
+- Public: GET /api/cafe/public-menu, POST /api/cafe/public-order
 
 ## Consignment Module
 - `pos_consignment_items` table: consignor, asking price, commission %, status
 - Intake creates inventory item + consignment record
 - Sale calculates commission, credits consignor via ledger
 - Return deactivates inventory item
+- Full management page: `/dashboard/consignment` with stats, filtering, intake form
 - API: GET/POST /api/consignment
+
+## Loyalty System
+- Points earned on purchase (configurable rate), event check-in, trade-in
+- Tiered credit bonuses: VIP (+10%), Regular (+5%) auto-detected from lifetime spend
+- Post-sale retroactive claim: "70 points unclaimed — attach customer" (24hr window, one-time use)
+- Return deductions: points reversed on returns (min 0), synced to HQ
+- Frequent returner flag: auto-tagged after 3+ returns in 30 days
+- All points synced to HQ via outbox (earn, redeem, return)
+- API: POST /api/loyalty/claim (retroactive, secured)
+
+## Public Buylist
+- `/buylist/[slug]` — customer-facing page showing what the store is buying + prices
+- Auto-calculated NM/LP/MP offers from TCG pricing engine
+- Demand indicators: "Hot" (low stock) vs "Stocked"
+- Credit bonus callout
+- API: GET /api/buylist/public
+
+## Receipt System
+- Legal-compliant template: `src/lib/receipt-template.ts`
+- Thermal print (280px monospace) + email (styled HTML)
+- Card last 4 + brand from Stripe Terminal
+- Barcode (CODE128) for receipt number
+- Customizable: store address, footer, barcode toggle, savings, return policy
+- Server-side receipt counter (atomic, synced across devices)
+- Print, Email, QR options on sale complete + cash change screens
+- Loyalty points earned shown on receipt + success screen
 
 ## Test Accounts
 - Owner: Google sign-in (shawnoah.pollock@gmail.com or info@fulluproar.com)

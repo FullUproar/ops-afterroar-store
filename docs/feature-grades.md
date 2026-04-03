@@ -22,22 +22,28 @@
 
 ---
 
-## Grade Summary (Post Wave 3)
+## Grade Summary (Post April 2 Session)
 
-| # | Feature | Start | Wave 1 | Wave 2 | Wave 3 | Current |
-|---|---------|-------|--------|--------|--------|---------|
-| 1 | TCG Singles Engine | B+ | B+ | B+ | **A-** | **A-** |
-| 2 | Trade-In Circular Economy | B | **B+** | B+ | B+ | **B+** |
-| 3 | Event Ecosystem | B- | **B+** | B+ | **A-** | **A-** |
-| 4 | Community Customer Profiles | C+ | **B+** | B+ | **A-** | **A-** |
-| 5 | Prerelease / Allocation | D | **B+** | B+ | B+ | **B+** |
-| 6 | Tournament Brackets | C- | C- | **B** | B | **B** |
-| 7 | Cafe / Concessions | F | F | **B** | B | **B** |
-| 8 | Game Library | D+ | D+ | **B** | B | **B** |
-| 9 | Consignment / Showcase | F | F | **B** | B | **B** |
-| 10 | Cross-Store Intelligence | D | D | **B** | B | **B** |
+| # | Feature | Session Start | Wave 1 | Wave 2 | Wave 3 | A+ Push | Current |
+|---|---------|--------------|--------|--------|--------|---------|---------|
+| 1 | TCG Singles Engine | B+ | B+ | B+ | **A-** | A- | **A-** |
+| 2 | Trade-In Circular Economy | B | **B+** | B+ | B+ | **A+** | **A+** |
+| 3 | Event Ecosystem | B- | **B+** | B+ | **A-** | A- | **A-** |
+| 4 | Community Customer Profiles | C+ | **B+** | B+ | **A-** | A- | **A-** |
+| 5 | Prerelease / Allocation | D | **B+** | B+ | B+ | B+ | **B+** |
+| 6 | Tournament Brackets | C- | C- | **B** | B | **B+** | **B+** |
+| 7 | Cafe / Concessions | F | F | **B** | B | **A** | **A** |
+| 8 | Game Library | D+ | D+ | **B** | B | B | **B** |
+| 9 | Consignment / Showcase | F | F | **B** | B | **B+** | **B+** |
+| 10 | Cross-Store Intelligence | D | D | **B** | B | B | **B** |
 
-**Overall GPA: B+ → A-** (from C+ at session start)
+**Overall GPA: A-** (from C+ at session start)
+
+### What moved after Wave 3:
+- **Trade-In → A+**: Public buylist page, tiered VIP credit bonuses, inline stock intelligence, cash position indicator, retroactive points claim, return deductions
+- **Cafe → A**: Unified F&B+retail tabs, menu builder with modifiers, QR table ordering, table fees (flat/hourly/free-with-purchase), auto-waive threshold, KDS filtering, hourly timer
+- **Tournaments → B+**: Swiss flow in UI, bracket type selector, round timer, Next Round button
+- **Consignment → B+**: Full management page with intake form, stats, sold/return actions
 
 ---
 
