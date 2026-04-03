@@ -119,6 +119,28 @@ export async function POST(
       });
     }
 
+    // Sync event attendance to HQ if customer is linked
+    try {
+      const cust = await db.posCustomer.findFirst({
+        where: { id: customer_id },
+        select: { afterroar_user_id: true },
+      });
+      if (cust?.afterroar_user_id) {
+        const eventFull = await db.posEvent.findFirst({
+          where: { id: event_id },
+          select: { name: true, event_type: true },
+        });
+        const { enqueueHQ } = await import("@/lib/hq-outbox");
+        await enqueueHQ(storeId, "event_attendance", {
+          userId: cust.afterroar_user_id,
+          storeId,
+          eventId: event_id,
+          eventType: eventFull?.event_type || "unknown",
+          eventName: eventFull?.name || "Event",
+        });
+      }
+    } catch {}
+
     return NextResponse.json(checkin, { status: 201 });
   } catch (error) {
     return handleAuthError(error);

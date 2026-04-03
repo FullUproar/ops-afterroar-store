@@ -463,6 +463,23 @@ export async function POST(request: NextRequest) {
       return { ledgerEntry, pointsEarned };
     });
 
+    // Send store visit signal to HQ (customer walked in and bought something)
+    if (customer_id) {
+      try {
+        const visitCust = await prisma.posCustomer.findFirst({
+          where: { id: customer_id, store_id: storeId },
+          select: { afterroar_user_id: true },
+        });
+        if (visitCust?.afterroar_user_id) {
+          const { enqueueHQ } = await import("@/lib/hq-outbox");
+          await enqueueHQ(storeId, "checkin", {
+            userId: visitCust.afterroar_user_id,
+            storeId,
+          });
+        }
+      } catch {}
+    }
+
     // Build receipt
     const total_cents = subtotal_cents + tax_cents - effectiveCreditApplied - giftCardApplied - loyaltyApplied;
     const change_cents =
