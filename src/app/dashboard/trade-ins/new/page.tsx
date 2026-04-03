@@ -17,6 +17,7 @@ interface InventoryResult {
   category: string;
   price_cents: number;
   image_url: string | null;
+  quantity: number;
 }
 
 interface TradeItem {
@@ -29,6 +30,7 @@ interface TradeItem {
   quantity: number;
   inventory_item_id?: string;
   image_url?: string | null;
+  current_stock?: number;
 }
 
 const CONDITIONS = ['NM', 'LP', 'MP', 'HP', 'DMG'] as const;
@@ -79,6 +81,33 @@ export default function NewTradeInPage() {
   const [payoutType, setPayoutType] = useState<'cash' | 'credit'>('cash');
   const [creditBonus, setCreditBonus] = useState(storeSettings.trade_in_credit_bonus_percent);
   const [notes, setNotes] = useState('');
+  const [customerTier, setCustomerTier] = useState<string | null>(null);
+
+  // Tiered credit bonus: VIP customers get a better rate
+  useEffect(() => {
+    if (!selectedCustomer) { setCustomerTier(null); return; }
+    // Check customer's lifetime spend to determine tier
+    fetch(`/api/customers/${selectedCustomer.id}`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        if (!data?.ledger_entries) return;
+        const lifetime = data.ledger_entries
+          .filter((e: { type: string }) => e.type === "sale")
+          .reduce((s: number, e: { amount_cents: number }) => s + e.amount_cents, 0);
+        const baseBonus = storeSettings.trade_in_credit_bonus_percent;
+        if (lifetime >= 50000) { // $500+ = VIP
+          setCustomerTier("VIP");
+          setCreditBonus(baseBonus + 10); // +10% on top
+        } else if (lifetime >= 20000) { // $200+ = Regular
+          setCustomerTier("Regular");
+          setCreditBonus(baseBonus + 5); // +5% on top
+        } else {
+          setCustomerTier(null);
+          setCreditBonus(baseBonus);
+        }
+      })
+      .catch(() => {});
+  }, [selectedCustomer, storeSettings.trade_in_credit_bonus_percent]);
 
   // submission
   const [submitting, setSubmitting] = useState(false);
@@ -137,6 +166,7 @@ export default function NewTradeInPage() {
         quantity: 1,
         inventory_item_id: inv.id,
         image_url: inv.image_url,
+        current_stock: inv.quantity,
       },
     ]);
     setSearchQuery('');
@@ -530,6 +560,17 @@ export default function NewTradeInPage() {
                             Market: {formatCents(item.market_price_cents)}
                           </div>
                         )}
+                        {item.current_stock !== undefined && item.category === "tcg_single" && (
+                          <div className="text-[10px] mt-0.5">
+                            {item.current_stock <= 1 ? (
+                              <span className="text-red-400">{"\u{1F525}"} Low stock — offer more to secure</span>
+                            ) : item.current_stock >= 5 ? (
+                              <span className="text-blue-400">Well stocked ({item.current_stock}) — standard offer</span>
+                            ) : (
+                              <span className="text-muted">{item.current_stock} in stock</span>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
                     <button
@@ -657,6 +698,13 @@ export default function NewTradeInPage() {
                   className="w-20 rounded border border-zinc-600 bg-card px-2 py-1 text-foreground tabular-nums focus:border-accent focus:outline-none"
                 />
               </label>
+              {customerTier && (
+                <div className="flex items-center gap-2">
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${customerTier === "VIP" ? "bg-amber-900/40 text-amber-400" : "bg-blue-900/40 text-blue-400"}`}>
+                    {customerTier} +{customerTier === "VIP" ? "10" : "5"}% bonus
+                  </span>
+                </div>
+              )}
               <div className="text-sm text-muted">
                 Base: {formatCents(totalOfferCents)} + {creditBonus}% bonus ={' '}
                 <span className="font-medium text-green-400">{formatCents(totalPayoutCents)}</span>
