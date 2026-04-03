@@ -51,6 +51,7 @@ interface PanelContentProps {
   customerQuery: string;
   setCustomerQuery: (q: string) => void;
   customerResults: Customer[];
+  recentCustomers: Array<{ id: string; name: string; email: string | null; source: "checkin" | "purchase"; timestamp: string }>;
   // Quick
   favorites: InventoryItem[];
   // Manual
@@ -91,7 +92,7 @@ export function PanelContent(props: PanelContentProps) {
     activePanel, setActivePanel, searchRef, searchQuery, setSearchQuery,
     searchResults, setSearchResults, setScannerErrorText, focusSearch,
     isTouchDevice, addToCart, customer, setCustomer, customerQuery,
-    setCustomerQuery, customerResults, favorites, manualName, setManualName,
+    setCustomerQuery, customerResults, recentCustomers, favorites, manualName, setManualName,
     manualPrice, setManualPrice, manualQty, setManualQty, addManualItem,
     discountScope, setDiscountScope, discountType, setDiscountType,
     discountValue, setDiscountValue, discountReason, setDiscountReason,
@@ -165,6 +166,28 @@ export function PanelContent(props: PanelContentProps) {
           ) : (
             <>
               <input type="search" inputMode="search" value={customerQuery} onChange={(e) => setCustomerQuery(e.target.value)} onKeyDown={(e) => e.stopPropagation()} placeholder="Search by name, email, or phone..." autoFocus className="w-full rounded-xl border border-input-border bg-input-bg px-4 py-3 text-foreground placeholder:text-muted focus:border-accent focus:outline-none" style={{ fontSize: 18, minHeight: 48 }} />
+              {/* Recent check-ins + purchasers */}
+              {!customerQuery && recentCustomers.length > 0 && (
+                <div className="space-y-1">
+                  <div className="text-xs text-muted uppercase tracking-wider px-1">Recent</div>
+                  {recentCustomers.slice(0, 5).map((rc) => (
+                    <button key={rc.id} onClick={() => {
+                      fetch(`/api/customers?q=${encodeURIComponent(rc.name)}`).then(r => r.json()).then(data => {
+                        const match = data.find((c: Customer) => c.id === rc.id);
+                        if (match) { setCustomer(match); setActivePanel(null); }
+                      }).catch(() => {});
+                    }} className="w-full flex items-center justify-between rounded-xl px-4 py-2.5 text-left bg-card-hover hover:bg-accent-light transition-colors" style={{ minHeight: 44 }}>
+                      <div className="flex items-center gap-2">
+                        {rc.source === "checkin" && <span className="h-2 w-2 rounded-full bg-green-400 animate-pulse shrink-0" />}
+                        <div>
+                          <div className="text-base font-medium text-foreground">{rc.name}</div>
+                          <div className="text-xs text-muted">{rc.source === "checkin" ? "Just checked in" : "Recent purchase"}</div>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
               <div className="space-y-1 max-h-64 overflow-y-auto">
                 {customerResults.map((c) => (
                   <button key={c.id} onClick={() => { setCustomer(c); setActivePanel(null); (document.activeElement as HTMLElement)?.blur(); }} className="w-full flex items-center justify-between rounded-xl px-4 py-3 text-left bg-card-hover hover:bg-accent-light active:bg-accent-light transition-colors" style={{ minHeight: 52 }}>

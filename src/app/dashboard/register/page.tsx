@@ -392,6 +392,23 @@ export default function RegisterPage() {
   // Customer search
   const [customerQuery, setCustomerQuery] = useState("");
   const [customerResults, setCustomerResults] = useState<Customer[]>([]);
+  const [recentCustomers, setRecentCustomers] = useState<Array<{ id: string; name: string; email: string | null; source: "checkin" | "purchase"; timestamp: string }>>([]);
+
+  // Load recent customers (check-ins + recent purchasers)
+  useEffect(() => {
+    fetch("/api/customers/recent")
+      .then((r) => r.ok ? r.json() : [])
+      .then((data) => setRecentCustomers(data))
+      .catch(() => {});
+    // Refresh every 2 minutes
+    const interval = setInterval(() => {
+      fetch("/api/customers/recent")
+        .then((r) => r.ok ? r.json() : [])
+        .then((data) => setRecentCustomers(data))
+        .catch(() => {});
+    }, 120000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Manual item
   const [manualName, setManualName] = useState("");
@@ -550,6 +567,21 @@ export default function RegisterPage() {
       setScannerFlash("success");
       if (scannerFlashTimerRef.current) clearTimeout(scannerFlashTimerRef.current);
       scannerFlashTimerRef.current = setTimeout(() => setScannerFlash("none"), 600);
+
+      // Check if this is an Afterroar Passport QR/barcode (CUID format)
+      if (barcode.startsWith("c") && barcode.length >= 20 && /^[a-z0-9]+$/.test(barcode)) {
+        try {
+          const custRes = await fetch(`/api/customers?q=${encodeURIComponent(barcode)}`);
+          if (custRes.ok) {
+            const custData = await custRes.json();
+            if (custData.length > 0) {
+              setCustomer(custData[0]);
+              showItemAdded(`${custData[0].name} attached`);
+              return;
+            }
+          }
+        } catch {}
+      }
 
       let found: InventoryItem | null = null;
       let zeroStockMatch: InventoryItem | null = null;
@@ -1161,7 +1193,7 @@ export default function RegisterPage() {
     activePanel, setActivePanel, searchRef, searchQuery, setSearchQuery,
     searchResults, setSearchResults, setScannerErrorText, focusSearch,
     isTouchDevice, addToCart, customer, setCustomer, customerQuery,
-    setCustomerQuery, customerResults, favorites, manualName, setManualName,
+    setCustomerQuery, customerResults, recentCustomers, favorites, manualName, setManualName,
     manualPrice, setManualPrice, manualQty, setManualQty, addManualItem,
     discountScope, setDiscountScope, discountType, setDiscountType,
     discountValue, setDiscountValue, discountReason, setDiscountReason,

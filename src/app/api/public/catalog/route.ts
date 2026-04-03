@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
   const limit = Math.min(parseInt(limitParam || "100", 10) || 100, 500);
 
   const where: Record<string, unknown> = {
-    shared_to_catalog: true,
+    verified: true, // Only return verified catalog entries
   };
 
   if (category) where.category = category;

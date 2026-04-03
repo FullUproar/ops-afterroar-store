@@ -10,16 +10,28 @@ export async function GET(request: NextRequest) {
 
     const q = request.nextUrl.searchParams.get("q")?.trim();
 
+    // Build search — match on name, email, phone, or afterroar_user_id
+    const where = q
+      ? {
+          OR: [
+            { name: { contains: q, mode: "insensitive" as const } },
+            { email: { contains: q, mode: "insensitive" as const } },
+            { phone: { contains: q } },
+            { afterroar_user_id: q },
+          ],
+        }
+      : {};
+
     const data = await db.posCustomer.findMany({
-      where: {
-        ...(q ? { name: { contains: q, mode: "insensitive" as const } } : {}),
-      },
+      where,
       select: {
         id: true,
         name: true,
         email: true,
         phone: true,
         credit_balance_cents: true,
+        loyalty_points: true,
+        afterroar_user_id: true,
         created_at: true,
       },
       orderBy: { name: "asc" },
