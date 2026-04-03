@@ -329,6 +329,48 @@ export async function POST(
             data: { standing: 2 },
           });
         }
+
+        // Send tournament result to HQ (single-elim)
+        try {
+          const { enqueueHQ } = await import("@/lib/hq-outbox");
+          const { storeId: sId } = await requirePermission("events.manage");
+          const storeRecord = await db.posStore.findFirst({ select: { settings: true } });
+          const venueId = ((storeRecord?.settings as Record<string, unknown>)?.venueId as string) || "";
+
+          const allPlayers = tournament.players;
+          const playerResults = [];
+          for (const p of [winner_id, loserId].filter(Boolean)) {
+            const player = allPlayers.find((pl) => pl.id === p);
+            if (!player?.customer_id) continue;
+            const cust = await db.posCustomer.findFirst({
+              where: { id: player.customer_id },
+              select: { afterroar_user_id: true },
+            });
+            if (!cust?.afterroar_user_id) continue;
+            playerResults.push({
+              afterroar_user_id: cust.afterroar_user_id,
+              pos_customer_id: player.customer_id,
+              record: { wins: player.wins, losses: player.losses, draws: player.draws },
+              placement: player.id === winner_id ? 1 : 2,
+              points_earned: 0,
+            });
+          }
+
+          if (playerResults.length > 0) {
+            await enqueueHQ(sId, "tournament_result", {
+              store_id: venueId,
+              event: {
+                name: tournament.name,
+                format: tournament.format || "unknown",
+                date: new Date().toISOString().slice(0, 10),
+                type: "single_elimination",
+                rounds: totalRounds,
+                total_players: allPlayers.filter((p) => !p.dropped).length,
+              },
+              results: playerResults,
+            });
+          }
+        } catch {}
       }
 
       const result = await db.posTournament.findFirst({
