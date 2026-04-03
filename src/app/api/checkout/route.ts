@@ -9,6 +9,7 @@ import { earnPointsFromPurchase } from "@/lib/hq-bridge";
 import { calculateTaxFromSettings, getDefaultTaxRate } from "@/lib/tax";
 import { getStripe } from "@/lib/stripe";
 import { opLog } from "@/lib/op-log";
+import { getTaxCode } from "@/lib/tax-codes";
 
 interface CheckoutItem {
   inventory_item_id: string;
@@ -104,7 +105,7 @@ export async function POST(request: NextRequest) {
     const itemIds = items.map((i) => i.inventory_item_id);
     const invItems = await prisma.posInventoryItem.findMany({
       where: { id: { in: itemIds }, store_id: storeId },
-      select: { id: true, name: true, quantity: true, price_cents: true, cost_cents: true, category: true },
+      select: { id: true, name: true, quantity: true, price_cents: true, cost_cents: true, category: true, attributes: true },
     });
 
     if (invItems.length !== itemIds.length) {
@@ -160,11 +161,16 @@ export async function POST(request: NextRequest) {
           const storeAddress = storeRawSettings.store_address as Record<string, string> | undefined;
           const taxCalc = await stripe.tax.calculations.create({
             currency: "usd",
-            line_items: items.map((item) => ({
-              amount: item.price_cents * item.quantity,
-              reference: item.inventory_item_id || "manual",
-              tax_code: "txcd_99999999", // general merchandise default
-            })),
+            line_items: items.map((item) => {
+              const inv = invMap.get(item.inventory_item_id);
+              const attrs = (inv?.attributes ?? {}) as Record<string, unknown>;
+              const taxSubCategory = attrs.tax_code as string | undefined;
+              return {
+                amount: item.price_cents * item.quantity,
+                reference: item.inventory_item_id || "manual",
+                tax_code: getTaxCode(inv?.category || "other", taxSubCategory),
+              };
+            }),
             customer_details: {
               address: {
                 country: "US",
