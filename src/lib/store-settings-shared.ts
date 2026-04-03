@@ -37,6 +37,14 @@ export interface StoreSettings {
   // Staff lock screen
   staff_lock_enabled: boolean;
   staff_lock_timeout_minutes: number;
+  // Shipping
+  shipping_enabled: boolean;
+  warehouse_street: string;
+  warehouse_city: string;
+  warehouse_state: string;
+  warehouse_zip: string;
+  warehouse_country: string;
+  shipping_free_threshold_cents: number; // Free shipping above this amount (0 = no free shipping)
   // Cross-store intelligence
   opt_in_benchmarking: boolean;
   // NUX (new user experience)
@@ -87,6 +95,14 @@ export const SETTINGS_DEFAULTS: StoreSettings = {
   // Staff lock screen
   staff_lock_enabled: false,
   staff_lock_timeout_minutes: 0,
+  // Shipping
+  shipping_enabled: false,
+  warehouse_street: "",
+  warehouse_city: "",
+  warehouse_state: "",
+  warehouse_zip: "",
+  warehouse_country: "US",
+  shipping_free_threshold_cents: 0,
   // Cross-store intelligence
   opt_in_benchmarking: false,
   // NUX
