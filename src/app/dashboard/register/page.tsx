@@ -440,6 +440,10 @@ export default function RegisterPage() {
   const [showCreditConfirm, setShowCreditConfirm] = useState(false);
   const [showChangeDue, setShowChangeDue] = useState<number | null>(null);
   const [processing, setProcessing] = useState(false);
+  // Tip prompt
+  const [showTipPrompt, setShowTipPrompt] = useState(false);
+  const [pendingTipCents, setPendingTipCents] = useState(0);
+  const [pendingPaymentMethod, setPendingPaymentMethod] = useState<PaymentMethod | null>(null);
 
   // Quantity edit
   const [editingQtyIndex, setEditingQtyIndex] = useState<number | null>(null);
@@ -965,7 +969,36 @@ export default function RegisterPage() {
   const [terminalPiId, setTerminalPiId] = useState<string | null>(null);
   const terminalPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // Called after tip prompt (or directly if no tip)
+  async function proceedWithSale(method: PaymentMethod, tipCents: number = 0) {
+    setPendingTipCents(tipCents);
+    await _handleCompleteSale(method, tipCents);
+  }
+
   async function handleCompleteSale(method: PaymentMethod) {
+    if (cart.length === 0 || processing) return;
+    if (method === "cash" && tendered < amountDue && amountDue > 0) return;
+
+    // Check if we should prompt for tips
+    const cartCategories = cart.map((c) => c.category).filter(Boolean);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const wantTip = shouldPromptTip(storeSettings as any, {
+      categories: cartCategories,
+      source: "register",
+    });
+
+    if (wantTip && method !== "card") {
+      // For non-card payments, show our own tip prompt UI
+      setPendingPaymentMethod(method);
+      setShowTipPrompt(true);
+      return;
+    }
+
+    // For card payments, tip is handled on the terminal reader itself
+    await _handleCompleteSale(method, 0);
+  }
+
+  async function _handleCompleteSale(method: PaymentMethod, tipOverride: number = 0) {
     if (cart.length === 0 || processing) return;
     if (method === "cash" && tendered < amountDue && amountDue > 0) return;
 
@@ -1004,13 +1037,8 @@ export default function RegisterPage() {
     if (method === "card" && !isTraining) {
       setProcessing(true);
 
-      // Check if we should prompt for tips on this transaction
-      const cartCategories = cart.map((c) => c.category).filter(Boolean);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const enableTipping = shouldPromptTip(storeSettings as any, {
-        categories: cartCategories,
-        source: "register",
-      });
+      // Tipping on terminal: always enable when tips_mode isn't "never"
+      const enableTipping = storeSettings.tips_mode !== "never";
 
       try {
         // Send to terminal reader
@@ -1077,7 +1105,7 @@ export default function RegisterPage() {
 
     // Non-terminal payments (cash, credit, gift card, external, training card)
     setProcessing(true);
-    await finalizeSale(method);
+    await finalizeSale(method, undefined, tipOverride);
   }
 
   async function cancelTerminalPayment() {
@@ -1131,7 +1159,7 @@ export default function RegisterPage() {
     const receiptNumber = await generateReceiptNumber();
     setLastReceipt({ items: [...cart], discounts: [...discounts], subtotalCents: subtotal, discountCents, taxCents, totalCents: total, paymentMethod: method, customerName: receiptCustomer?.name ?? null, timestamp: new Date().toISOString(), receiptNumber, receiptToken, cardBrand: lastCardBrand, cardLast4: lastCardLast4, tenderedCents: method === "cash" ? tendered : total, changeCents: cashChange, loyaltyPointsEarned, ledgerEntryId });
     (document.activeElement as HTMLElement)?.blur();
-    setCart([]); setDiscounts([]); setShowPaySheet(false); setShowCashInput(false); setShowCreditConfirm(false); setShowGiftCardPayment(false); setGiftCardPayCode(""); setGiftCardPayError(null); setTenderedInput(""); setPaymentMethod("cash"); setActivePanel(null); setHasZeroStockOverride(false); setLastCardBrand(null); setLastCardLast4(null);
+    setCart([]); setDiscounts([]); setShowPaySheet(false); setShowCashInput(false); setShowCreditConfirm(false); setShowGiftCardPayment(false); setGiftCardPayCode(""); setGiftCardPayError(null); setTenderedInput(""); setPaymentMethod("cash"); setActivePanel(null); setHasZeroStockOverride(false); setLastCardBrand(null); setLastCardLast4(null); setShowTipPrompt(false); setPendingTipCents(0); setPendingPaymentMethod(null);
     clearPersistedCart(); cartIdRef.current = createEmptyCart().id;
     // Generate QR code for receipt
     if (receiptToken) {
@@ -1520,6 +1548,65 @@ export default function RegisterPage() {
           </div>
           <div className="flex-1 min-h-0">
             <NumericKeypad value={tenderedInput} onChange={setTenderedInput} onSubmit={() => handleCompleteSale("cash")} submitLabel={processing ? "Processing..." : amountDue > 0 && tendered < amountDue ? "Insufficient" : `Done \u2014 Change ${formatCents(change)}`} submitDisabled={processing || (amountDue > 0 && tendered < amountDue)} totalCents={amountDue} changeCents={change} showChange={true} processing={processing} />
+          </div>
+        </div>
+      )}
+
+      {/* ====== TIP PROMPT ====== */}
+      {showTipPrompt && pendingPaymentMethod && (
+        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-card/95 backdrop-blur-sm">
+          <div className="w-full max-w-md p-6 space-y-6">
+            <div className="text-center">
+              <div className="text-muted text-sm uppercase tracking-wide">Add a Tip?</div>
+              <div className="text-3xl font-mono font-bold mt-1">{formatCents(amountDue)}</div>
+            </div>
+            {/* Preset buttons */}
+            <div className="grid grid-cols-3 gap-3">
+              {(storeSettings.tips_presets || [15, 20, 25]).map((pct: number) => {
+                const tipAmt = Math.round(subtotal * pct / 100);
+                return (
+                  <button
+                    key={pct}
+                    onClick={() => {
+                      setShowTipPrompt(false);
+                      proceedWithSale(pendingPaymentMethod, tipAmt);
+                    }}
+                    className="py-4 rounded-xl bg-card-hover border border-card-border text-center hover:border-accent transition-colors"
+                  >
+                    <div className="text-2xl font-bold">{pct}%</div>
+                    <div className="text-muted text-sm">{formatCents(tipAmt)}</div>
+                  </button>
+                );
+              })}
+            </div>
+            {/* Custom tip */}
+            {storeSettings.tips_allow_custom !== false && (
+              <button
+                onClick={() => {
+                  const input = prompt("Enter tip amount ($):");
+                  if (input) {
+                    const cents = Math.round(parseFloat(input) * 100);
+                    if (cents > 0 && !isNaN(cents)) {
+                      setShowTipPrompt(false);
+                      proceedWithSale(pendingPaymentMethod, cents);
+                    }
+                  }
+                }}
+                className="w-full py-3 rounded-xl border border-card-border text-muted hover:text-foreground hover:border-accent transition-colors text-sm"
+              >
+                Custom Amount
+              </button>
+            )}
+            {/* No tip */}
+            <button
+              onClick={() => {
+                setShowTipPrompt(false);
+                proceedWithSale(pendingPaymentMethod, 0);
+              }}
+              className="w-full py-3 rounded-xl text-muted hover:text-foreground transition-colors text-sm"
+            >
+              No Tip
+            </button>
           </div>
         </div>
       )}
