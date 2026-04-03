@@ -494,6 +494,48 @@ export async function POST(
           data: { status: "completed", updated_at: new Date() },
         });
 
+        // Send tournament results to HQ for Passport
+        try {
+          const { enqueueHQ } = await import("@/lib/hq-outbox");
+          const { storeId } = await requirePermission("events.manage");
+          const storeRecord = await db.posStore.findFirst({ select: { settings: true } });
+          const venueId = ((storeRecord?.settings as Record<string, unknown>)?.venueId as string) || "";
+
+          // Build results for linked players only
+          const playerResults = [];
+          for (const s of standings) {
+            const player = tournament.players.find((p) => p.id === s.id);
+            if (!player?.customer_id) continue;
+            const cust = await db.posCustomer.findFirst({
+              where: { id: player.customer_id },
+              select: { afterroar_user_id: true },
+            });
+            if (!cust?.afterroar_user_id) continue;
+            playerResults.push({
+              afterroar_user_id: cust.afterroar_user_id,
+              pos_customer_id: player.customer_id,
+              record: { wins: s.wins, losses: s.losses, draws: s.draws },
+              placement: s.standing,
+              points_earned: 0,
+            });
+          }
+
+          if (playerResults.length > 0) {
+            await enqueueHQ(storeId, "tournament_result", {
+              store_id: venueId,
+              event: {
+                name: tournament.name,
+                format: tournament.format || "unknown",
+                date: new Date().toISOString().slice(0, 10),
+                type: tournament.bracket_type,
+                rounds: tournament.total_rounds,
+                total_players: tournament.players.filter((p) => !p.dropped).length,
+              },
+              results: playerResults,
+            });
+          }
+        } catch {}
+
         const result = await db.posTournament.findFirst({
           where: { id },
           include: { players: { orderBy: { standing: "asc" } }, matches: { orderBy: [{ round_number: "asc" }, { match_number: "asc" }] } },

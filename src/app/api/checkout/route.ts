@@ -102,7 +102,7 @@ export async function POST(request: NextRequest) {
     const itemIds = items.map((i) => i.inventory_item_id);
     const invItems = await prisma.posInventoryItem.findMany({
       where: { id: { in: itemIds }, store_id: storeId },
-      select: { id: true, name: true, quantity: true, price_cents: true, cost_cents: true },
+      select: { id: true, name: true, quantity: true, price_cents: true, cost_cents: true, category: true },
     });
 
     if (invItems.length !== itemIds.length) {
@@ -472,9 +472,25 @@ export async function POST(request: NextRequest) {
         });
         if (visitCust?.afterroar_user_id) {
           const { enqueueHQ } = await import("@/lib/hq-outbox");
+          // Store visit signal
           await enqueueHQ(storeId, "checkin", {
             userId: visitCust.afterroar_user_id,
             storeId,
+          });
+          // Purchase summary for Passport receipt holder (no dollar amounts — categories only)
+          const categoryCounts = new Map<string, number>();
+          for (const item of items) {
+            const inv = invMap.get(item.inventory_item_id);
+            const cat = inv?.category || "other";
+            categoryCounts.set(cat, (categoryCounts.get(cat) || 0) + item.quantity);
+          }
+          await enqueueHQ(storeId, "purchase_summary", {
+            userId: visitCust.afterroar_user_id,
+            storeId,
+            itemCount: items.reduce((s, i) => s + i.quantity, 0),
+            categories: Object.fromEntries(categoryCounts),
+            receiptToken,
+            receiptUrl: `https://www.afterroar.store/r/${receiptToken}`,
           });
         }
       } catch {}
