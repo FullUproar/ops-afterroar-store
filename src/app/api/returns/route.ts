@@ -352,19 +352,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Push restocked inventory to marketplaces (fire-and-forget)
-    import("@/lib/marketplace-sync").then(({ pushInventoryUpdate }) => {
-      for (const item of items) {
-        if (item.restock && item.inventory_item_id) {
-          prisma.posInventoryItem
-            .findUnique({ where: { id: item.inventory_item_id }, select: { quantity: true } })
-            .then((inv) => {
-              if (inv) pushInventoryUpdate(item.inventory_item_id, inv.quantity);
-            })
-            .catch(() => {});
-        }
-      }
-    }).catch(() => {});
+    // Marketplace inventory sync handled by cron (/api/marketplace/sync every 5 min)
 
     return NextResponse.json(
       {

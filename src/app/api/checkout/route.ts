@@ -561,20 +561,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Fire-and-forget op log
-    // Push inventory changes to marketplaces (fire-and-forget, non-blocking)
-    import("@/lib/marketplace-sync").then(({ pushInventoryUpdate }) => {
-      for (const item of items) {
-        if (item.inventory_item_id) {
-          // We don't know the new quantity here, so fetch it
-          prisma.posInventoryItem
-            .findUnique({ where: { id: item.inventory_item_id }, select: { quantity: true } })
-            .then((inv) => {
-              if (inv) pushInventoryUpdate(item.inventory_item_id, inv.quantity);
-            })
-            .catch(() => {});
-        }
-      }
-    }).catch(() => {});
+    // Marketplace inventory sync handled by cron (/api/marketplace/sync every 5 min)
 
     opLog({
       storeId,
