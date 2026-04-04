@@ -201,7 +201,14 @@ export async function POST(request: NextRequest) {
 
       if (!stripeTaxSuccess) {
         // Manual fallback: store settings → DEFAULT_TAX_RATE env → 0
-        const taxResult = calculateTaxFromSettings(subtotal_cents, storeRawSettings);
+        // Exclude gift card items from taxable subtotal (gift cards are not taxable)
+        const giftCardSubtotal = items.reduce((sum, i) => {
+          const inv = i.inventory_item_id ? invMap.get(i.inventory_item_id) : null;
+          const category = inv?.category || i.category || "other";
+          return category === "gift_card" ? sum + i.price_cents * i.quantity : sum;
+        }, 0);
+        const taxableSubtotal = Math.max(0, subtotal_cents - giftCardSubtotal);
+        const taxResult = calculateTaxFromSettings(taxableSubtotal, storeRawSettings);
         tax_cents = taxResult.taxCents;
         const settingsRate = (storeRawSettings.tax_rate_percent as number) || getDefaultTaxRate();
         taxRateUsed = settingsRate;

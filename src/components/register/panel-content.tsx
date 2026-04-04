@@ -371,6 +371,7 @@ export function PanelContent(props: PanelContentProps) {
     case "flag_issue":
     case "void_last":
     case "order_lookup":
+    case "trade_eval":
       return (
         <MoreMenu
           activePanel={activePanel}

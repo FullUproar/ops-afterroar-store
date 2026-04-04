@@ -88,7 +88,7 @@ export async function pushInventoryUpdate(
 
     // eBay
     if (item.listed_on_ebay) {
-      const ebay = getEbayClient();
+      const ebay = await getEbayClientWithRefresh(item.store_id);
       if (ebay) {
         const sku = `afterroar-${itemId}`;
         try {
@@ -194,7 +194,7 @@ export async function pushFullInventorySync(storeId: string): Promise<{
   removed: number;
   errors: string[];
 }> {
-  const ebay = getEbayClient();
+  const ebay = await getEbayClientWithRefresh(storeId);
   if (!ebay) return { updated: 0, removed: 0, errors: ["eBay not configured"] };
 
   const items = await prisma.posInventoryItem.findMany({
