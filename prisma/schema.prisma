@@ -605,6 +605,8 @@ model PosInventoryItem {
   manapool_listing_id String?
   listed_on_manapool  Boolean  @default(false)
 
+  oracle_id           String?
+
   store           PosStore           @relation(fields: [store_id], references: [id], onDelete: Cascade)
   supplier        PosSupplier?       @relation(fields: [supplier_id], references: [id])
   catalog_product PosCatalogProduct? @relation(fields: [catalog_product_id], references: [id])
@@ -623,6 +625,7 @@ model PosInventoryItem {
   @@index([barcode])
   @@index([store_id, sku])
   @@index([catalog_product_id])
+  @@index([oracle_id])
   @@map("pos_inventory_items")
 }
 
@@ -1134,11 +1137,28 @@ model PosCatalogProduct {
   created_at            DateTime @default(now()) @db.Timestamptz()
   updated_at            DateTime @default(now()) @db.Timestamptz()
 
+  // Scryfall bulk sync fields
+  oracle_id             String?
+  scryfall_id           String?
+  mana_cost             String?
+  type_line             String?
+  oracle_text           String?
+  keywords              String?  // comma-separated
+  color_identity        String?  // comma-separated: W,U,B,R,G
+  cmc                   Decimal? @db.Decimal(4, 1)
+  rarity                String?
+  legalities            Json?
+  prices                Json?
+  image_uri             String?
+  last_synced_at        DateTime? @db.Timestamptz()
+
   inventory_items PosInventoryItem[]
   pricing         PosCatalogPricing[]
 
   @@index([category])
   @@index([game])
+  @@index([oracle_id])
+  @@index([scryfall_id])
   @@map("pos_catalog_products")
 }
 
