@@ -840,7 +840,7 @@ export default function RegisterPage() {
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
       if (e.key === "Escape") {
-        if (showSuccess) { setShowSuccess(false); setCustomer(null); }
+        if (showSuccess) { setShowSuccess(false); setCustomer(null); setCreatedGiftCards(null); }
         else if (showChangeDue !== null) { setShowChangeDue(null); setCustomer(null); }
         else if (showPaySheet) { setShowPaySheet(false); setShowCashInput(false); setShowCreditConfirm(false); }
         else if (showLastReceipt) { setShowLastReceipt(false); }
@@ -914,7 +914,8 @@ export default function RegisterPage() {
     const qty = parseInt(manualQty, 10) || 1;
     if (!name || priceCents <= 0) return;
     showItemAdded(name);
-    setCart((prev) => { setLastAddedIndex(prev.length); return [...prev, { inventory_item_id: null, name, category: "other", price_cents: priceCents, quantity: qty, max_quantity: 999 }]; });
+    const isGiftCard = name.toLowerCase().startsWith("gift card");
+    setCart((prev) => { setLastAddedIndex(prev.length); return [...prev, { inventory_item_id: null, name, category: isGiftCard ? "gift_card" : "other", price_cents: priceCents, quantity: qty, max_quantity: 999 }]; });
     if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
     flashTimerRef.current = setTimeout(() => setLastAddedIndex(null), 500);
     setTimeout(() => cartEndRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
@@ -1138,12 +1139,17 @@ export default function RegisterPage() {
       ...(stripePaymentIntentId ? { stripe_payment_intent_id: stripePaymentIntentId } : {}),
       ...(isTraining ? { training: true } : {}),
       ...(hasZeroStockOverride ? { allow_negative_stock: true } : {}),
+      // Gift card amounts for cards being sold in this transaction
+      ...(() => {
+        const gcAmounts = cart.filter((c) => c.category === "gift_card").map((c) => c.price_cents * c.quantity);
+        return gcAmounts.length > 0 ? { gift_card_amounts: gcAmounts } : {};
+      })(),
     };
     try {
       const res = await fetch("/api/checkout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
       if (!res.ok) { const data = await res.json(); showError(data.error || "Checkout failed"); setProcessing(false); return; }
       const checkoutData = await res.json();
-      saleComplete(method, checkoutData.receipt_token ?? null, checkoutData.loyalty_points_earned ?? 0, checkoutData.ledger_entry_id ?? null);
+      saleComplete(method, checkoutData.receipt_token ?? null, checkoutData.loyalty_points_earned ?? 0, checkoutData.ledger_entry_id ?? null, checkoutData.gift_cards_created ?? null);
     } catch {
       try {
         await enqueueTx({ clientTxId, type: "checkout", createdAt: new Date().toISOString(), status: "pending", retryCount: 0, lastError: null, payload, receipt: {} as Record<string, unknown> });
@@ -1154,7 +1160,10 @@ export default function RegisterPage() {
     } finally { setProcessing(false); }
   }
 
-  async function saleComplete(method: PaymentMethod, receiptToken: string | null = null, loyaltyPointsEarned: number = 0, ledgerEntryId: string | null = null) {
+  const [createdGiftCards, setCreatedGiftCards] = useState<Array<{ code: string; balance_cents: number }> | null>(null);
+
+  async function saleComplete(method: PaymentMethod, receiptToken: string | null = null, loyaltyPointsEarned: number = 0, ledgerEntryId: string | null = null, giftCards: Array<{ code: string; balance_cents: number }> | null = null) {
+    if (giftCards && giftCards.length > 0) setCreatedGiftCards(giftCards);
     const cashChange = method === "cash" ? Math.max(0, tendered - total) : 0;
     const receiptCustomer = customer;
     const receiptNumber = await generateReceiptNumber();
@@ -1269,6 +1278,27 @@ export default function RegisterPage() {
             {lastReceipt && lastReceipt.loyaltyPointsEarned > 0 && (
               <div className="text-purple-400 text-sm font-medium">+{lastReceipt.loyaltyPointsEarned} loyalty points earned</div>
             )}
+            {/* Gift card codes created in this sale */}
+            {createdGiftCards && createdGiftCards.length > 0 && (
+              <div className="space-y-2 pt-2">
+                <div className="text-sm text-muted uppercase tracking-wide">Gift Card{createdGiftCards.length > 1 ? "s" : ""} Created</div>
+                {createdGiftCards.map((gc) => (
+                  <div key={gc.code} className="rounded-xl border-2 border-green-500/30 bg-green-500/5 p-3 space-y-1">
+                    <div className="text-xl font-mono font-bold tracking-wider select-all">{gc.code}</div>
+                    <div className="text-green-400 font-semibold">{formatCents(gc.balance_cents)}</div>
+                  </div>
+                ))}
+                <button
+                  onClick={() => {
+                    const text = createdGiftCards.map((gc) => `${gc.code} — ${formatCents(gc.balance_cents)}`).join("\n");
+                    navigator.clipboard.writeText(text).catch(() => {});
+                  }}
+                  className="text-sm text-accent hover:text-foreground transition-colors"
+                >
+                  Copy code{createdGiftCards.length > 1 ? "s" : ""}
+                </button>
+              </div>
+            )}
             {/* Unclaimed points prompt — no customer attached */}
             {lastReceipt && !lastReceipt.customerName && lastReceipt.ledgerEntryId && storeSettings.loyalty_enabled && (
               <UnclaimedPointsPrompt
@@ -1321,7 +1351,7 @@ export default function RegisterPage() {
           </div>
 
           <div className="mt-6">
-            <button onClick={() => { setShowSuccess(false); setCustomer(null); setReceiptQrUrl(null); }} className="rounded-xl font-bold text-white active:scale-[0.98] transition-transform select-none px-12" style={{ height: 56, fontSize: 18, backgroundColor: "#16a34a", touchAction: "manipulation" }}>Next Customer</button>
+            <button onClick={() => { setShowSuccess(false); setCustomer(null); setReceiptQrUrl(null); setCreatedGiftCards(null); }} className="rounded-xl font-bold text-white active:scale-[0.98] transition-transform select-none px-12" style={{ height: 56, fontSize: 18, backgroundColor: "#16a34a", touchAction: "manipulation" }}>Next Customer</button>
           </div>
         </div>
       )}

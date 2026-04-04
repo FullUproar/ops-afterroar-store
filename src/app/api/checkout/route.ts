@@ -33,6 +33,7 @@ interface CheckoutBody {
   loyalty_points_redeem?: number;
   loyalty_discount_cents?: number;
   tip_cents?: number;
+  gift_card_amounts?: number[]; // cents per gift card being sold
   training?: boolean;
   allow_negative_stock?: boolean;
   stripe_payment_intent_id?: string; // Terminal already collected — skip processPayment
@@ -568,7 +569,38 @@ export async function POST(request: NextRequest) {
       if (cust) receipt.customer_name = cust.name;
     }
 
-    // Fire-and-forget op log
+    // Create gift cards if any were sold in this transaction
+    const giftCardsCreated: Array<{ code: string; balance_cents: number }> = [];
+    if (body.gift_card_amounts && Array.isArray(body.gift_card_amounts)) {
+      for (const amountCents of body.gift_card_amounts) {
+        if (amountCents > 0) {
+          try {
+            // Generate unique code
+            const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+            let code = "";
+            for (let i = 0; i < 16; i++) {
+              if (i > 0 && i % 4 === 0) code += "-";
+              code += chars[Math.floor(Math.random() * chars.length)];
+            }
+
+            await prisma.posGiftCard.create({
+              data: {
+                store_id: storeId,
+                code,
+                balance_cents: amountCents,
+                initial_balance_cents: amountCents,
+                purchased_by_customer_id: customer_id || null,
+              },
+            });
+
+            giftCardsCreated.push({ code, balance_cents: amountCents });
+          } catch (err) {
+            console.error("[Checkout] Gift card creation failed:", err);
+          }
+        }
+      }
+    }
+
     // Marketplace inventory sync handled by cron (/api/marketplace/sync every 5 min)
 
     opLog({
@@ -600,6 +632,7 @@ export async function POST(request: NextRequest) {
         tip_cents,
         receipt,
         loyalty_points_earned: result.pointsEarned,
+        gift_cards_created: giftCardsCreated.length > 0 ? giftCardsCreated : undefined,
       },
       { status: 201 }
     );
