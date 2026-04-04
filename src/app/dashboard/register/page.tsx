@@ -119,7 +119,7 @@ async function generateReceiptNumber(): Promise<string> {
   return `R-${dateStr}-${String(counter).padStart(3, "0")}`;
 }
 
-type ActivePanel = "search" | "scan" | "customer" | "quick" | "manual" | "discount" | "more" | "price_check" | "store_credit" | "returns" | "loyalty" | "gift_card" | "no_sale" | "flag_issue" | "void_last" | "order_lookup" | null;
+type ActivePanel = "search" | "scan" | "customer" | "quick" | "manual" | "discount" | "more" | "price_check" | "store_credit" | "returns" | "loyalty" | "gift_card" | "no_sale" | "flag_issue" | "void_last" | "order_lookup" | "trade_eval" | null;
 
 interface ReceiptData {
   store_name: string;

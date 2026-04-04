@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { formatCents, parseDollars } from "@/lib/types";
 import type { InventoryItem, Customer } from "@/lib/types";
 
-type ActivePanel = "search" | "scan" | "customer" | "quick" | "manual" | "discount" | "more" | "price_check" | "store_credit" | "returns" | "loyalty" | "gift_card" | "no_sale" | "flag_issue" | "void_last" | "order_lookup" | null;
+type ActivePanel = "search" | "scan" | "customer" | "quick" | "manual" | "discount" | "more" | "price_check" | "store_credit" | "returns" | "loyalty" | "gift_card" | "no_sale" | "flag_issue" | "void_last" | "order_lookup" | "trade_eval" | null;
 
 /** Auto-format a gift card code with dashes: XXXX-XXXX-XXXX-XXXX */
 function formatGiftCardInput(raw: string): string {
@@ -502,6 +502,202 @@ export function MoreMenu({
     }, 400);
   }
 
+  // ---- Trade Eval (Buy Cards) ----
+  interface TradeEvalCard {
+    name: string;
+    set_name: string;
+    rarity: string;
+    image_url: string;
+    source: string;
+    market_price_cents: number;
+    market_price_foil_cents: number | null;
+    offers: Record<string, number>;
+  }
+  interface TradeStackItem {
+    id: string;
+    name: string;
+    set_name: string;
+    condition: string;
+    quantity: number;
+    offer_cents: number;
+    market_price_cents: number;
+    is_foil: boolean;
+  }
+  const [tradeEvalQuery, setTradeEvalQuery] = useState("");
+  const [tradeEvalResults, setTradeEvalResults] = useState<TradeEvalCard[]>([]);
+  const [tradeEvalLoading, setTradeEvalLoading] = useState(false);
+  const [tradeEvalSelected, setTradeEvalSelected] = useState<TradeEvalCard | null>(null);
+  const [tradeEvalCondition, setTradeEvalCondition] = useState<string>("LP");
+  const [tradeEvalFoil, setTradeEvalFoil] = useState(false);
+  const [tradeEvalQty, setTradeEvalQty] = useState(1);
+  const [tradeEvalFoilOffers, setTradeEvalFoilOffers] = useState<Record<string, number> | null>(null);
+  const [tradeStack, setTradeStack] = useState<TradeStackItem[]>([]);
+  const [tradeSubmitting, setTradeSubmitting] = useState(false);
+  const [tradeSuccess, setTradeSuccess] = useState(false);
+  const tradeEvalDebounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  // Customer search for trade-in (if no customer attached)
+  const [tradeCustomerQuery, setTradeCustomerQuery] = useState("");
+  const [tradeCustomerResults, setTradeCustomerResults] = useState<Customer[]>([]);
+  const [tradeCustomer, setTradeCustomer] = useState<Customer | null>(null);
+  const tradeCustomerDebounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  useEffect(() => {
+    if (activePanel !== "trade_eval") return;
+    if (tradeEvalDebounceRef.current) clearTimeout(tradeEvalDebounceRef.current);
+    if (!tradeEvalQuery.trim()) { setTradeEvalResults([]); return; }
+    tradeEvalDebounceRef.current = setTimeout(async () => {
+      setTradeEvalLoading(true);
+      try {
+        const res = await fetch(`/api/catalog/price-check?name=${encodeURIComponent(tradeEvalQuery.trim())}`);
+        const data = await res.json();
+        if (data.found) {
+          setTradeEvalResults([data as TradeEvalCard]);
+        } else {
+          setTradeEvalResults([]);
+        }
+      } catch {
+        setTradeEvalResults([]);
+      } finally {
+        setTradeEvalLoading(false);
+      }
+    }, 350);
+    return () => { if (tradeEvalDebounceRef.current) clearTimeout(tradeEvalDebounceRef.current); };
+  }, [tradeEvalQuery, activePanel]);
+
+  useEffect(() => {
+    if (activePanel !== "trade_eval") return;
+    if (tradeCustomerDebounceRef.current) clearTimeout(tradeCustomerDebounceRef.current);
+    if (!tradeCustomerQuery.trim()) { setTradeCustomerResults([]); return; }
+    tradeCustomerDebounceRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/customers?q=${encodeURIComponent(tradeCustomerQuery.trim())}`);
+        const data = await res.json();
+        if (Array.isArray(data)) setTradeCustomerResults(data);
+      } catch {}
+    }, 200);
+    return () => { if (tradeCustomerDebounceRef.current) clearTimeout(tradeCustomerDebounceRef.current); };
+  }, [tradeCustomerQuery, activePanel]);
+
+  function selectTradeCard(card: TradeEvalCard) {
+    setTradeEvalSelected(card);
+    setTradeEvalCondition("LP");
+    setTradeEvalFoil(false);
+    setTradeEvalQty(1);
+    setTradeEvalFoilOffers(null);
+  }
+
+  async function loadFoilOffers(cardName: string) {
+    try {
+      const res = await fetch(`/api/catalog/price-check?name=${encodeURIComponent(cardName)}&foil=true`);
+      const data = await res.json();
+      if (data.found && data.offers) {
+        setTradeEvalFoilOffers(data.offers);
+      }
+    } catch {}
+  }
+
+  function toggleTradeEvalFoil() {
+    const next = !tradeEvalFoil;
+    setTradeEvalFoil(next);
+    if (next && !tradeEvalFoilOffers && tradeEvalSelected) {
+      // Recalculate foil offers from foil market price
+      if (tradeEvalSelected.market_price_foil_cents) {
+        const foilMarket = tradeEvalSelected.market_price_foil_cents;
+        // Apply same condition multipliers client-side
+        const condMultipliers: Record<string, number> = { NM: 0.6, LP: 0.5, MP: 0.35, HP: 0.2, DMG: 0.1 };
+        const foilOffers: Record<string, number> = {};
+        for (const cond of ["NM", "LP", "MP", "HP", "DMG"]) {
+          foilOffers[cond] = Math.round(foilMarket * (condMultipliers[cond] ?? 0.5));
+        }
+        setTradeEvalFoilOffers(foilOffers);
+      }
+    }
+  }
+
+  function getTradeOfferCents(): number {
+    if (!tradeEvalSelected) return 0;
+    const offers = tradeEvalFoil && tradeEvalFoilOffers ? tradeEvalFoilOffers : tradeEvalSelected.offers;
+    return offers[tradeEvalCondition] ?? 0;
+  }
+
+  function addToTradeStack() {
+    if (!tradeEvalSelected) return;
+    const offerCents = getTradeOfferCents();
+    const item: TradeStackItem = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      name: tradeEvalSelected.name,
+      set_name: tradeEvalSelected.set_name,
+      condition: tradeEvalCondition,
+      quantity: tradeEvalQty,
+      offer_cents: offerCents,
+      market_price_cents: tradeEvalFoil && tradeEvalSelected.market_price_foil_cents
+        ? tradeEvalSelected.market_price_foil_cents
+        : tradeEvalSelected.market_price_cents,
+      is_foil: tradeEvalFoil,
+    };
+    setTradeStack((prev) => [...prev, item]);
+    setTradeEvalSelected(null);
+    setTradeEvalQuery("");
+    setTradeEvalResults([]);
+  }
+
+  function removeFromTradeStack(id: string) {
+    setTradeStack((prev) => prev.filter((s) => s.id !== id));
+  }
+
+  function getTradeStackTotal(): number {
+    return tradeStack.reduce((s, i) => s + i.offer_cents * i.quantity, 0);
+  }
+
+  async function submitTradeIn(payoutType: "cash" | "credit") {
+    const tradeTarget = customer || tradeCustomer;
+    if (!tradeTarget || tradeStack.length === 0) return;
+    setTradeSubmitting(true);
+    try {
+      const creditBonusPercent = payoutType === "credit" ? 30 : 0;
+      const res = await fetch("/api/trade-ins", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          customer_id: tradeTarget.id,
+          items: tradeStack.map((s) => ({
+            name: s.is_foil ? `${s.name} (Foil)` : s.name,
+            category: "singles",
+            attributes: { condition: s.condition, set: s.set_name, foil: s.is_foil },
+            quantity: s.quantity,
+            market_price_cents: s.market_price_cents,
+            offer_price_cents: s.offer_cents,
+          })),
+          payout_type: payoutType,
+          credit_bonus_percent: creditBonusPercent,
+          notes: null,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setTradeSuccess(true);
+        const payoutCents = data.total_payout_cents ?? getTradeStackTotal() * (payoutType === "credit" ? 1.3 : 1);
+        setToastMessage(`Trade-in complete: ${formatCents(payoutCents)} ${payoutType}`);
+        setTimeout(() => {
+          setTradeStack([]);
+          setTradeSuccess(false);
+          setTradeEvalSelected(null);
+          setTradeEvalQuery("");
+          setTradeCustomer(null);
+          setTradeCustomerQuery("");
+        }, 1500);
+      } else {
+        const data = await res.json().catch(() => ({}));
+        showError(data.error || "Failed to submit trade-in");
+      }
+    } catch {
+      showError("Failed to submit trade-in");
+    } finally {
+      setTradeSubmitting(false);
+    }
+  }
+
   // ---- Render ----
   const content = (() => { switch (activePanel) {
     /* ============ MORE MENU ============ */
@@ -515,6 +711,7 @@ export function MoreMenu({
             </button>
           </div>
           {[
+            { panel: "trade_eval" as ActivePanel, icon: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z" /></svg>, label: "Buy Cards", accent: true },
             { panel: "order_lookup" as ActivePanel, icon: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m5.231 13.481L15 17.25m-4.5-15H5.625c-.621 0-1.125.504-1.125 1.125v16.5c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9zm3.75 11.625a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" /></svg>, label: "Order Lookup" },
             { panel: "price_check" as ActivePanel, icon: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" /><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3m0 0v3m0-3h3m-3 0H9" /></svg>, label: "Price Check" },
             { panel: "store_credit" as ActivePanel, icon: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z" /></svg>, label: "Store Credit" },
@@ -540,11 +737,15 @@ export function MoreMenu({
                   }
                 }
               }}
-              className="w-full flex items-center gap-3 rounded-xl px-4 py-3 text-left text-foreground hover:bg-card-hover active:bg-accent-light transition-colors"
+              className={`w-full flex items-center gap-3 rounded-xl px-4 py-3 text-left transition-colors ${
+                (item as { accent?: boolean }).accent
+                  ? "text-accent border border-accent/30 bg-accent/5 hover:bg-accent/10 active:bg-accent/20"
+                  : "text-foreground hover:bg-card-hover active:bg-accent-light"
+              }`}
               style={{ minHeight: 48 }}
             >
-              <span className="shrink-0 text-muted">{item.icon}</span>
-              <span className="text-lg font-medium">{item.label}</span>
+              <span className={`shrink-0 ${(item as { accent?: boolean }).accent ? "text-accent" : "text-muted"}`}>{item.icon}</span>
+              <span className={`text-lg font-medium ${(item as { accent?: boolean }).accent ? "text-accent" : ""}`}>{item.label}</span>
             </button>
           ))}
         </div>
@@ -1424,6 +1625,323 @@ export function MoreMenu({
           )}
         </div>
       );
+
+    /* ============ TRADE EVAL (BUY CARDS) ============ */
+    case "trade_eval": {
+      const tradeTarget = customer || tradeCustomer;
+      const stackTotal = getTradeStackTotal();
+      const creditBonus = 30;
+      const creditTotal = Math.round(stackTotal * (1 + creditBonus / 100));
+
+      // Condition color map
+      const condColors: Record<string, { bg: string; border: string; text: string }> = {
+        NM: { bg: "bg-green-500/10", border: "border-green-500", text: "text-green-400" },
+        LP: { bg: "bg-blue-500/10", border: "border-blue-500", text: "text-blue-400" },
+        MP: { bg: "bg-yellow-500/10", border: "border-yellow-500", text: "text-yellow-400" },
+        HP: { bg: "bg-orange-500/10", border: "border-orange-500", text: "text-orange-400" },
+        DMG: { bg: "bg-red-500/10", border: "border-red-500", text: "text-red-400" },
+      };
+
+      return (
+        <div className="p-3 space-y-2 flex flex-col" style={{ maxHeight: "calc(100vh - 120px)" }}>
+          {/* Header */}
+          <div className="flex items-center justify-between mb-1 shrink-0">
+            <button onClick={() => {
+              if (tradeEvalSelected) {
+                setTradeEvalSelected(null);
+              } else {
+                setActivePanel("more");
+                setTradeEvalQuery("");
+                setTradeEvalResults([]);
+                setTradeEvalSelected(null);
+                setTradeCustomer(null);
+                setTradeCustomerQuery("");
+              }
+            }} className="text-sm text-muted hover:text-foreground" style={{ minHeight: "auto" }}>
+              <svg className="w-4 h-4 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+              Back
+            </button>
+            <span className="text-sm font-semibold text-accent uppercase tracking-wider">Buy Cards</span>
+          </div>
+
+          {tradeSuccess ? (
+            <div className="flex flex-col items-center justify-center py-12 space-y-3">
+              <svg className="w-16 h-16 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              <div className="text-2xl font-bold text-green-400">Done!</div>
+              <div className="text-lg text-muted">Trade-in submitted</div>
+            </div>
+          ) : !tradeTarget ? (
+            /* ---- Customer selection (required for trade-in API) ---- */
+            <div className="space-y-2 shrink-0">
+              <div className="text-lg text-foreground font-medium">Who&apos;s selling?</div>
+              <input
+                type="search"
+                inputMode="search"
+                value={tradeCustomerQuery}
+                onChange={(e) => setTradeCustomerQuery(e.target.value)}
+                onKeyDown={(e) => e.stopPropagation()}
+                placeholder="Search customer name..."
+                autoFocus
+                className="w-full rounded-xl border border-input-border bg-input-bg px-4 text-foreground placeholder:text-muted focus:border-accent focus:outline-none"
+                style={{ height: 48, fontSize: 18 }}
+              />
+              <div className="space-y-1 max-h-64 overflow-y-auto">
+                {tradeCustomerResults.map((c) => (
+                  <button
+                    key={c.id}
+                    onClick={() => setTradeCustomer(c)}
+                    className="w-full flex items-center justify-between rounded-xl px-4 py-3 text-left bg-card-hover hover:bg-accent-light transition-colors"
+                    style={{ minHeight: 48 }}
+                  >
+                    <div>
+                      <div className="text-lg font-medium text-foreground">{c.name}</div>
+                      {c.email && <div className="text-sm text-muted">{c.email}</div>}
+                    </div>
+                    <div className="text-sm text-muted tabular-nums font-mono">
+                      {formatCents(c.credit_balance_cents)} credit
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : tradeEvalSelected ? (
+            /* ---- Step 2: Evaluate selected card ---- */
+            <div className="space-y-3 shrink-0 overflow-y-auto flex-1 min-h-0">
+              {/* Card image */}
+              {tradeEvalSelected.image_url && (
+                <div className="flex justify-center">
+                  <img
+                    src={tradeEvalSelected.image_url}
+                    alt={tradeEvalSelected.name}
+                    className="rounded-xl shadow-lg"
+                    style={{ maxWidth: 180, maxHeight: 250 }}
+                  />
+                </div>
+              )}
+
+              {/* Card info */}
+              <div className="text-center">
+                <div className="text-xl font-bold text-foreground">{tradeEvalSelected.name}</div>
+                <div className="text-base text-muted">{tradeEvalSelected.set_name}{tradeEvalSelected.rarity ? ` \u00b7 ${tradeEvalSelected.rarity}` : ""}</div>
+                <div className="text-lg font-mono tabular-nums text-foreground mt-1">
+                  Market: {formatCents(tradeEvalFoil && tradeEvalSelected.market_price_foil_cents ? tradeEvalSelected.market_price_foil_cents : tradeEvalSelected.market_price_cents)}
+                </div>
+              </div>
+
+              {/* Foil toggle */}
+              {tradeEvalSelected.market_price_foil_cents && (
+                <div className="flex items-center justify-center gap-3">
+                  <span className="text-base text-muted">Foil</span>
+                  <button
+                    onClick={toggleTradeEvalFoil}
+                    className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors ${tradeEvalFoil ? "bg-accent" : "bg-zinc-600"}`}
+                    style={{ minHeight: "auto" }}
+                  >
+                    <span className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${tradeEvalFoil ? "translate-x-6" : "translate-x-1"}`} />
+                  </button>
+                </div>
+              )}
+
+              {/* Condition buttons */}
+              <div className="grid grid-cols-5 gap-1.5">
+                {(["NM", "LP", "MP", "HP", "DMG"] as const).map((cond) => {
+                  const offers = tradeEvalFoil && tradeEvalFoilOffers ? tradeEvalFoilOffers : tradeEvalSelected.offers;
+                  const offerCents = offers[cond] ?? 0;
+                  const colors = condColors[cond];
+                  const isSelected = tradeEvalCondition === cond;
+                  return (
+                    <button
+                      key={cond}
+                      onClick={() => setTradeEvalCondition(cond)}
+                      className={`flex flex-col items-center justify-center rounded-xl border-2 transition-all ${
+                        isSelected
+                          ? `${colors.bg} ${colors.border} ring-1 ring-offset-1 ring-offset-transparent ring-current`
+                          : "border-card-border bg-card hover:bg-card-hover"
+                      }`}
+                      style={{ minHeight: 64, padding: "8px 2px" }}
+                    >
+                      <span className={`text-sm font-bold ${isSelected ? colors.text : "text-foreground"}`}>{cond}</span>
+                      <span className={`text-xs font-mono tabular-nums mt-0.5 ${isSelected ? colors.text : "text-muted"}`}>
+                        {formatCents(offerCents)}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Offer display */}
+              {(() => {
+                const offerCents = getTradeOfferCents();
+                const marketCents = tradeEvalFoil && tradeEvalSelected.market_price_foil_cents ? tradeEvalSelected.market_price_foil_cents : tradeEvalSelected.market_price_cents;
+                const ratio = marketCents > 0 ? offerCents / marketCents : 0;
+                const offerColor = ratio >= 0.45 ? "text-green-400" : ratio >= 0.25 ? "text-amber-400" : "text-red-400";
+                return (
+                  <div className="rounded-xl bg-card-hover border border-card-border p-4 text-center">
+                    <div className="text-sm text-muted uppercase tracking-wider">We&apos;ll Pay</div>
+                    <div className={`text-4xl font-bold font-mono tabular-nums mt-1 ${offerColor}`}>
+                      {formatCents(offerCents * tradeEvalQty)}
+                    </div>
+                    {tradeEvalQty > 1 && (
+                      <div className="text-sm text-muted mt-0.5">{formatCents(offerCents)} each</div>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {/* Quantity stepper */}
+              <div className="flex items-center justify-center gap-4">
+                <button
+                  onClick={() => setTradeEvalQty((q) => Math.max(1, q - 1))}
+                  disabled={tradeEvalQty <= 1}
+                  className="rounded-xl border border-card-border bg-card hover:bg-card-hover disabled:opacity-30 text-foreground text-xl font-bold"
+                  style={{ width: 48, height: 48, minHeight: "auto" }}
+                >
+                  -
+                </button>
+                <span className="text-2xl font-bold text-foreground tabular-nums" style={{ minWidth: 32, textAlign: "center" }}>{tradeEvalQty}</span>
+                <button
+                  onClick={() => setTradeEvalQty((q) => Math.min(10, q + 1))}
+                  disabled={tradeEvalQty >= 10}
+                  className="rounded-xl border border-card-border bg-card hover:bg-card-hover disabled:opacity-30 text-foreground text-xl font-bold"
+                  style={{ width: 48, height: 48, minHeight: "auto" }}
+                >
+                  +
+                </button>
+              </div>
+
+              {/* Add to Stack */}
+              <button
+                onClick={addToTradeStack}
+                className="w-full rounded-xl font-semibold text-white transition-colors"
+                style={{ height: 52, fontSize: 18, backgroundColor: "#16a34a" }}
+              >
+                Add to Stack
+              </button>
+            </div>
+          ) : (
+            /* ---- Step 1: Search for cards ---- */
+            <div className="space-y-2 flex-1 min-h-0 overflow-y-auto">
+              <div className="flex items-center gap-2 text-sm text-muted shrink-0">
+                <span>Buying from:</span>
+                <span className="font-medium text-foreground">{tradeTarget.name}</span>
+                {!customer && (
+                  <button onClick={() => { setTradeCustomer(null); setTradeCustomerQuery(""); }} className="text-accent hover:underline ml-auto" style={{ minHeight: "auto" }}>Change</button>
+                )}
+              </div>
+              <input
+                type="search"
+                inputMode="search"
+                value={tradeEvalQuery}
+                onChange={(e) => setTradeEvalQuery(e.target.value)}
+                onKeyDown={(e) => e.stopPropagation()}
+                placeholder="Search card name..."
+                autoFocus
+                className="w-full rounded-xl border border-input-border bg-input-bg px-4 text-foreground placeholder:text-muted focus:border-accent focus:outline-none"
+                style={{ height: 48, fontSize: 18 }}
+              />
+
+              {tradeEvalLoading ? (
+                <div className="flex items-center justify-center h-20 text-muted text-sm">
+                  <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                  Looking up prices...
+                </div>
+              ) : tradeEvalResults.length > 0 ? (
+                <div className="space-y-1">
+                  {tradeEvalResults.map((card, i) => (
+                    <button
+                      key={i}
+                      onClick={() => selectTradeCard(card)}
+                      className="w-full flex items-center gap-3 rounded-xl px-3 py-3 text-left bg-card border border-card-border hover:bg-card-hover transition-colors"
+                      style={{ minHeight: 56 }}
+                    >
+                      {card.image_url && (
+                        <img src={card.image_url} alt="" className="rounded-lg object-cover" style={{ width: 48, height: 67 }} />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="text-lg font-medium text-foreground truncate">{card.name}</div>
+                        <div className="text-sm text-muted">{card.set_name}</div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <div className="text-lg font-bold font-mono tabular-nums text-foreground">{formatCents(card.market_price_cents)}</div>
+                        <div className="text-xs text-muted">market</div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              ) : tradeEvalQuery.trim() ? (
+                <div className="flex items-center justify-center h-20 text-muted text-lg">No results</div>
+              ) : (
+                <div className="flex items-center justify-center h-20 text-muted text-base">Search for a card to evaluate</div>
+              )}
+            </div>
+          )}
+
+          {/* ---- Running Stack (always visible when items > 0) ---- */}
+          {tradeStack.length > 0 && !tradeSuccess && (
+            <div className="border-t border-card-border pt-2 mt-auto shrink-0 space-y-2">
+              <div className="text-sm font-semibold text-muted uppercase tracking-wider">
+                Stack ({tradeStack.length} card{tradeStack.length !== 1 ? "s" : ""})
+              </div>
+              <div className="space-y-1 max-h-32 overflow-y-auto">
+                {tradeStack.map((item) => (
+                  <div key={item.id} className="flex items-center gap-2 rounded-lg px-2 py-1.5 bg-card-hover">
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium text-foreground truncate">
+                        {item.name}{item.is_foil ? " (Foil)" : ""}
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className={`text-xs font-bold px-1.5 py-0.5 rounded ${condColors[item.condition]?.bg ?? ""} ${condColors[item.condition]?.text ?? "text-muted"}`}>
+                          {item.condition}
+                        </span>
+                        {item.quantity > 1 && <span className="text-xs text-muted">x{item.quantity}</span>}
+                      </div>
+                    </div>
+                    <span className="text-sm font-mono tabular-nums text-foreground">{formatCents(item.offer_cents * item.quantity)}</span>
+                    <button
+                      onClick={() => removeFromTradeStack(item.id)}
+                      className="shrink-0 text-muted hover:text-red-400 transition-colors"
+                      style={{ minHeight: "auto", padding: 4 }}
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              {/* Total + payout buttons */}
+              <div className="text-center">
+                <div className="text-sm text-muted uppercase tracking-wider">Total Offer</div>
+                <div className="text-2xl font-bold font-mono tabular-nums text-foreground">{formatCents(stackTotal)}</div>
+              </div>
+
+              {tradeTarget ? (
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => submitTradeIn("cash")}
+                    disabled={tradeSubmitting}
+                    className="rounded-xl font-semibold text-white disabled:opacity-30 transition-colors"
+                    style={{ height: 52, fontSize: 16, backgroundColor: "#16a34a" }}
+                  >
+                    {tradeSubmitting ? "..." : `Cash ${formatCents(stackTotal)}`}
+                  </button>
+                  <button
+                    onClick={() => submitTradeIn("credit")}
+                    disabled={tradeSubmitting}
+                    className="rounded-xl font-semibold text-white disabled:opacity-30 transition-colors"
+                    style={{ height: 52, fontSize: 16, backgroundColor: "#7D55C7" }}
+                  >
+                    <div>{tradeSubmitting ? "..." : `Credit ${formatCents(creditTotal)}`}</div>
+                    <div className="text-xs font-normal opacity-80">+{creditBonus}% bonus</div>
+                  </button>
+                </div>
+              ) : (
+                <div className="text-center text-sm text-muted">Attach a customer to submit</div>
+              )}
+            </div>
+          )}
+        </div>
+      );
+    }
 
     default:
       return null;
