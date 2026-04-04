@@ -58,6 +58,14 @@ export interface InventoryMatchResult {
     image_url: string | null;
     reason: string;
   };
+  /** Available at partner stores in the Afterroar network */
+  network?: Array<{
+    store_name: string;
+    store_slug: string;
+    city: string | null;
+    state: string | null;
+    quantity: number;
+  }>;
 }
 
 export interface MetaDeck {
@@ -304,6 +312,74 @@ export async function matchDeckToInventory(
       status,
       substitute,
     });
+  }
+
+  // Network lookup: check partner stores for unavailable cards
+  if (!options?.inStockOnly) {
+    const unavailable = results.filter((r) => r.status === "unavailable" || r.status === "partial");
+    if (unavailable.length > 0) {
+      try {
+        // Check if current store has network enabled (read store settings)
+        const store = await prisma.posStore.findUnique({
+          where: { id: storeId },
+          select: { settings: true },
+        });
+        const settings = (store?.settings ?? {}) as Record<string, unknown>;
+
+        if (settings.network_inventory_enabled) {
+          // Search network for each unavailable card (batch by name)
+          for (const result of unavailable) {
+            try {
+              const networkItems = await prisma.posInventoryItem.findMany({
+                where: {
+                  store_id: { not: storeId },
+                  active: true,
+                  quantity: { gt: 0 },
+                  name: { contains: result.name, mode: "insensitive" },
+                  store: {
+                    settings: {
+                      path: ["network_inventory_enabled"],
+                      equals: true,
+                    },
+                  },
+                },
+                select: {
+                  quantity: true,
+                  store: {
+                    select: {
+                      name: true,
+                      slug: true,
+                      address: true,
+                      settings: true,
+                    },
+                  },
+                },
+                take: 5,
+              });
+
+              if (networkItems.length > 0) {
+                result.network = networkItems.map((ni) => {
+                  const addr = (ni.store.address ?? {}) as Record<string, string>;
+                  const storeSettings = (ni.store.settings ?? {}) as Record<string, unknown>;
+                  const visible = storeSettings.network_inventory_visible !== false;
+                  return {
+                    store_name: visible ? ni.store.name : "Partner Store",
+                    store_slug: ni.store.slug,
+                    city: visible ? (addr.city || null) : null,
+                    state: visible ? (addr.state || null) : null,
+                    quantity: ni.quantity,
+                  };
+                });
+              }
+            } catch {
+              // Non-critical
+            }
+          }
+        }
+      } catch {
+        // Network lookup is non-critical
+      }
+    }
   }
 
   return results;

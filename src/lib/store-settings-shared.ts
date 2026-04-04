@@ -47,6 +47,9 @@ export interface StoreSettings {
   shipping_free_threshold_cents: number; // Free shipping above this amount (0 = no free shipping)
   // Cross-store intelligence
   opt_in_benchmarking: boolean;
+  // Afterroar Network — cross-store inventory sharing
+  network_inventory_enabled: boolean; // share your stock levels with the network
+  network_inventory_visible: boolean; // show your store name + location to other stores
   // NUX (new user experience)
   nux_dismissed: boolean;
   // Tips
@@ -110,6 +113,8 @@ export const SETTINGS_DEFAULTS: StoreSettings = {
   shipping_free_threshold_cents: 0,
   // Cross-store intelligence
   opt_in_benchmarking: false,
+  network_inventory_enabled: false,
+  network_inventory_visible: false,
   // NUX
   nux_dismissed: false,
   // Tips

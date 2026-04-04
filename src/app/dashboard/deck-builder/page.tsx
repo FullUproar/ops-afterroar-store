@@ -40,6 +40,13 @@ interface InventoryMatch {
     image_url: string | null;
     reason: string;
   };
+  network?: Array<{
+    store_name: string;
+    store_slug: string;
+    city: string | null;
+    state: string | null;
+    quantity: number;
+  }>;
 }
 
 interface LiveMetaResult {
@@ -991,6 +998,20 @@ function DeckBuilderContent() {
                       >
                         + Sub
                       </button>
+                    </div>
+                  )}
+                  {/* Network availability */}
+                  {match.network && match.network.length > 0 && (
+                    <div className="ml-14 flex items-center gap-2 px-3 py-1.5 rounded-lg bg-purple-500/5 border border-purple-500/20 text-xs">
+                      <span className="text-purple-400 shrink-0">&#x1F310; Available nearby:</span>
+                      {match.network.map((ns, ni) => (
+                        <span key={ni} className="text-foreground">
+                          <span className="font-medium">{ns.store_name}</span>
+                          {ns.city && <span className="text-muted"> ({ns.city}{ns.state ? `, ${ns.state}` : ""})</span>}
+                          <span className="text-purple-400 ml-1">×{ns.quantity}</span>
+                          {ni < match.network!.length - 1 && <span className="text-muted mx-1">·</span>}
+                        </span>
+                      ))}
                     </div>
                   )}
                   </div>

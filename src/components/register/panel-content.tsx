@@ -197,7 +197,10 @@ export function PanelContent(props: PanelContentProps) {
                         </div>
                         <div className="flex items-center gap-2 text-xs">
                           {outOfStock ? (
-                            <span className="text-red-400 font-semibold">Out of stock</span>
+                            <>
+                              <span className="text-red-400 font-semibold">Out of stock</span>
+                              <span className="text-purple-400">&#x1F310; Check network</span>
+                            </>
                           ) : (
                             <span className="text-muted">{item.quantity} in stock</span>
                           )}
