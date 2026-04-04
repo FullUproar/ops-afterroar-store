@@ -10,6 +10,8 @@ interface CartItem {
   price_cents: number;
   quantity: number;
   max_quantity: number;
+  condition?: string;
+  image_url?: string | null;
 }
 
 interface CartDiscount {
@@ -110,11 +112,28 @@ export function CartList({
                     }, { once: true });
                   }}
                 >
+                  {/* Card thumbnail for TCG */}
+                  {item.category === "tcg_single" && item.image_url && (
+                    <div className="shrink-0 w-8 h-11 rounded overflow-hidden bg-card-hover mr-1">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={item.image_url} alt="" className="w-full h-full object-cover" />
+                    </div>
+                  )}
                   {/* Item name */}
                   <div className="flex-1 min-w-0 pr-3">
                     <span className="text-lg font-medium text-foreground truncate block">
                       {item.name}
-                      {!item.inventory_item_id && (
+                      {item.condition && (
+                        <span className={`ml-1.5 text-xs font-bold px-1 py-0.5 rounded ${
+                          item.condition === "NM" ? "bg-green-500/20 text-green-400" :
+                          item.condition === "LP" ? "bg-blue-500/20 text-blue-400" :
+                          item.condition === "MP" ? "bg-yellow-500/20 text-yellow-400" :
+                          item.condition === "HP" ? "bg-orange-500/20 text-orange-400" :
+                          item.condition === "DMG" ? "bg-red-500/20 text-red-400" :
+                          "bg-card-hover text-muted"
+                        }`}>{item.condition}</span>
+                      )}
+                      {!item.inventory_item_id && !item.condition && (
                         <span className="text-sm text-muted ml-1">(manual)</span>
                       )}
                     </span>

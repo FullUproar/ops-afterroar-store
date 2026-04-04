@@ -56,6 +56,10 @@ interface CartItem {
   price_cents: number;
   quantity: number;
   max_quantity: number;
+  /** TCG card condition badge */
+  condition?: string;
+  /** Product image (for cart thumbnail) */
+  image_url?: string | null;
 }
 
 interface CartDiscount {
@@ -924,7 +928,13 @@ export default function RegisterPage() {
         setLastAddedIndex(existingIdx);
         return updated;
       }
-      const newItem: CartItem = { inventory_item_id: item.id, name: item.name, category: item.category, price_cents: item.price_cents, quantity: 1, max_quantity: item.quantity };
+      const attrs = (item.attributes || {}) as Record<string, unknown>;
+      const newItem: CartItem = {
+        inventory_item_id: item.id, name: item.name, category: item.category,
+        price_cents: item.price_cents, quantity: 1, max_quantity: item.quantity,
+        condition: (attrs.condition as string) || undefined,
+        image_url: item.image_url,
+      };
       setLastAddedIndex(prev.length);
       return [...prev, newItem];
     });

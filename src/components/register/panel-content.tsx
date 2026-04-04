@@ -130,16 +130,119 @@ export function PanelContent(props: PanelContentProps) {
             )}
           </div>
           {searchResults.length > 0 ? (
-            <div className="space-y-1">
-              {searchResults.slice(0, 20).map((item) => (
-                <button key={item.id} onClick={() => addToCart(item)} className="w-full flex items-center justify-between rounded-xl px-4 py-3 text-left bg-card hover:bg-card-hover active:bg-accent-light transition-colors border border-card-border" style={{ minHeight: 52 }}>
-                  <div className="min-w-0 flex-1">
-                    <div className="text-lg font-medium text-foreground truncate">{item.name}</div>
-                    <div className="text-base text-muted">{item.category} {"\u00B7"} qty {item.quantity}</div>
-                  </div>
-                  <div className="text-lg font-bold text-foreground ml-3 tabular-nums font-mono">{formatCents(item.price_cents)}</div>
-                </button>
-              ))}
+            <div className="space-y-1.5">
+              {searchResults.slice(0, 20).map((item) => {
+                const attrs = (item.attributes || {}) as Record<string, unknown>;
+                const isTCG = item.category === "tcg_single";
+                const condition = (attrs.condition as string) || "";
+                const setName = (attrs.set_name as string) || "";
+                const game = (attrs.game as string) || "";
+                const foil = !!(attrs.foil);
+                const rarity = (attrs.rarity as string) || "";
+                const outOfStock = item.quantity <= 0;
+
+                const conditionColors: Record<string, string> = {
+                  NM: "bg-green-500/20 text-green-400 border-green-500/30",
+                  LP: "bg-blue-500/20 text-blue-400 border-blue-500/30",
+                  MP: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30",
+                  HP: "bg-orange-500/20 text-orange-400 border-orange-500/30",
+                  DMG: "bg-red-500/20 text-red-400 border-red-500/30",
+                };
+
+                if (isTCG) {
+                  // TCG card — image-forward layout
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => !outOfStock && addToCart(item)}
+                      disabled={outOfStock}
+                      className={`w-full flex items-center gap-3 rounded-xl px-3 py-2 text-left transition-colors border ${
+                        outOfStock
+                          ? "bg-card/50 border-card-border/50 opacity-60 cursor-not-allowed"
+                          : "bg-card hover:bg-card-hover active:bg-accent-light border-card-border"
+                      }`}
+                      style={{ minHeight: 72 }}
+                    >
+                      {/* Card image */}
+                      <div className="shrink-0 w-[52px] h-[72px] rounded-lg overflow-hidden bg-card-hover border border-card-border/50">
+                        {item.image_url ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={item.image_url}
+                            alt=""
+                            className="w-full h-full object-cover"
+                            loading="lazy"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-muted text-xs">
+                            {game === "MTG" ? "MTG" : game === "Pokemon" ? "PKM" : game === "Yu-Gi-Oh" ? "YGO" : "TCG"}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Card info */}
+                      <div className="flex-1 min-w-0 space-y-1">
+                        <div className="text-base font-semibold text-foreground leading-tight truncate">
+                          {item.name}
+                          {foil && <span className="ml-1.5 text-xs text-amber-400">&#x2728;</span>}
+                        </div>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {condition && (
+                            <span className={`text-xs font-bold px-1.5 py-0.5 rounded border ${conditionColors[condition] || "bg-card-hover text-muted border-card-border"}`}>
+                              {condition}
+                            </span>
+                          )}
+                          {setName && <span className="text-xs text-muted truncate max-w-[120px]">{setName}</span>}
+                          {rarity && <span className="text-xs text-muted">{"\u00B7"} {rarity}</span>}
+                        </div>
+                        <div className="flex items-center gap-2 text-xs">
+                          {outOfStock ? (
+                            <span className="text-red-400 font-semibold">Out of stock</span>
+                          ) : (
+                            <span className="text-muted">{item.quantity} in stock</span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Price */}
+                      <div className="shrink-0 text-right">
+                        <div className="text-lg font-bold text-foreground tabular-nums font-mono">{formatCents(item.price_cents)}</div>
+                      </div>
+                    </button>
+                  );
+                }
+
+                // Non-TCG item — clean simple row
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => !outOfStock && addToCart(item)}
+                    disabled={outOfStock}
+                    className={`w-full flex items-center gap-3 rounded-xl px-4 py-3 text-left transition-colors border ${
+                      outOfStock
+                        ? "bg-card/50 border-card-border/50 opacity-60 cursor-not-allowed"
+                        : "bg-card hover:bg-card-hover active:bg-accent-light border-card-border"
+                    }`}
+                    style={{ minHeight: 52 }}
+                  >
+                    {item.image_url && (
+                      <div className="shrink-0 w-10 h-10 rounded-lg overflow-hidden bg-card-hover">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={item.image_url} alt="" className="w-full h-full object-cover" loading="lazy" />
+                      </div>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <div className="text-lg font-medium text-foreground truncate">{item.name}</div>
+                      <div className="text-sm text-muted">
+                        {item.category.replace(/_/g, " ")}
+                        {" \u00B7 "}
+                        {outOfStock ? <span className="text-red-400">out of stock</span> : `${item.quantity} in stock`}
+                      </div>
+                    </div>
+                    <div className="text-lg font-bold text-foreground ml-3 tabular-nums font-mono">{formatCents(item.price_cents)}</div>
+                  </button>
+                );
+              })}
             </div>
           ) : searchQuery.trim() ? (
             <div className="flex items-center justify-center h-24 text-muted text-lg">No products found</div>
