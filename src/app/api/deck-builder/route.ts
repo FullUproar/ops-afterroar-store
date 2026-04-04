@@ -5,6 +5,10 @@ import {
   parseDecklistText,
   matchDeckToInventory,
   suggestMetaDecks,
+  fetchMetaDeck,
+  buildCommanderDeck,
+  searchCommanders,
+  fetchTopPokemonDecks,
 } from "@/lib/deck-builder";
 
 export async function POST(request: NextRequest) {
@@ -43,11 +47,79 @@ export async function POST(request: NextRequest) {
       }
 
       case "suggest": {
-        const { format } = body;
+        const { format, game } = body;
         if (!format || typeof format !== "string") {
           return NextResponse.json({ error: "format is required" }, { status: 400 });
         }
-        const decks = suggestMetaDecks(format);
+        const decks = await suggestMetaDecks(format, game);
+        return NextResponse.json({ decks });
+      }
+
+      /* ---- New actions ---- */
+
+      case "meta": {
+        const { format, game } = body;
+        if (!format || typeof format !== "string") {
+          return NextResponse.json({ error: "format is required" }, { status: 400 });
+        }
+        const archetypes = await suggestMetaDecks(format, game);
+        return NextResponse.json({ archetypes });
+      }
+
+      case "fetch_deck": {
+        const { archetype, format } = body;
+        if (!archetype || !format) {
+          return NextResponse.json(
+            { error: "archetype and format are required" },
+            { status: 400 },
+          );
+        }
+        const cards = await fetchMetaDeck(archetype, format);
+        if (cards.length === 0) {
+          return NextResponse.json(
+            { cards: [], message: "Could not fetch decklist" },
+          );
+        }
+        // Also match against inventory
+        const results = await matchDeckToInventory(cards, ctx.storeId);
+        return NextResponse.json({ cards, inventory: results });
+      }
+
+      case "commander": {
+        const { commander } = body;
+        if (!commander || typeof commander !== "string") {
+          return NextResponse.json(
+            { error: "commander name is required" },
+            { status: 400 },
+          );
+        }
+        const result = await buildCommanderDeck(commander, ctx.storeId);
+        if (!result) {
+          return NextResponse.json(
+            { error: "Commander not found on EDHREC" },
+            { status: 404 },
+          );
+        }
+        return NextResponse.json(result);
+      }
+
+      case "commander_search": {
+        const { query } = body;
+        if (!query || typeof query !== "string") {
+          return NextResponse.json(
+            { error: "query is required" },
+            { status: 400 },
+          );
+        }
+        const results = await searchCommanders(query);
+        return NextResponse.json({ commanders: results });
+      }
+
+      case "pokemon_meta": {
+        const { limit } = body;
+        const decks = await fetchTopPokemonDecks(
+          typeof limit === "number" ? limit : 8,
+        );
         return NextResponse.json({ decks });
       }
 

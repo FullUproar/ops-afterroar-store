@@ -5,6 +5,22 @@
 /* ------------------------------------------------------------------ */
 
 import { prisma } from "./prisma";
+import {
+  fetchMetaArchetypes,
+  fetchDecklist as fetchGoldfishDecklist,
+  type MetaArchetype,
+} from "./mtggoldfish";
+import {
+  getTopSynergyCards,
+  searchCommanders,
+  fetchCommanderData,
+  type EDHRECCard,
+  type CommanderSearchResult,
+} from "./edhrec";
+import {
+  fetchTopPokemonDecks,
+  type PokemonMetaDeck,
+} from "./limitless";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                               */
@@ -40,7 +56,35 @@ export interface MetaDeck {
   name: string;
   format: string;
   searchQuery: string;
+  metaShare?: number;       // percentage from live data
 }
+
+export interface LiveMetaResult {
+  name: string;
+  metaShare: number;
+  format: string;
+  deckUrl?: string;
+}
+
+export interface CommanderDeckResult {
+  commander_name: string;
+  num_decks: number;
+  avg_price: number;
+  color_identity: string[];
+  synergy_cards: EDHRECCard[];
+  inventory_matches: InventoryMatchResult[];
+  substitutions: Array<{
+    missing_card: string;
+    substitute: string;
+    substitute_synergy: number;
+    in_stock: boolean;
+  }>;
+}
+
+// Re-export types from sub-modules for convenience
+export type { MetaArchetype } from "./mtggoldfish";
+export type { EDHRECCard, CommanderSearchResult } from "./edhrec";
+export type { PokemonMetaDeck } from "./limitless";
 
 /* ------------------------------------------------------------------ */
 /*  Rate-limit helper (Scryfall: max 10 req/s)                         */
@@ -219,10 +263,10 @@ export async function matchDeckToInventory(
 }
 
 /* ------------------------------------------------------------------ */
-/*  suggestMetaDecks — popular archetypes per format (v1: hardcoded)   */
+/*  suggestMetaDecks — live meta archetypes (falls back to hardcoded)  */
 /* ------------------------------------------------------------------ */
 
-const META_DECKS: Record<string, MetaDeck[]> = {
+const HARDCODED_META: Record<string, MetaDeck[]> = {
   standard: [
     { name: "Mono-Red Aggro", format: "standard", searchQuery: "c:r t:creature f:standard cmc<=3" },
     { name: "Azorius Control", format: "standard", searchQuery: "c:wu t:instant OR t:sorcery f:standard" },
@@ -253,7 +297,185 @@ const META_DECKS: Record<string, MetaDeck[]> = {
   ],
 };
 
-export function suggestMetaDecks(format: string): MetaDeck[] {
-  const key = format.toLowerCase();
-  return META_DECKS[key] ?? [];
+/**
+ * suggestMetaDecks — returns live meta archetypes when available.
+ * For MTG competitive formats: pulls from MTGGoldfish.
+ * For Commander: returns hardcoded suggestions (use searchCommanders for live).
+ * For Pokemon: returns top tournament decks from Limitless.
+ * Falls back to hardcoded list if API calls fail.
+ */
+export async function suggestMetaDecks(
+  format: string,
+  game?: string,
+): Promise<LiveMetaResult[]> {
+  const fmt = format.toLowerCase();
+  const g = (game ?? "mtg").toLowerCase();
+
+  // Pokemon meta
+  if (g === "pokemon" || fmt === "pokemon") {
+    try {
+      const decks = await fetchTopPokemonDecks(8);
+      if (decks.length > 0) {
+        return decks.map((d) => ({
+          name: d.archetype,
+          metaShare: 0,
+          format: "pokemon",
+          deckUrl: undefined,
+        }));
+      }
+    } catch {
+      // fall through
+    }
+    return [];
+  }
+
+  // MTG competitive formats — try live data
+  const mtgFormats = ["standard", "modern", "pioneer", "pauper", "legacy", "vintage"];
+  if (mtgFormats.includes(fmt)) {
+    try {
+      const archetypes = await fetchMetaArchetypes(fmt);
+      if (archetypes.length > 0) {
+        return archetypes.map((a) => ({
+          name: a.name,
+          metaShare: a.metaShare,
+          format: fmt,
+          deckUrl: a.deckUrl,
+        }));
+      }
+    } catch {
+      // fall through to hardcoded
+    }
+  }
+
+  // Fallback to hardcoded
+  const hardcoded = HARDCODED_META[fmt] ?? [];
+  return hardcoded.map((d) => ({
+    name: d.name,
+    metaShare: 0,
+    format: d.format,
+  }));
 }
+
+/**
+ * suggestMetaDecksSync — synchronous hardcoded fallback (for backward compat)
+ */
+export function suggestMetaDecksSync(format: string): MetaDeck[] {
+  const key = format.toLowerCase();
+  return HARDCODED_META[key] ?? [];
+}
+
+/* ------------------------------------------------------------------ */
+/*  fetchMetaDeck — fetch a real tournament decklist for an archetype  */
+/* ------------------------------------------------------------------ */
+
+export async function fetchMetaDeck(
+  archetype: string,
+  format: string,
+): Promise<ParsedCard[]> {
+  const fmt = format.toLowerCase();
+
+  // For MTG competitive formats, try MTGGoldfish
+  try {
+    const archetypes = await fetchMetaArchetypes(fmt);
+    const match = archetypes.find(
+      (a) => a.name.toLowerCase() === archetype.toLowerCase(),
+    );
+
+    if (match) {
+      const text = await fetchGoldfishDecklist(match.deckUrl);
+      if (text) {
+        return parseDecklistText(text);
+      }
+    }
+  } catch {
+    // fall through
+  }
+
+  return [];
+}
+
+/* ------------------------------------------------------------------ */
+/*  buildCommanderDeck — EDHREC synergy + inventory matching           */
+/* ------------------------------------------------------------------ */
+
+export async function buildCommanderDeck(
+  commanderName: string,
+  storeId: string,
+): Promise<CommanderDeckResult | null> {
+  const data = await fetchCommanderData(commanderName);
+  if (!data) return null;
+
+  const synergyCards = data.cards.slice(0, 100);
+
+  // Match top synergy cards against store inventory
+  const parsed: ParsedCard[] = synergyCards.map((c) => ({
+    quantity: 1,
+    name: c.name,
+  }));
+
+  const inventoryMatches = await matchDeckToInventory(parsed, storeId);
+
+  // Find substitutions: for unavailable cards, suggest alternatives from
+  // remaining EDHREC cards that ARE in stock
+  const unavailable = inventoryMatches.filter(
+    (m) => m.status === "unavailable",
+  );
+  const availableNames = new Set(
+    inventoryMatches
+      .filter((m) => m.status !== "unavailable")
+      .map((m) => m.name.toLowerCase()),
+  );
+
+  const substitutions: CommanderDeckResult["substitutions"] = [];
+
+  if (unavailable.length > 0 && data.cards.length > 100) {
+    // Look through remaining EDHREC cards (beyond top 100) for alternatives
+    const remainingCards = data.cards.slice(100);
+
+    for (const missing of unavailable.slice(0, 20)) {
+      // Try to find a substitute from remaining cards
+      for (const candidate of remainingCards) {
+        if (availableNames.has(candidate.name.toLowerCase())) continue;
+
+        // Quick inventory check
+        const items = await prisma.posInventoryItem.findMany({
+          where: {
+            store_id: storeId,
+            active: true,
+            name: { contains: candidate.name, mode: "insensitive" },
+            quantity: { gt: 0 },
+          },
+          take: 1,
+        });
+
+        if (items.length > 0) {
+          substitutions.push({
+            missing_card: missing.name,
+            substitute: candidate.name,
+            substitute_synergy: candidate.synergy,
+            in_stock: true,
+          });
+          availableNames.add(candidate.name.toLowerCase());
+          break;
+        }
+      }
+    }
+  }
+
+  return {
+    commander_name: data.commander_name,
+    num_decks: data.num_decks,
+    avg_price: data.avg_price,
+    color_identity: data.color_identity,
+    synergy_cards: synergyCards,
+    inventory_matches: inventoryMatches,
+    substitutions,
+  };
+}
+
+/* ------------------------------------------------------------------ */
+/*  Re-export sub-module functions for API layer convenience            */
+/* ------------------------------------------------------------------ */
+
+export { searchCommanders } from "./edhrec";
+export { fetchTopPokemonDecks } from "./limitless";
