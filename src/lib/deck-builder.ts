@@ -50,6 +50,14 @@ export interface InventoryMatchResult {
   inventory_item_id: string | null;
   image_url: string | null;
   status: "available" | "partial" | "unavailable";
+  /** Suggested substitute when unavailable or partial — from store inventory */
+  substitute?: {
+    name: string;
+    price_cents: number;
+    inventory_item_id: string;
+    image_url: string | null;
+    reason: string;
+  };
 }
 
 export interface MetaDeck {
@@ -186,8 +194,11 @@ export function parseDecklistText(text: string): ParsedCard[] {
 export async function matchDeckToInventory(
   cards: ParsedCard[],
   storeId: string,
+  options?: { inStockOnly?: boolean },
 ): Promise<InventoryMatchResult[]> {
   const results: InventoryMatchResult[] = [];
+  // Track names already in the deck to avoid suggesting them as substitutes
+  const deckCardNames = new Set(cards.map((c) => c.name.toLowerCase()));
 
   for (const card of cards) {
     // Fuzzy match: case-insensitive name contains
@@ -203,8 +214,12 @@ export async function matchDeckToInventory(
     });
 
     if (items.length === 0) {
-      // Try Scryfall to get the image
+      // Skip unavailable cards entirely in "in stock only" mode
+      if (options?.inStockOnly) continue;
+
+      // Try Scryfall to get the image + card data for substitution
       let imageUrl: string | null = null;
+      let scryfallData: { type_line?: string; cmc?: number; colors?: string[]; keywords?: string[] } | null = null;
       try {
         await delay(100);
         const scryfallRes = await fetch(
@@ -212,14 +227,23 @@ export async function matchDeckToInventory(
           { headers: { Accept: "application/json" } },
         );
         if (scryfallRes.ok) {
-          const scryfallCard = await scryfallRes.json();
-          imageUrl =
-            scryfallCard.image_uris?.small ??
-            scryfallCard.card_faces?.[0]?.image_uris?.small ??
-            null;
+          const sc = await scryfallRes.json();
+          imageUrl = sc.image_uris?.small ?? sc.card_faces?.[0]?.image_uris?.small ?? null;
+          scryfallData = {
+            type_line: sc.type_line,
+            cmc: sc.cmc,
+            colors: sc.colors || sc.color_identity,
+            keywords: sc.keywords,
+          };
         }
       } catch {
         // ignore
+      }
+
+      // Find a substitute from store inventory
+      let substitute: InventoryMatchResult["substitute"] = undefined;
+      if (scryfallData) {
+        substitute = await findSubstitute(storeId, card.name, scryfallData, deckCardNames);
       }
 
       results.push({
@@ -230,6 +254,7 @@ export async function matchDeckToInventory(
         inventory_item_id: null,
         image_url: imageUrl,
         status: "unavailable",
+        substitute,
       });
       continue;
     }
@@ -248,6 +273,27 @@ export async function matchDeckToInventory(
           ? "partial"
           : "unavailable";
 
+    // Find substitute if partial (not enough copies)
+    let substitute: InventoryMatchResult["substitute"] = undefined;
+    if (status === "partial" && !options?.inStockOnly) {
+      try {
+        await delay(100);
+        const scryfallRes = await fetch(
+          `https://api.scryfall.com/cards/named?fuzzy=${encodeURIComponent(card.name)}`,
+          { headers: { Accept: "application/json" } },
+        );
+        if (scryfallRes.ok) {
+          const sc = await scryfallRes.json();
+          substitute = await findSubstitute(storeId, card.name, {
+            type_line: sc.type_line,
+            cmc: sc.cmc,
+            colors: sc.colors || sc.color_identity,
+            keywords: sc.keywords,
+          }, deckCardNames);
+        }
+      } catch {}
+    }
+
     results.push({
       name: card.name,
       needed: card.quantity,
@@ -256,10 +302,136 @@ export async function matchDeckToInventory(
       inventory_item_id: cheapest.id,
       image_url: cheapest.image_url,
       status,
+      substitute,
     });
   }
 
   return results;
+}
+
+/**
+ * Find a functional substitute for a missing card from store inventory.
+ * Matches by: same card type (creature/instant/etc), similar CMC, compatible colors.
+ */
+async function findSubstitute(
+  storeId: string,
+  originalName: string,
+  cardData: { type_line?: string; cmc?: number; colors?: string[]; keywords?: string[] },
+  excludeNames: Set<string>,
+): Promise<InventoryMatchResult["substitute"] | undefined> {
+  try {
+    // Determine the broad type: creature, instant, sorcery, enchantment, artifact, land
+    const typeLine = (cardData.type_line || "").toLowerCase();
+    let broadType = "other";
+    if (typeLine.includes("creature")) broadType = "creature";
+    else if (typeLine.includes("instant")) broadType = "instant";
+    else if (typeLine.includes("sorcery")) broadType = "sorcery";
+    else if (typeLine.includes("enchantment")) broadType = "enchantment";
+    else if (typeLine.includes("artifact")) broadType = "artifact";
+    else if (typeLine.includes("land")) broadType = "land";
+    else if (typeLine.includes("planeswalker")) broadType = "planeswalker";
+
+    // Search catalog for similar cards (using local Scryfall cache)
+    // We need cards of the same type with similar CMC from store inventory
+    const cmc = cardData.cmc ?? 3;
+    const cmcMin = Math.max(0, cmc - 1);
+    const cmcMax = cmc + 1;
+
+    // Search inventory for TCG singles with attributes matching the card type
+    const candidates = await prisma.posInventoryItem.findMany({
+      where: {
+        store_id: storeId,
+        active: true,
+        quantity: { gt: 0 },
+        category: "tcg_single",
+        // Exclude the original card and cards already in the deck
+        NOT: {
+          name: { contains: originalName, mode: "insensitive" },
+        },
+      },
+      orderBy: { price_cents: "asc" },
+      take: 50,
+      select: {
+        id: true,
+        name: true,
+        price_cents: true,
+        image_url: true,
+        attributes: true,
+      },
+    });
+
+    // Score candidates by similarity
+    type ScoredCandidate = typeof candidates[0] & { score: number; reason: string };
+    const scored: ScoredCandidate[] = [];
+
+    for (const cand of candidates) {
+      if (excludeNames.has(cand.name.toLowerCase())) continue;
+
+      const attrs = (cand.attributes ?? {}) as Record<string, unknown>;
+      let score = 0;
+      const reasons: string[] = [];
+
+      // Check type match from attributes or name patterns
+      const candType = (attrs.type_line as string || "").toLowerCase();
+      if (candType && broadType !== "other") {
+        if (candType.includes(broadType)) {
+          score += 5;
+          reasons.push(`Same type (${broadType})`);
+        }
+      }
+
+      // CMC match
+      const candCmc = attrs.cmc as number | undefined;
+      if (candCmc !== undefined) {
+        if (candCmc >= cmcMin && candCmc <= cmcMax) {
+          score += 3;
+          if (candCmc === cmc) score += 2;
+        }
+      }
+
+      // Color match
+      const candColors = ((attrs.color_identity as string) || "").split(",").filter(Boolean);
+      const targetColors = cardData.colors || [];
+      if (candColors.length > 0 && targetColors.length > 0) {
+        const overlap = candColors.filter((c) => targetColors.includes(c));
+        if (overlap.length > 0) {
+          score += 2;
+          reasons.push("Same colors");
+        }
+      }
+
+      // Keyword overlap
+      const candKeywords = ((attrs.keywords as string) || "").split(",").filter(Boolean).map((k) => k.trim().toLowerCase());
+      const targetKeywords = (cardData.keywords || []).map((k) => k.toLowerCase());
+      const kwOverlap = candKeywords.filter((k) => targetKeywords.includes(k));
+      if (kwOverlap.length > 0) {
+        score += kwOverlap.length * 2;
+        reasons.push(`Shares: ${kwOverlap.join(", ")}`);
+      }
+
+      if (score > 0) {
+        scored.push({ ...cand, score, reason: reasons.join(" · ") || "Similar card in stock" });
+      }
+    }
+
+    // Sort by score descending, take the best
+    scored.sort((a, b) => b.score - a.score);
+    const best = scored[0];
+
+    if (best && best.score >= 3) {
+      return {
+        name: best.name,
+        price_cents: best.price_cents,
+        inventory_item_id: best.id,
+        image_url: best.image_url,
+        reason: best.reason,
+      };
+    }
+
+    return undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 /* ------------------------------------------------------------------ */

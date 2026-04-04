@@ -33,6 +33,13 @@ interface InventoryMatch {
   inventory_item_id: string | null;
   image_url: string | null;
   status: "available" | "partial" | "unavailable";
+  substitute?: {
+    name: string;
+    price_cents: number;
+    inventory_item_id: string;
+    image_url: string | null;
+    reason: string;
+  };
 }
 
 interface LiveMetaResult {
@@ -141,6 +148,7 @@ function DeckBuilderContent() {
   const [metaDecks, setMetaDecks] = useState<LiveMetaResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [matchLoading, setMatchLoading] = useState(false);
+  const [inStockOnly, setInStockOnly] = useState(false);
   const [recommendations, setRecommendations] = useState<Array<{ type: string; name: string; reason: string; price_cents: number; inventory_item_id: string; image_url: string | null }>>([]);
   const [metaLoading, setMetaLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<"search" | "paste">("search");
@@ -376,7 +384,7 @@ function DeckBuilderContent() {
       const res = await fetch("/api/deck-builder", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "match", cards, format }),
+        body: JSON.stringify({ action: "match", cards, format, in_stock_only: inStockOnly }),
       });
       if (res.ok) {
         const data = await res.json();
@@ -905,8 +913,8 @@ function DeckBuilderContent() {
 
               <div className="space-y-2 max-h-[32rem] overflow-y-auto">
                 {inventoryResults.map((match, i) => (
+                  <div key={`${match.name}-${i}`} className="space-y-1">
                   <div
-                    key={`${match.name}-${i}`}
                     className="flex items-center gap-3 rounded-xl border border-card-border bg-card px-3 py-2.5"
                   >
                     {/* Card image */}
@@ -958,7 +966,52 @@ function DeckBuilderContent() {
                       </button>
                     )}
                   </div>
+                  {/* Substitute suggestion */}
+                  {match.substitute && (match.status === "unavailable" || match.status === "partial") && (
+                    <div className="ml-14 flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-500/5 border border-amber-500/20 text-xs">
+                      <span className="text-amber-400 shrink-0">&#x21B3; Try instead:</span>
+                      {match.substitute.image_url && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={match.substitute.image_url} alt="" className="w-6 h-8 rounded object-cover shrink-0" />
+                      )}
+                      <span className="text-foreground font-medium truncate">{match.substitute.name}</span>
+                      <span className="text-muted shrink-0">{match.substitute.reason}</span>
+                      <span className="text-foreground font-mono shrink-0">{formatCents(match.substitute.price_cents)}</span>
+                      <button
+                        onClick={() => addToCart({
+                          name: match.substitute!.name,
+                          needed: match.needed - match.in_stock,
+                          in_stock: 1,
+                          price_cents: match.substitute!.price_cents,
+                          inventory_item_id: match.substitute!.inventory_item_id,
+                          image_url: match.substitute!.image_url,
+                          status: "available",
+                        })}
+                        className="shrink-0 rounded bg-amber-500/20 px-2 py-0.5 text-amber-400 font-medium hover:bg-amber-500/30 transition-colors"
+                      >
+                        + Sub
+                      </button>
+                    </div>
+                  )}
+                  </div>
                 ))}
+              </div>
+
+              {/* In Stock Only toggle */}
+              <div className="flex items-center justify-between rounded-xl border border-card-border bg-card px-4 py-2.5">
+                <span className="text-sm text-muted">Show only in-stock cards</span>
+                <button
+                  onClick={() => {
+                    setInStockOnly(!inStockOnly);
+                    // Re-run inventory match with the new setting
+                    if (parsedCards.length > 0) {
+                      checkInventory(parsedCards);
+                    }
+                  }}
+                  className={`relative w-10 h-5 rounded-full transition-colors ${inStockOnly ? "bg-accent" : "bg-card-hover border border-card-border"}`}
+                >
+                  <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${inStockOnly ? "translate-x-5" : "translate-x-0.5"}`} />
+                </button>
               </div>
 
               {/* Summary */}

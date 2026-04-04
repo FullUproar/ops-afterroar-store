@@ -39,11 +39,11 @@ export async function POST(request: NextRequest) {
       }
 
       case "match": {
-        const { cards, format, colors } = body;
+        const { cards, format, colors, in_stock_only } = body;
         if (!Array.isArray(cards)) {
           return NextResponse.json({ error: "cards array is required" }, { status: 400 });
         }
-        const results = await matchDeckToInventory(cards, ctx.storeId);
+        const results = await matchDeckToInventory(cards, ctx.storeId, { inStockOnly: !!in_stock_only });
         const recommendations = await getRecommendations(cards, results, ctx.storeId, { format, colors });
         return NextResponse.json({ results, recommendations });
       }
