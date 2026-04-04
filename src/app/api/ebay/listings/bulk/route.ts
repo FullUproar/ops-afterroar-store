@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requirePermission, handleAuthError } from "@/lib/require-staff";
+import { requirePermissionAndFeature, handleAuthError } from "@/lib/require-staff";
 import { getEbayClient } from "@/lib/ebay";
 
 /* ------------------------------------------------------------------ */
@@ -9,7 +9,7 @@ import { getEbayClient } from "@/lib/ebay";
 
 export async function POST(request: NextRequest) {
   try {
-    const { db } = await requirePermission("inventory.adjust");
+    const { db } = await requirePermissionAndFeature("inventory.adjust", "ecommerce");
 
     const ebay = getEbayClient();
     if (!ebay) {

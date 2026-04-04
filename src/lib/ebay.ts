@@ -412,12 +412,18 @@ export function getEbayAuthUrl(storeId: string): string | null {
 
   if (!clientId || !redirectUri) return null;
 
+  // Sign the state to prevent spoofing (storeId.hmac_signature)
+  const secret = process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET || "";
+  const crypto = require("crypto");
+  const sig = crypto.createHmac("sha256", secret).update(storeId).digest("hex").slice(0, 16);
+  const signedState = `${storeId}.${sig}`;
+
   const params = new URLSearchParams({
     client_id: clientId,
     redirect_uri: redirectUri,
     response_type: "code",
     scope: EBAY_SCOPES,
-    state: storeId, // Pass storeId through OAuth state
+    state: signedState,
   });
 
   return `${EBAY_AUTH_URL}?${params.toString()}`;

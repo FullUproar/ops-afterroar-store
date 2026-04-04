@@ -376,7 +376,13 @@ export async function POST(request: NextRequest) {
         const card = await tx.posGiftCard.findFirst({
           where: { code: gift_card_code.toUpperCase(), store_id: storeId, active: true },
         });
-        if (card && card.balance_cents >= giftCardApplied) {
+        if (!card) {
+          throw new Error("Gift card not found or inactive");
+        }
+        if (card.balance_cents < giftCardApplied) {
+          throw new Error(`Gift card balance insufficient: ${card.balance_cents} < ${giftCardApplied}`);
+        }
+        {
           await tx.posGiftCard.update({
             where: { id: card.id },
             data: { balance_cents: { decrement: giftCardApplied } },

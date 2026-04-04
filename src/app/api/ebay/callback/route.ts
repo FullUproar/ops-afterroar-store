@@ -1,25 +1,54 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { exchangeEbayCode } from "@/lib/ebay";
+import crypto from "crypto";
 
 /* ------------------------------------------------------------------ */
 /*  GET /api/ebay/callback — eBay OAuth callback                       */
 /*  eBay redirects here after user consents. We exchange the code for  */
 /*  tokens and store them in the store's settings.                     */
+/*  State param is HMAC-signed to prevent store ID spoofing.           */
 /* ------------------------------------------------------------------ */
+
+/** Verify the HMAC-signed state parameter */
+function verifyState(state: string): string | null {
+  const secret = process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET || "";
+  const parts = state.split(".");
+  if (parts.length !== 2) return null;
+  const [storeId, sig] = parts;
+  const expected = crypto.createHmac("sha256", secret).update(storeId).digest("hex").slice(0, 16);
+  if (sig !== expected) return null;
+  return storeId;
+}
 
 export async function GET(request: NextRequest) {
   const code = request.nextUrl.searchParams.get("code");
-  const storeId = request.nextUrl.searchParams.get("state"); // We passed storeId as state
+  const rawState = request.nextUrl.searchParams.get("state");
 
-  if (!code || !storeId) {
+  if (!code || !rawState) {
     return NextResponse.redirect(
       new URL("/dashboard/settings?ebay=error&reason=missing_params", request.url),
     );
   }
 
+  // Verify signed state
+  const storeId = verifyState(rawState);
+  if (!storeId) {
+    return NextResponse.redirect(
+      new URL("/dashboard/settings?ebay=error&reason=invalid_state", request.url),
+    );
+  }
+
   // Exchange code for tokens
-  const tokens = await exchangeEbayCode(code);
+  let tokens;
+  try {
+    tokens = await exchangeEbayCode(code);
+  } catch (err) {
+    console.error("[eBay OAuth] Token exchange error:", err);
+    return NextResponse.redirect(
+      new URL("/dashboard/settings?ebay=error&reason=token_exchange_failed", request.url),
+    );
+  }
   if (!tokens) {
     return NextResponse.redirect(
       new URL("/dashboard/settings?ebay=error&reason=token_exchange_failed", request.url),

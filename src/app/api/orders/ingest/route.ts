@@ -79,7 +79,14 @@ export async function POST(request: NextRequest) {
   // Default source to "custom" if not specified
   if (!body.source) body.source = "custom";
 
-  const result = await ingestOrder(auth.store.id, auth.store.name, body);
-
-  return NextResponse.json(result, { status: result.ok ? 200 : 500 });
+  try {
+    const result = await ingestOrder(auth.store.id, auth.store.name, body);
+    return NextResponse.json(result, { status: result.ok ? 200 : 500 });
+  } catch (err) {
+    console.error("[OrderIngest] Error:", err);
+    return NextResponse.json(
+      { error: "Order ingestion failed", message: err instanceof Error ? err.message : "Unknown error" },
+      { status: 500 },
+    );
+  }
 }
