@@ -51,7 +51,7 @@ const NAV_GROUPS: NavGroup[] = [
   },
   {
     label: "Reports",
-    hrefs: ["/dashboard", "/dashboard/reports", "/dashboard/cash-flow"],
+    hrefs: ["/dashboard", "/dashboard/reports", "/dashboard/reports/margins", "/dashboard/cash-flow"],
   },
   {
     label: "Admin",

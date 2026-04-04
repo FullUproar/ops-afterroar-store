@@ -242,6 +242,7 @@ export function canAccess(
     "/dashboard/events": "events.checkin",
     "/dashboard/promotions": "inventory.pricing",
     "/dashboard/reports": "reports",
+    "/dashboard/reports/margins": "reports",
     "/dashboard/cash-flow": "cash_flow",
     "/dashboard/drawer": "checkout",
     "/dashboard/timeclock": "checkout",
@@ -312,6 +313,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard/stock-counts", label: "Stock Count", icon: "\u25a4", permission: "inventory.adjust" },
   { href: "/dashboard/promotions", label: "Promotions", icon: "✦", permission: "inventory.pricing" },
   { href: "/dashboard/reports", label: "Reports", icon: "◩", permission: "reports" },
+  { href: "/dashboard/reports/margins", label: "Margins", icon: "△", permission: "reports", feature: "advanced_reports" },
   { href: "/dashboard/cash-flow", label: "Cash Flow", icon: "◎", permission: "cash_flow", feature: "intelligence" },
   // Catalog is accessed via "+ Add" button on TCG Singles page, not sidebar
   // { href: "/dashboard/catalog", label: "Catalog", icon: "⊕", permission: "inventory.create", feature: "tcg_engine" },
