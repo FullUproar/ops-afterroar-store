@@ -531,10 +531,11 @@ export default function Home() {
             />
             Afterroar Store Ops &mdash; by Full Uproar Games
           </div>
-          <div className="flex gap-6 text-xs text-[#4a4a6a]">
-            <a href="mailto:hello@afterroar.store" className="hover:text-[#94a3b8]">
-              Contact
-            </a>
+          <div className="flex flex-wrap gap-6 text-xs text-[#4a4a6a]">
+            <Link href="/pricing" className="hover:text-[#94a3b8]">Pricing</Link>
+            <Link href="/support" className="hover:text-[#94a3b8]">Support</Link>
+            <Link href="/terms" className="hover:text-[#94a3b8]">Terms</Link>
+            <Link href="/privacy" className="hover:text-[#94a3b8]">Privacy</Link>
             <span>&copy; {new Date().getFullYear()} Full Uproar Games</span>
           </div>
         </div>
