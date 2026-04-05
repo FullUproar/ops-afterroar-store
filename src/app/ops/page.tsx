@@ -57,6 +57,7 @@ export default function OpsMonitorPage() {
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
   const [pushEnabled, setPushEnabled] = useState(false);
   const [pushSupported, setPushSupported] = useState(false);
+  const [pushError, setPushError] = useState<string | null>(null);
   const [swRegistration, setSwRegistration] = useState<ServiceWorkerRegistration | null>(null);
   const [testSending, setTestSending] = useState(false);
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
@@ -137,7 +138,10 @@ export default function OpsMonitorPage() {
       const vapidKey = await fetch("/api/push/vapid-key").then((r) =>
         r.ok ? r.json() : null,
       );
-      if (!vapidKey?.key) return;
+      if (!vapidKey?.key) {
+        setPushError("Push not configured — VAPID keys needed in Vercel env vars");
+        return;
+      }
 
       try {
         const sub = await swRegistration.pushManager.subscribe({
@@ -155,8 +159,9 @@ export default function OpsMonitorPage() {
           }),
         });
         setPushEnabled(true);
-      } catch {
-        // Subscription failed
+        setPushError(null);
+      } catch (err) {
+        setPushError("Failed to enable push — try reinstalling the app");
       }
     }
   };
@@ -525,12 +530,14 @@ export default function OpsMonitorPage() {
               <div style={{ fontSize: 14, fontWeight: 500 }}>
                 Push Notifications
               </div>
-              <div style={{ fontSize: 11, color: "#666", marginTop: 2 }}>
-                {pushSupported
-                  ? pushEnabled
-                    ? "Alerts enabled"
-                    : "Get notified when systems go down"
-                  : "Not supported in this browser"}
+              <div style={{ fontSize: 11, color: pushError ? "#ef4444" : "#666", marginTop: 2 }}>
+                {pushError
+                  ? pushError
+                  : pushSupported
+                    ? pushEnabled
+                      ? "Alerts enabled"
+                      : "Get notified when systems go down"
+                    : "Not supported in this browser"}
               </div>
             </div>
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -558,12 +565,19 @@ export default function OpsMonitorPage() {
                   style={{
                     width: 44,
                     height: 24,
+                    minHeight: 24,
+                    maxHeight: 24,
                     borderRadius: 12,
                     border: "none",
+                    padding: 0,
+                    margin: 0,
                     cursor: "pointer",
                     background: pushEnabled ? "#22c55e" : "#333",
                     position: "relative",
                     transition: "background 0.2s",
+                    display: "flex",
+                    alignItems: "center",
+                    flexShrink: 0,
                   }}
                 >
                   <div
