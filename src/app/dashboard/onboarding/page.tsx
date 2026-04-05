@@ -244,6 +244,13 @@ export default function OnboardingPage() {
                   <div className="text-xs text-muted mt-1">Upload a spreadsheet of your existing inventory. Great for bulk imports from another system.</div>
                 </div>
               </Link>
+              <Link href="/dashboard/settings" className="flex items-start gap-4 rounded-xl border border-[#7D55C7]/30 bg-[#7D55C7]/5 p-5 hover:border-[#7D55C7]/50 hover:bg-[#7D55C7]/10 transition-colors">
+                <span className="text-2xl mt-0.5">{"\u{1F6D2}"}</span>
+                <div>
+                  <div className="text-sm font-semibold text-foreground">Import from Shopify</div>
+                  <div className="text-xs text-muted mt-1">Already have a Shopify store? Connect it and we&apos;ll pull your entire product catalog automatically.</div>
+                </div>
+              </Link>
             </div>
 
             {itemCount > 0 && (

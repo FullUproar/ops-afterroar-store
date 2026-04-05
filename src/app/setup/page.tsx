@@ -85,7 +85,7 @@ function SetupContent() {
               onKeyDown={(e) => { if (e.key === "Enter") handleCreate(); }}
               placeholder="Full Uproar Games"
               autoFocus
-              className="w-full rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-3 text-base text-white placeholder:text-zinc-500 focus:border-blue-500 focus:outline-none"
+              className="w-full rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-3 text-base text-white placeholder:text-zinc-500 focus:border-[#FF8200] focus:outline-none"
             />
           </div>
 
@@ -99,7 +99,7 @@ function SetupContent() {
               onChange={(e) => setOwnerName(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") handleCreate(); }}
               placeholder="Jane Smith"
-              className="w-full rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-3 text-base text-white placeholder:text-zinc-500 focus:border-blue-500 focus:outline-none"
+              className="w-full rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-3 text-base text-white placeholder:text-zinc-500 focus:border-[#FF8200] focus:outline-none"
             />
           </div>
 
@@ -112,7 +112,7 @@ function SetupContent() {
           <button
             onClick={handleCreate}
             disabled={creating || !storeName.trim()}
-            className="w-full rounded-xl bg-blue-600 py-3 text-base font-semibold text-white hover:bg-blue-700 disabled:opacity-50 transition-colors"
+            className="w-full rounded-xl bg-[#FF8200] py-3 text-base font-semibold text-white hover:bg-[#e67400] disabled:opacity-50 transition-colors"
           >
             {creating ? "Creating your store..." : "Create Store"}
           </button>
