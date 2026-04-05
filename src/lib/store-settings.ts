@@ -303,7 +303,7 @@ export const SETTINGS_SECTIONS = [
     label: "Store Intelligence",
     description: "Customize how your store advisor analyzes your business",
     fields: [
-      { key: "intel_advisor_enabled", label: "Enable AI store advisor", type: "toggle" as const },
+      { key: "intel_advisor_enabled", label: "Enable Store Advisor", type: "toggle" as const },
       {
         key: "intel_advisor_tone",
         label: "Advisor Personality",

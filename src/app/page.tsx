@@ -291,7 +291,7 @@ export default function Home() {
             <FeatureCard
               icon="🧠"
               title="Intelligence"
-              desc="AI-powered store advisor, cash flow runway, margin reports, dead stock alerts, price spike detection, WPN metrics. Speaks FLGS, not MBA."
+              desc="Smart store advisor, cash flow runway, margin reports, dead stock alerts, price spike detection, WPN metrics. Speaks FLGS, not MBA."
             />
             <FeatureCard
               icon="⭐"
@@ -391,7 +391,7 @@ export default function Home() {
                 "Unlimited staff",
                 "Marketplace sync (eBay + more)",
                 "Shipping & fulfillment",
-                "Intelligence & AI advisor",
+                "Intelligence & smart advisor",
                 "Loyalty & customer tools",
                 "Cafe & food service",
                 "Priority email support",
@@ -455,7 +455,7 @@ export default function Home() {
                   ["Embeddable deck builder", true, false, false, false],
                   ["Cafe / food service tabs", true, false, false, false],
                   ["Mobile employee timeclock", true, false, false, false],
-                  ["AI business advisor", true, false, false, false],
+                  ["Smart business advisor", true, false, false, false],
                   ["eBay + marketplace sync", true, true, true, false],
                   ["Shipping & fulfillment", true, false, false, true],
                   ["Built-in loyalty program", true, true, false, false],

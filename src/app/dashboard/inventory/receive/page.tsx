@@ -338,7 +338,7 @@ export default function ReceivePage() {
               showInvoice ? 'bg-accent text-foreground' : 'bg-card-hover text-muted hover:text-foreground'
             }`}
           >
-            Import Invoice (AI)
+            Smart Invoice Import
           </button>
         </div>
 
@@ -388,7 +388,7 @@ export default function ReceivePage() {
           <div className="rounded-xl border border-input-border bg-card-hover p-4 space-y-3">
             <div className="text-sm font-medium text-foreground">Import from Invoice</div>
             <p className="text-xs text-muted">
-              Paste your distributor invoice, packing list, or order confirmation. AI will extract all items.
+              Paste your distributor invoice, packing list, or order confirmation. Items will be extracted automatically.
             </p>
             <textarea
               value={invoiceText}

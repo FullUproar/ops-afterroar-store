@@ -62,7 +62,7 @@ export function StoreAdvisor() {
       }
 
       if (res.status === 503) {
-        setError("AI advisor isn't configured yet. Ask your admin to add the ANTHROPIC_API_KEY.");
+        setError("Store Advisor isn't configured yet. Ask your admin to add the ANTHROPIC_API_KEY.");
         setLoading(false);
         return;
       }
@@ -93,7 +93,7 @@ export function StoreAdvisor() {
       >
         <div className="flex items-center gap-3">
           <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-500/20 text-purple-400 text-sm font-bold">
-            AI
+            {"\u{1F9E0}"}
           </span>
           <div>
             <h3 className="text-sm md:text-base font-semibold text-foreground">

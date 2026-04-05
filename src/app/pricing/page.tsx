@@ -39,7 +39,7 @@ const tiers = [
       "Events & tournaments",
       "Shipping & fulfillment",
       "Tips & gift cards",
-      "Intelligence & AI advisor",
+      "Intelligence & smart advisor",
       "Cafe module",
       "Loyalty & store credit",
       "Email support",
@@ -67,7 +67,7 @@ const tiers = [
 const addons = [
   {
     name: "Intelligence",
-    description: "AI advisor, cash flow insights, dead stock detection",
+    description: "Smart advisor, cash flow insights, dead stock detection",
   },
   {
     name: "TCG Engine",

@@ -361,7 +361,7 @@ export interface FeatureModuleMeta {
 }
 
 export const ALL_FEATURE_MODULES: FeatureModuleMeta[] = [
-  { key: "intelligence", label: "Store Intelligence", description: "AI advisor, cash flow insights, liquidity runway, store alerts", icon: "\u{1F9E0}" },
+  { key: "intelligence", label: "Store Intelligence", description: "Smart advisor, cash flow insights, liquidity runway, store alerts", icon: "\u{1F9E0}" },
   { key: "events", label: "Events & Tournaments", description: "Event management, player check-ins, WPN tracking", icon: "\u2605" },
   { key: "tcg_engine", label: "TCG Engine", description: "Scryfall search, bulk pricing, buylist automation, condition grading", icon: "\u{1F0CF}" },
   { key: "ecommerce", label: "E-Commerce", description: "eBay listings, marketplace sync, online storefront", icon: "\u{1F6D2}" },

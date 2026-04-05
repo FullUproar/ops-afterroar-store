@@ -482,7 +482,7 @@ function CashFlowInsights({ data, totalDeadStockValue }: { data: CashFlowData; t
     <div className="space-y-6">
       {/* Sentence-based recommendations */}
       <div className="rounded-xl border border-card-border bg-card/80 p-5 shadow-lg backdrop-blur-sm">
-        <SectionHeader sub="Actionable advice based on your data">AI Recommendations</SectionHeader>
+        <SectionHeader sub="Actionable advice based on your data">Smart Recommendations</SectionHeader>
         <div className="mt-4 space-y-3">
           {recommendations.map((rec, i) => (
             <div

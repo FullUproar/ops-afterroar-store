@@ -81,7 +81,7 @@ export default function BillingPage() {
           <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
             {[
               { name: "Base", price: "Coming soon", features: ["Register + POS", "Basic inventory", "Customers", "Events"] },
-              { name: "Pro", price: "Coming soon", features: ["Everything in Base", "Store Intelligence (AI)", "TCG Engine", "Advanced Reports"], highlighted: true },
+              { name: "Pro", price: "Coming soon", features: ["Everything in Base", "Store Intelligence", "TCG Engine", "Advanced Reports"], highlighted: true },
               { name: "Enterprise", price: "Coming soon", features: ["Everything in Pro", "Multi-location", "API access", "Priority support"] },
             ].map((tier) => (
               <div
@@ -115,7 +115,7 @@ export default function BillingPage() {
           <h2 className="text-sm font-semibold text-foreground">Add-On Modules</h2>
           <p className="mt-1 text-xs text-muted">Add capabilities to any plan.</p>
           <div className="mt-4 space-y-2 text-sm text-muted">
-            <p>{"\u{1F9E0}"} Store Intelligence — AI advisor, cash flow insights</p>
+            <p>{"\u{1F9E0}"} Store Intelligence — smart advisor, cash flow insights</p>
             <p>{"\u{1F0CF}"} TCG Engine — Scryfall/Pokemon search, bulk pricing</p>
             <p>{"\u{1F3E2}"} Multi-Location — warehouses, transfers</p>
             <p>{"\u2615"} Cafe Module — table ordering, kitchen display</p>

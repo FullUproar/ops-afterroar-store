@@ -594,15 +594,15 @@ export const ARTICLES: HelpArticle[] = [
   },
   {
     id: "store-advisor",
-    title: "Store advisor (AI-powered)",
+    title: "Store Advisor",
     category: "Reports & Intelligence",
     subcategory: "Intelligence",
-    body: "The Store Advisor is a Claude-powered business co-pilot that analyzes your real store metrics and gives personalized advice in gamer language. It covers liquidity runway, credit liability, seasonal warnings, WPN metrics, cash-aware buylist recommendations, and identifies regulars who have gone MIA.",
+    body: "The Store Advisor is an intelligent business co-pilot that analyzes your real store metrics and gives personalized advice in gamer language. It covers liquidity runway, credit liability, seasonal warnings, WPN metrics, cash-aware buylist recommendations, and identifies regulars who have gone MIA.",
     tips: [
       "Customize the advisor's tone and thresholds in Intelligence Preferences.",
       "The advisor uses FLGS-specific vocabulary like 'bench warmers' and 'regulars MIA'.",
     ],
-    tags: ["advisor", "AI", "Claude", "intelligence", "insights", "recommendations"],
+    tags: ["advisor", "intelligence", "insights", "recommendations", "smart"],
   },
   {
     id: "intelligence-prefs",
