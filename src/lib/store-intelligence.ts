@@ -29,6 +29,8 @@ export interface Insight {
   metric?: string;
   action?: { label: string; href: string };
   category: "inventory" | "customers" | "events" | "cash_flow" | "pricing" | "staff" | "operations";
+  /** Raw data backing this insight — for drill-down / evidence display */
+  data?: Record<string, unknown>;
 }
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -1063,18 +1065,21 @@ export async function generateInsights(
 
       let rotatingValue = 0;
       let rotatingCount = 0;
+      const rotatingCards: Array<{ name: string; price_cents: number; quantity: number; total_cents: number }> = [];
       for (const item of tcgSingles) {
         if (!item.oracle_id) continue;
         const legalities = legalityMap.get(item.oracle_id);
         if (!legalities) continue;
-        // Card is legal in standard but not legal in future = rotating
         if (legalities.standard === "legal" && legalities.future === "not_legal") {
-          rotatingValue += item.price_cents * item.quantity;
+          const total = item.price_cents * item.quantity;
+          rotatingValue += total;
           rotatingCount++;
+          rotatingCards.push({ name: item.name, price_cents: item.price_cents, quantity: item.quantity, total_cents: total });
         }
       }
 
       if (rotatingCount > 0 && rotatingValue > 1000) {
+        rotatingCards.sort((a, b) => b.total_cents - a.total_cents);
         insights.push({
           id: "rotation-risk",
           type: rotatingValue > 10000 ? "warning" : "action",
@@ -1084,6 +1089,12 @@ export async function generateInsights(
           message: `You're holding ${formatCents(rotatingValue)} in cards that will rotate out of Standard. Consider discounting or moving them before they drop in value.`,
           action: { label: "View Inventory", href: "/dashboard/inventory" },
           category: "inventory",
+          data: {
+            total_value_cents: rotatingValue,
+            card_count: rotatingCount,
+            cards: rotatingCards.slice(0, 20),
+            source: "Scryfall legalities (synced daily)",
+          },
         });
       }
     }
@@ -1142,6 +1153,18 @@ export async function generateInsights(
           message: `${top3.map((c) => `${c.name} (yours: ${formatCents(c.storeCents)}, market: ${formatCents(c.marketCents)})`).join("; ")}${underpriced.length > 3 ? ` and ${underpriced.length - 3} more` : ""}. Potential ${formatCents(lostRevenue)} in missed revenue.`,
           action: { label: "Reprice", href: "/dashboard/singles" },
           category: "inventory",
+          data: {
+            lost_revenue_cents: lostRevenue,
+            card_count: underpriced.length,
+            cards: underpriced.slice(0, 20).map((c) => ({
+              name: c.name,
+              store_price_cents: c.storeCents,
+              market_price_cents: c.marketCents,
+              quantity: c.qty,
+              gap_cents: (c.marketCents - c.storeCents) * c.qty,
+            })),
+            source: "Scryfall market prices (synced daily)",
+          },
         });
       }
 
@@ -1156,6 +1179,16 @@ export async function generateInsights(
           message: `${top3.map((c) => `${c.name} (yours: ${formatCents(c.storeCents)}, market: ${formatCents(c.marketCents)})`).join("; ")}${overpriced.length > 3 ? ` and ${overpriced.length - 3} more` : ""}. These may not sell at current prices.`,
           action: { label: "Review Prices", href: "/dashboard/singles" },
           category: "inventory",
+          data: {
+            card_count: overpriced.length,
+            cards: overpriced.slice(0, 20).map((c) => ({
+              name: c.name,
+              store_price_cents: c.storeCents,
+              market_price_cents: c.marketCents,
+              quantity: c.qty,
+            })),
+            source: "Scryfall market prices (synced daily)",
+          },
         });
       }
     }
