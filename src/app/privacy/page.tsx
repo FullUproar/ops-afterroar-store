@@ -151,6 +151,38 @@ export default function PrivacyPage() {
                 time through the Service.
               </li>
             </ul>
+
+            <h3 className="mt-5 mb-2 text-base font-semibold text-white">
+              Customer Data Deletion
+            </h3>
+            <p>
+              Store customers can request deletion of their personal data by
+              contacting the store owner. Store owners can export and delete
+              customer data directly from the dashboard.
+            </p>
+            <ul className="mt-2 list-disc space-y-1 pl-5">
+              <li>
+                Personal information (name, email, phone) is permanently
+                removed from the customer record.
+              </li>
+              <li>
+                Financial records (sales, returns, trade-ins) are anonymized
+                rather than deleted, as required for tax and audit compliance.
+              </li>
+              <li>
+                Customer notes are permanently deleted.
+              </li>
+              <li>
+                Deletion is permanent and irreversible. Anonymized financial
+                records cannot be re-linked to the original customer.
+              </li>
+              <li>
+                If the customer has an Afterroar account, our headquarters
+                (Full Uproar Games) is automatically notified to handle
+                cross-platform deletion.
+              </li>
+            </ul>
+
             <p className="mt-3">
               To exercise any of these rights, contact{" "}
               <a
@@ -158,8 +190,9 @@ export default function PrivacyPage() {
                 className="text-[#FF8200] hover:underline"
               >
                 privacy@afterroar.store
-              </a>
-              .
+              </a>{" "}
+              or ask your store owner to process the request from their
+              dashboard.
             </p>
           </section>
 

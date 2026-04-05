@@ -18,7 +18,8 @@ export type HQEventType =
   | "points_earned"
   | "tournament_result"
   | "event_attendance"
-  | "purchase_summary";
+  | "purchase_summary"
+  | "customer_deletion";
 
 /**
  * Enqueue a write to HQ. Fire-and-forget — never throws, never blocks.

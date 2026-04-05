@@ -473,6 +473,8 @@ model PosCustomer {
   loyalty_points       Int      @default(0)
   notes                String?
   afterroar_user_id    String?
+  deleted_at           DateTime? @db.Timestamptz()
+  deletion_requested   Boolean  @default(false)
   created_at           DateTime @default(now()) @db.Timestamptz()
   updated_at           DateTime @default(now()) @db.Timestamptz()
 
