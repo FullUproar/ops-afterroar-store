@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import { formatCents, parseDollars } from "@/lib/types";
 import { PageHeader } from "@/components/page-header";
+import { ConditionBadge, CardImage, PriceTag, SetInfo } from "@/components/tcg/shared";
 
 /* ---------- types ---------- */
 
@@ -385,17 +386,7 @@ export default function SinglesDashboard() {
             <div key={item.id} className="px-4 py-3 hover:bg-card-hover transition-colors">
               <div className="flex items-start gap-3">
                 {/* Card Image */}
-                {item.image_url ? (
-                  <img
-                    src={item.image_url}
-                    alt=""
-                    className="w-10 h-14 rounded object-cover shrink-0 mt-0.5"
-                  />
-                ) : (
-                  <div className="w-10 h-14 rounded bg-card-hover shrink-0 mt-0.5 flex items-center justify-center text-muted text-xs">
-                    ?
-                  </div>
-                )}
+                <CardImage src={item.image_url} alt={item.name} size="sm" game={item.game || undefined} className="mt-0.5" />
 
                 {/* Card Info */}
                 <div className="min-w-0 flex-1">
@@ -403,9 +394,7 @@ export default function SinglesDashboard() {
                     <span className="font-medium text-foreground text-sm leading-tight">
                       {item.name}
                     </span>
-                    <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-card-hover text-muted">
-                      {item.condition}
-                    </span>
+                    <ConditionBadge condition={item.condition} size="xs" />
                     {item.foil && (
                       <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-purple-600/20 text-purple-300 border border-purple-500/30">
                         Foil
@@ -418,9 +407,7 @@ export default function SinglesDashboard() {
                     )}
                   </div>
                   <div className="text-xs text-muted mt-0.5">
-                    {item.set_name || item.set_code || "Unknown Set"}
-                    {item.game && ` \u00b7 ${item.game}`}
-                    {item.rarity && ` \u00b7 ${item.rarity}`}
+                    <SetInfo setName={item.set_name || item.set_code || "Unknown Set"} rarity={item.rarity} game={item.game} size="xs" />
                   </div>
                   <div className="flex items-center gap-3 mt-1 text-xs tabular-nums flex-wrap">
                     <span className="text-muted">
@@ -543,9 +530,7 @@ export default function SinglesDashboard() {
 
                 {/* Actions */}
                 <div className="shrink-0 flex flex-col items-end gap-1">
-                  <span className="text-sm font-semibold text-foreground tabular-nums">
-                    {formatCents(item.price_cents)}
-                  </span>
+                  <PriceTag cents={item.price_cents} size="sm" />
                   {item.scryfall_id && item.set_code && item.collector_number && (
                     <a
                       href={`https://scryfall.com/card/${item.set_code.toLowerCase()}/${item.collector_number}`}

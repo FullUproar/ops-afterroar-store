@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { formatCents } from "@/lib/types";
 import type { InventoryItem, Customer } from "@/lib/types";
 import { MoreMenu } from "./more-menu";
+import { ConditionBadge, CardImage, PriceTag, FoilBadge, StockBadge, SetInfo } from "@/components/tcg/shared";
 
 type ActivePanel = "search" | "scan" | "customer" | "quick" | "manual" | "discount" | "more" | "price_check" | "store_credit" | "returns" | "loyalty" | "gift_card" | "no_sale" | "flag_issue" | "void_last" | "order_lookup" | "trade_eval" | null;
 
@@ -141,14 +142,6 @@ export function PanelContent(props: PanelContentProps) {
                 const rarity = (attrs.rarity as string) || "";
                 const outOfStock = item.quantity <= 0;
 
-                const conditionColors: Record<string, string> = {
-                  NM: "bg-green-500/20 text-green-400 border-green-500/30",
-                  LP: "bg-blue-500/20 text-blue-400 border-blue-500/30",
-                  MP: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30",
-                  HP: "bg-orange-500/20 text-orange-400 border-orange-500/30",
-                  DMG: "bg-red-500/20 text-red-400 border-red-500/30",
-                };
-
                 if (isTCG) {
                   // TCG card — image-forward layout
                   return (
@@ -164,52 +157,33 @@ export function PanelContent(props: PanelContentProps) {
                       style={{ minHeight: 72 }}
                     >
                       {/* Card image */}
-                      <div className="shrink-0 w-[52px] h-[72px] rounded-lg overflow-hidden bg-card-hover border border-card-border/50">
-                        {item.image_url ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={item.image_url}
-                            alt=""
-                            className="w-full h-full object-cover"
-                            loading="lazy"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-muted text-xs">
-                            {game === "MTG" ? "MTG" : game === "Pokemon" ? "PKM" : game === "Yu-Gi-Oh" ? "YGO" : "TCG"}
-                          </div>
-                        )}
-                      </div>
+                      <CardImage src={item.image_url} alt={item.name} size="md" game={game} />
 
                       {/* Card info */}
                       <div className="flex-1 min-w-0 space-y-1">
                         <div className="text-base font-semibold text-foreground leading-tight truncate">
                           {item.name}
-                          {foil && <span className="ml-1.5 text-xs text-amber-400">&#x2728;</span>}
+                          {foil && <FoilBadge />}
                         </div>
                         <div className="flex items-center gap-1.5 flex-wrap">
-                          {condition && (
-                            <span className={`text-xs font-bold px-1.5 py-0.5 rounded border ${conditionColors[condition] || "bg-card-hover text-muted border-card-border"}`}>
-                              {condition}
-                            </span>
-                          )}
-                          {setName && <span className="text-xs text-muted truncate max-w-[120px]">{setName}</span>}
-                          {rarity && <span className="text-xs text-muted">{"\u00B7"} {rarity}</span>}
+                          {condition && <ConditionBadge condition={condition} />}
+                          <SetInfo setName={setName} rarity={rarity} />
                         </div>
                         <div className="flex items-center gap-2 text-xs">
                           {outOfStock ? (
                             <>
-                              <span className="text-red-400 font-semibold">Out of stock</span>
+                              <StockBadge quantity={0} />
                               <span className="text-purple-400">&#x1F310; Check network</span>
                             </>
                           ) : (
-                            <span className="text-muted">{item.quantity} in stock</span>
+                            <StockBadge quantity={item.quantity} />
                           )}
                         </div>
                       </div>
 
                       {/* Price */}
                       <div className="shrink-0 text-right">
-                        <div className="text-lg font-bold text-foreground tabular-nums font-mono">{formatCents(item.price_cents)}</div>
+                        <PriceTag cents={item.price_cents} size="lg" />
                       </div>
                     </button>
                   );

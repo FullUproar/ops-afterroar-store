@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { formatCents } from "@/lib/types";
 import { PageHeader } from "@/components/page-header";
+import { ConditionBadge, CardImage, PriceTag } from "@/components/tcg/shared";
 
 /* ---------- types ---------- */
 
@@ -310,24 +311,18 @@ export default function EbayListingsPage() {
                     key={item.id}
                     className="flex items-center gap-3 px-4 py-3"
                   >
-                    {item.image_url ? (
-                      <img
-                        src={item.image_url}
-                        alt=""
-                        className="w-10 h-14 rounded object-cover shrink-0"
-                      />
-                    ) : (
-                      <div className="w-10 h-14 rounded bg-card-hover shrink-0" />
-                    )}
+                    <CardImage src={item.image_url} alt={item.name} size="sm" game={item.game || undefined} />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-medium text-foreground truncate">
                           {item.name}
                         </span>
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-600/20 text-blue-300 border border-blue-500/30">
-                          {item.condition}
-                          {item.foil ? " Foil" : ""}
-                        </span>
+                        <ConditionBadge condition={item.condition} size="xs" />
+                        {item.foil && (
+                          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-purple-600/20 text-purple-300 border border-purple-500/30">
+                            Foil
+                          </span>
+                        )}
                       </div>
                       <div className="text-xs text-muted mt-0.5">
                         {item.set_name || ""}
@@ -335,9 +330,7 @@ export default function EbayListingsPage() {
                       </div>
                     </div>
                     <div className="shrink-0 text-right">
-                      <div className="text-sm font-semibold text-foreground tabular-nums">
-                        {formatCents(item.price_cents)}
-                      </div>
+                      <PriceTag cents={item.price_cents} size="sm" />
                       <div className="flex items-center gap-2 mt-1">
                         {item.ebay_listing_id && (
                           <a
@@ -378,24 +371,18 @@ export default function EbayListingsPage() {
                     key={item.id}
                     className="flex items-center gap-3 px-4 py-3"
                   >
-                    {item.image_url ? (
-                      <img
-                        src={item.image_url}
-                        alt=""
-                        className="w-10 h-14 rounded object-cover shrink-0"
-                      />
-                    ) : (
-                      <div className="w-10 h-14 rounded bg-card-hover shrink-0" />
-                    )}
+                    <CardImage src={item.image_url} alt={item.name} size="sm" game={item.game || undefined} />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-medium text-foreground truncate">
                           {item.name}
                         </span>
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-card-hover text-muted">
-                          {item.condition}
-                          {item.foil ? " Foil" : ""}
-                        </span>
+                        <ConditionBadge condition={item.condition} size="xs" />
+                        {item.foil && (
+                          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-purple-600/20 text-purple-300 border border-purple-500/30">
+                            Foil
+                          </span>
+                        )}
                       </div>
                       <div className="text-xs text-muted mt-0.5">
                         {item.set_name || ""}
@@ -403,9 +390,7 @@ export default function EbayListingsPage() {
                       </div>
                     </div>
                     <div className="shrink-0 text-right">
-                      <div className="text-sm font-semibold text-foreground tabular-nums">
-                        {formatCents(item.price_cents)}
-                      </div>
+                      <PriceTag cents={item.price_cents} size="sm" />
                       {ebayConfigured && (
                         <button
                           onClick={() => listOnEbay(item.id)}

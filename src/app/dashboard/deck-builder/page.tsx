@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { PageHeader } from "@/components/page-header";
 import { FeatureGate } from "@/components/feature-gate";
 import { formatCents } from "@/lib/types";
+import { CardImage, StockBadge, PriceTag } from "@/components/tcg/shared";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                               */
@@ -523,15 +524,7 @@ function DeckBuilderContent() {
                       style={{ minHeight: "auto" }}
                     >
                       {cmdr.image_url && (
-                        <div className="shrink-0 w-[40px] h-[56px] rounded overflow-hidden bg-card-hover">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={cmdr.image_url}
-                            alt=""
-                            className="w-full h-full object-cover"
-                            loading="lazy"
-                          />
-                        </div>
+                        <CardImage src={cmdr.image_url} size="sm" />
                       )}
                       <div className="flex-1 min-w-0">
                         <div className="text-sm font-medium text-foreground truncate">
@@ -824,15 +817,7 @@ function DeckBuilderContent() {
                             className="flex items-center gap-3 rounded-lg px-3 py-2 hover:bg-card-hover transition-colors"
                           >
                             {card.image_url && (
-                              <div className="shrink-0 w-[40px] h-[56px] rounded overflow-hidden bg-card-hover">
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img
-                                  src={card.image_url}
-                                  alt=""
-                                  className="w-full h-full object-cover"
-                                  loading="lazy"
-                                />
-                              </div>
+                              <CardImage src={card.image_url} size="sm" />
                             )}
                             <div className="flex-1 min-w-0">
                               <div className="text-sm font-medium text-foreground truncate">
@@ -848,9 +833,7 @@ function DeckBuilderContent() {
                               </div>
                             </div>
                             {card.price_cents != null && (
-                              <div className="shrink-0 text-sm font-mono tabular-nums text-foreground">
-                                {formatCents(card.price_cents)}
-                              </div>
+                              <PriceTag cents={card.price_cents} size="sm" />
                             )}
                           </div>
                         ))}
@@ -925,21 +908,7 @@ function DeckBuilderContent() {
                     className="flex items-center gap-3 rounded-xl border border-card-border bg-card px-3 py-2.5"
                   >
                     {/* Card image */}
-                    <div className="shrink-0 w-[40px] h-[56px] rounded overflow-hidden bg-card-hover border border-card-border/50">
-                      {match.image_url ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={match.image_url}
-                          alt=""
-                          className="w-full h-full object-cover"
-                          loading="lazy"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-muted text-[10px]">
-                          TCG
-                        </div>
-                      )}
-                    </div>
+                    <CardImage src={match.image_url} alt={match.name} size="sm" />
 
                     {/* Card info */}
                     <div className="flex-1 min-w-0">
@@ -947,7 +916,7 @@ function DeckBuilderContent() {
                         {match.name}
                       </div>
                       <div className="flex items-center gap-2 text-xs mt-0.5">
-                        <StatusBadge match={match} />
+                        <StockBadge quantity={match.in_stock} needed={match.needed} />
                         <span className="text-muted">
                           Need {match.needed} / Have {match.in_stock}
                         </span>
@@ -956,9 +925,7 @@ function DeckBuilderContent() {
 
                     {/* Price */}
                     {match.price_cents > 0 && (
-                      <div className="shrink-0 text-sm font-mono tabular-nums text-foreground">
-                        {formatCents(match.price_cents)}
-                      </div>
+                      <PriceTag cents={match.price_cents} size="sm" />
                     )}
 
                     {/* Add to cart */}
@@ -1140,32 +1107,6 @@ function DeckBuilderContent() {
         </div>
       </div>
     </div>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/*  Status Badge                                                        */
-/* ------------------------------------------------------------------ */
-
-function StatusBadge({ match }: { match: InventoryMatch }) {
-  if (match.status === "available") {
-    return (
-      <span className="rounded border bg-green-500/20 text-green-400 border-green-500/30 px-1.5 py-0.5 text-xs font-bold">
-        In Stock
-      </span>
-    );
-  }
-  if (match.status === "partial") {
-    return (
-      <span className="rounded border bg-yellow-500/20 text-yellow-400 border-yellow-500/30 px-1.5 py-0.5 text-xs font-bold">
-        Partial ({match.in_stock}/{match.needed})
-      </span>
-    );
-  }
-  return (
-    <span className="rounded border bg-red-500/20 text-red-400 border-red-500/30 px-1.5 py-0.5 text-xs font-bold">
-      Not Available
-    </span>
   );
 }
 

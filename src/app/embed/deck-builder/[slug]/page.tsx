@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { useParams } from "next/navigation";
+import { CardImageLight, PriceTagLight, StockBadge, ConditionBadge } from "@/components/tcg/shared";
 
 /* ------------------------------------------------------------------ */
 /*  /embed/deck-builder/[slug] — Embeddable deck builder widget        */
@@ -261,8 +262,7 @@ export default function EmbedDeckBuilder() {
                   background: match.status === "available" ? "#f0fdf4" : match.status === "partial" ? "#fffbeb" : "#fef2f2",
                 }}>
                   {match.image_url && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={match.image_url} alt="" style={{ width: 36, height: 50, borderRadius: 4, objectFit: "cover" }} />
+                    <CardImageLight src={match.image_url} width={36} height={50} />
                   )}
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontWeight: 600, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{match.name}</div>
@@ -270,15 +270,9 @@ export default function EmbedDeckBuilder() {
                       Need {match.needed} / Have {match.in_stock}
                     </div>
                   </div>
-                  <div style={{
-                    fontSize: 11, fontWeight: 700, padding: "3px 8px", borderRadius: 6,
-                    background: match.status === "available" ? "#dcfce7" : match.status === "partial" ? "#fef3c7" : "#fee2e2",
-                    color: match.status === "available" ? "#166534" : match.status === "partial" ? "#92400e" : "#991b1b",
-                  }}>
-                    {match.status === "available" ? "In Stock" : match.status === "partial" ? "Partial" : "Not Available"}
-                  </div>
+                  <StockBadge quantity={match.in_stock} needed={match.needed} theme="light" />
                   {match.price_cents > 0 && (
-                    <div style={{ fontSize: 13, fontWeight: 600, fontFamily: "monospace" }}>{fmt(match.price_cents)}</div>
+                    <PriceTagLight cents={match.price_cents} size="sm" />
                   )}
                 </div>
 
@@ -317,7 +311,7 @@ export default function EmbedDeckBuilder() {
             </div>
             <div style={{ borderTop: "1px solid #e5e7eb", marginTop: 8, paddingTop: 8, display: "flex", justifyContent: "space-between", fontSize: 16 }}>
               <span style={{ fontWeight: 700 }}>Estimated total</span>
-              <span style={{ fontWeight: 700, fontFamily: "monospace" }}>{fmt(estimatedTotal)}</span>
+              <PriceTagLight cents={estimatedTotal} size="lg" />
             </div>
           </div>
 
@@ -330,14 +324,13 @@ export default function EmbedDeckBuilder() {
               {recommendations.map((rec, i) => (
                 <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: 10, border: "1px solid #e5e7eb", marginBottom: 4 }}>
                   {rec.image_url && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={rec.image_url} alt="" style={{ width: 32, height: 32, borderRadius: 6, objectFit: "cover" }} />
+                    <CardImageLight src={rec.image_url} width={32} height={32} />
                   )}
                   <div style={{ flex: 1 }}>
                     <div style={{ fontWeight: 600, fontSize: 13 }}>{rec.name}</div>
                     <div style={{ fontSize: 12, color: "#999" }}>{rec.reason}</div>
                   </div>
-                  <div style={{ fontSize: 13, fontWeight: 600, fontFamily: "monospace" }}>{fmt(rec.price_cents)}</div>
+                  <PriceTagLight cents={rec.price_cents} size="sm" />
                 </div>
               ))}
             </div>
