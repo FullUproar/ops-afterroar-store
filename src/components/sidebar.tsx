@@ -40,7 +40,7 @@ const NAV_GROUPS: NavGroup[] = [
   },
   {
     label: "Customers",
-    hrefs: ["/dashboard/customers", "/dashboard/gift-cards"],
+    hrefs: ["/dashboard/customers", "/dashboard/customers/insights", "/dashboard/gift-cards"],
   },
   {
     label: "Events",

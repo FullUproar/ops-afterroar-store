@@ -309,6 +309,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard/trade-ins", label: "Trade-Ins", icon: "⇄", permission: "trade_ins" },
   { href: "/dashboard/returns", label: "Returns", icon: "↩", permission: "returns" },
   { href: "/dashboard/customers", label: "Customers", icon: "♟", permission: "customers.view" },
+  { href: "/dashboard/customers/insights", label: "Customer Insights", icon: "◎", permission: "customers.view", feature: "intelligence" },
   { href: "/dashboard/events", label: "Events", icon: "★", permission: "events.checkin" },
   { href: "/dashboard/tournaments", label: "Tournaments", icon: "\u2694", permission: "events.manage", feature: "events" },
   { href: "/dashboard/purchase-orders", label: "Purchase Orders", icon: "\u229e", permission: "inventory.adjust" },
