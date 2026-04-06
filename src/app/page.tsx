@@ -174,21 +174,15 @@ export default function Home() {
             sync, and more. All in one place.
           </p>
           <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
-            <Link
-              href="/login"
-              className="w-full rounded-xl bg-[#FF8200] px-8 py-3.5 text-base font-semibold text-white shadow-lg shadow-[#FF8200]/20 transition-all hover:bg-[#e67400] hover:shadow-[#FF8200]/30 sm:w-auto"
-            >
-              Start Free
-            </Link>
             <a
               href="#features"
-              className="w-full rounded-xl border border-[#2a2a3e] px-8 py-3.5 text-base font-medium text-[#94a3b8] transition-colors hover:border-[#FF8200]/50 hover:text-white sm:w-auto"
+              className="w-full rounded-xl bg-[#FF8200] px-10 py-4 text-lg font-semibold text-white shadow-lg shadow-[#FF8200]/20 transition-all hover:bg-[#e67400] hover:shadow-[#FF8200]/30 sm:w-auto"
             >
-              See It In Action &darr;
+              See What It Does
             </a>
           </div>
-          <p className="mt-6 text-xs text-[#4a4a6a]">
-            No credit card required &middot; 50 items free forever
+          <p className="mt-6 text-sm text-[#4a4a6a]">
+            Built for friendly local game stores
           </p>
         </div>
       </section>
@@ -370,7 +364,7 @@ export default function Home() {
             <PricingCard
               tier="Starter"
               price="$0"
-              tagline="Try everything. No credit card required."
+              tagline="Get started and explore the system."
               features={[
                 "Full POS & register",
                 "TCG pricing engine",
@@ -379,7 +373,7 @@ export default function Home() {
                 "Events & tournaments",
                 "Community support",
               ]}
-              cta="Start Free"
+              cta="Get Started"
             />
             <PricingCard
               tier="Pro"
@@ -396,7 +390,7 @@ export default function Home() {
                 "Cafe & food service",
                 "Priority email support",
               ]}
-              cta="Start Free Trial"
+              cta="Get Started"
             />
             <PricingCard
               tier="Enterprise"
@@ -505,7 +499,7 @@ export default function Home() {
               href="/login"
               className="w-full rounded-xl bg-[#FF8200] px-10 py-4 text-base font-semibold text-white shadow-lg shadow-[#FF8200]/20 transition-all hover:bg-[#e67400] hover:shadow-[#FF8200]/30 sm:w-auto"
             >
-              Start Free Today
+              Get Started
             </Link>
           </div>
           <p className="mt-8 text-sm text-[#4a4a6a]">
