@@ -70,9 +70,6 @@ export default async function DashboardPage() {
       {/* Store Health — single-glance status */}
       <HealthScore />
 
-      {/* Getting Started Checklist */}
-      <GettingStarted />
-
       {/* Quick Actions — always visible, primary CTAs */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
         <Link
@@ -117,7 +114,7 @@ export default async function DashboardPage() {
         </Link>
       </div>
 
-      {/* AI Store Advisor — Claude-powered business co-pilot (prominent) */}
+      {/* Store Advisor — business co-pilot */}
       <StoreAdvisor />
 
       {/* Intelligence Feed — rule-based store alerts */}
