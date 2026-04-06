@@ -413,7 +413,7 @@ export function OnboardingPanel() {
             <div className="flex gap-2">
               <button onClick={() => goToStep(1)} className="flex-1 rounded-xl border border-card-border px-3 py-2.5 text-sm font-medium text-muted hover:text-foreground transition-colors">Back</button>
               <button onClick={() => goToStep(3)} className="flex-1 rounded-xl bg-accent px-3 py-2.5 text-sm font-semibold text-white hover:opacity-90 transition-colors">
-                Skip — it&apos;s just me
+                Continue — just me for now
               </button>
             </div>
           </div>
@@ -448,7 +448,7 @@ export function OnboardingPanel() {
             <div className="flex gap-2">
               <button onClick={() => goToStep(2)} className="flex-1 rounded-xl border border-card-border px-3 py-2.5 text-sm font-medium text-muted hover:text-foreground transition-colors">Back</button>
               <button onClick={() => goToStep(4)} className="flex-1 rounded-xl bg-accent px-3 py-2.5 text-sm font-semibold text-white hover:opacity-90 transition-colors">
-                Skip — I&apos;ll set this up later
+                Continue
               </button>
             </div>
           </div>
