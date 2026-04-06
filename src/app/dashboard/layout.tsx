@@ -1,30 +1,31 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import dynamic from "next/dynamic";
 import { SessionProvider } from "next-auth/react";
 import { StoreProvider } from "@/lib/store-context";
 import { ModeProvider } from "@/lib/mode-context";
-import { TrainingModeProvider, TrainingBanner } from "@/lib/training-mode";
+import { TrainingModeProvider } from "@/lib/training-mode";
 import { OfflineProvider } from "@/components/offline-provider";
 import { ThemeProvider } from "@/components/theme-provider";
-import { ShortcutsHelp } from "@/components/shortcuts-help";
 import { ToastProvider } from "@/components/toast";
-import { DashboardLayoutInner } from "@/components/dashboard-layout-inner";
-import { StaffLockGate } from "@/components/staff-lock-gate";
-import { TrialBanner } from "@/components/trial-banner";
-import { OnboardingPanel, OnboardingSandboxBanner } from "@/components/onboarding-panel";
+
+// Dynamic import the entire dashboard chrome with ssr: false.
+// This prevents all hydration mismatches from sidebar, banners, staff lock, etc.
+// which all depend on client-only state (session, store context, localStorage).
+const DashboardChrome = dynamic(() => import("@/components/dashboard-chrome"), {
+  ssr: false,
+  loading: () => (
+    <div className="flex h-screen items-center justify-center bg-background">
+      <div className="text-muted text-sm">Loading...</div>
+    </div>
+  ),
+});
 
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  // Prevent hydration mismatch: all dashboard chrome depends on client-only
-  // state (session, store context, localStorage). Server renders a loading
-  // shell, client fills in everything after mount.
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
-
   return (
     <SessionProvider>
       <StoreProvider>
@@ -33,22 +34,7 @@ export default function DashboardLayout({
           <ThemeProvider>
           <OfflineProvider>
           <ToastProvider>
-            {!mounted ? (
-              <div className="flex h-screen items-center justify-center bg-background">
-                <div className="text-muted text-sm">Loading...</div>
-              </div>
-            ) : (
-              <StaffLockGate>
-                <TrialBanner />
-                <TrainingBanner />
-                <OnboardingSandboxBanner />
-                <DashboardLayoutInner>
-                  {children}
-                </DashboardLayoutInner>
-                <OnboardingPanel />
-                <ShortcutsHelp />
-              </StaffLockGate>
-            )}
+            <DashboardChrome>{children}</DashboardChrome>
           </ToastProvider>
           </OfflineProvider>
           </ThemeProvider>

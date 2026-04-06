@@ -21,12 +21,8 @@ test.describe("authenticated: settings navigation", () => {
     // Wait for settings page to fully render (not just "Loading settings...")
     await expect(page.locator("text=Changes save automatically")).toBeVisible({ timeout: 10_000 });
 
-    // Now try to navigate away — this is what breaks
-    // Use JS navigation to avoid sidebar overlap issues at test viewport size
-    await page.evaluate(() => {
-      const link = document.querySelector('a[href="/dashboard"]') as HTMLAnchorElement;
-      if (link) link.click();
-    });
+    // Now try to navigate away — use force click to bypass sidebar overlap at test viewport
+    await page.locator('a[href="/dashboard"]').first().click({ force: true });
 
     // If we can reach dashboard URL, navigation works
     await page.waitForURL(/\/dashboard$/, { timeout: 10_000 });
@@ -39,11 +35,8 @@ test.describe("authenticated: settings navigation", () => {
     // Wait for settings to load
     await expect(page.locator("text=Changes save automatically")).toBeVisible({ timeout: 10_000 });
 
-    // Navigate to inventory via JS click (avoids sidebar overlap at test viewport)
-    await page.evaluate(() => {
-      const link = document.querySelector('a[href="/dashboard/inventory"]') as HTMLAnchorElement;
-      if (link) link.click();
-    });
+    // Navigate to inventory
+    await page.locator('a[href="/dashboard/inventory"]').first().click({ force: true });
     await page.waitForURL("**/dashboard/inventory**", { timeout: 10_000 });
     await expect(page).toHaveURL(/inventory/);
   });
@@ -58,11 +51,8 @@ test.describe("authenticated: settings navigation", () => {
       await page.waitForTimeout(500);
     }
 
-    // Now navigate away via JS click
-    await page.evaluate(() => {
-      const link = document.querySelector('a[href="/dashboard"]') as HTMLAnchorElement;
-      if (link) link.click();
-    });
+    // Now navigate away
+    await page.locator('a[href="/dashboard"]').first().click({ force: true });
     await page.waitForURL(/\/dashboard$/, { timeout: 10_000 });
     await expect(page).toHaveURL(/\/dashboard$/);
   });
