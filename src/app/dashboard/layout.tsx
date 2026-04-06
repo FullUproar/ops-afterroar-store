@@ -29,7 +29,6 @@ export default function DashboardLayout({
             <StaffLockGate>
               <TrialBanner />
               <OnboardingSandboxBanner />
-              <TrainingBanner />
               <DashboardLayoutInner>
                 {children}
               </DashboardLayoutInner>
