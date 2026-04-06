@@ -468,10 +468,15 @@ export function useStoreSettings(): StoreSettings {
   }, []);
 
   const raw = (store?.settings ?? null) as Partial<StoreSettings> | null;
+  const hasRaw = raw && Object.keys(raw).length > 0;
 
-  // When store settings arrive, cache them
-  if (raw && Object.keys(raw).length > 0) {
-    if (hydrated) setCachedSettings(raw);
+  // When store settings arrive, cache them (in useEffect, not during render)
+  const storeId = store?.id;
+  useEffect(() => {
+    if (hasRaw) setCachedSettings(raw!);
+  }, [storeId, hasRaw]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (hasRaw) {
     return { ...SETTINGS_DEFAULTS, ...raw };
   }
 

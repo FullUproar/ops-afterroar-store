@@ -76,15 +76,14 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState<string | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
   const [error, setError] = useState('');
+  const [activeTab, setActiveTab] = useState<TabKey>('store');
+
   // Auto-select tab based on URL params (e.g., returning from Stripe onboarding)
-  const [activeTab, setActiveTab] = useState<TabKey>(() => {
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
-      if (params.get('stripe')) return 'payments';
-      if (params.get('tab')) return (params.get('tab') as TabKey) || 'store';
-    }
-    return 'store';
-  });
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('stripe')) setActiveTab('payments');
+    else if (params.get('tab')) setActiveTab((params.get('tab') as TabKey) || 'store');
+  }, []);
 
   // Afterroar integration state
   const [venueSearch, setVenueSearch] = useState('');
@@ -471,7 +470,7 @@ export default function SettingsPage() {
                   <PhoneLinkRow
                     label="Clock In/Out"
                     sublabel="PIN-based, GPS tagging, PWA installable"
-                    url={`${typeof window !== 'undefined' ? window.location.origin : ''}/clock/${store.slug}`}
+                    path={`/clock/${store.slug}`}
                     savedKey="clock_url"
                     saved={saved}
                     setSaved={setSaved}
@@ -479,7 +478,7 @@ export default function SettingsPage() {
                   <PhoneLinkRow
                     label="Mobile Register"
                     sublabel="Access-code paired, sell from any phone"
-                    url={`${typeof window !== 'undefined' ? window.location.origin : ''}/mobile/${store.slug}`}
+                    path={`/mobile/${store.slug}`}
                     savedKey="mobile_url"
                     saved={saved}
                     setSaved={setSaved}
@@ -926,14 +925,14 @@ function SettingsSection({ section, settings, saving, saved, updateLocal, saveFi
 function PhoneLinkRow({
   label,
   sublabel,
-  url,
+  path,
   savedKey,
   saved,
   setSaved,
 }: {
   label: string;
   sublabel: string;
-  url: string;
+  path: string;
   savedKey: string;
   saved: string | null;
   setSaved: (v: string | null) => void;
@@ -946,7 +945,7 @@ function PhoneLinkRow({
       </div>
       <button
         onClick={() => {
-          navigator.clipboard.writeText(url);
+          navigator.clipboard.writeText(`${window.location.origin}${path}`);
           setSaved(savedKey);
           setTimeout(() => setSaved(null), 2000);
         }}
