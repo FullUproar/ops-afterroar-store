@@ -40,7 +40,7 @@ export default defineConfig({
         storageState: "tests/.auth/state.json",
       },
       grep: /authenticated/,
-      testMatch: /visual-qa\.spec\.ts/,
+      testMatch: /.*\.spec\.ts/,
       dependencies: ["setup"],
     },
     {
