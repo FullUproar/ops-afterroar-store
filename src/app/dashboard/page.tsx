@@ -37,17 +37,8 @@ export default async function DashboardPage() {
 
   const storeId = staff.store_id;
 
-  // Check if onboarding is needed for owners
-  if (staff.role === "owner") {
-    const store = await prisma.posStore.findUnique({
-      where: { id: storeId },
-      select: { settings: true },
-    });
-    const settings = (store?.settings ?? {}) as Record<string, unknown>;
-    if (!settings.onboarding_complete) {
-      redirect("/dashboard/onboarding");
-    }
-  }
+  // Onboarding is now handled by the floating OnboardingPanel in the layout.
+  // No redirect needed — the panel renders on top of whatever page the user is on.
 
   const todayStart = new Date(new Date().setHours(0, 0, 0, 0)).toISOString();
 

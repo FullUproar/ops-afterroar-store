@@ -11,6 +11,7 @@ import { ToastProvider } from "@/components/toast";
 import { DashboardLayoutInner } from "@/components/dashboard-layout-inner";
 import { StaffLockGate } from "@/components/staff-lock-gate";
 import { TrialBanner } from "@/components/trial-banner";
+import { OnboardingPanel, OnboardingSandboxBanner } from "@/components/onboarding-panel";
 
 export default function DashboardLayout({
   children,
@@ -27,10 +28,12 @@ export default function DashboardLayout({
           <ToastProvider>
             <StaffLockGate>
               <TrialBanner />
+              <OnboardingSandboxBanner />
               <TrainingBanner />
               <DashboardLayoutInner>
                 {children}
               </DashboardLayoutInner>
+              <OnboardingPanel />
               <ShortcutsHelp />
             </StaffLockGate>
           </ToastProvider>
