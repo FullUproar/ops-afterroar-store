@@ -153,12 +153,22 @@ export async function POST(request: NextRequest) {
     let taxSource: "stripe" | "manual" | "none" = "none";
     let taxRateUsed = 0;
 
+    // Check if store has a manual tax rate — if so, use it directly (no Stripe Tax API call)
+    const manualTaxRate = (storeRawSettings.tax_rate_percent as number) || getDefaultTaxRate();
+    const hasManualRate = manualTaxRate > 0;
+
     if (clientTaxCents !== undefined) {
       // Client provided tax — trust it (was calculated from the same store settings)
       tax_cents = clientTaxCents;
       taxSource = "manual";
+    } else if (hasManualRate) {
+      // Manual rate configured — use it immediately, skip Stripe Tax API
+      const taxResult = calculateTaxFromSettings(subtotal_cents, storeRawSettings);
+      tax_cents = taxResult.taxCents;
+      taxRateUsed = manualTaxRate;
+      taxSource = "manual";
     } else {
-      // Try Stripe Tax first
+      // No manual rate — try Stripe Tax
       const stripe = getStripe();
       let stripeTaxSuccess = false;
 
