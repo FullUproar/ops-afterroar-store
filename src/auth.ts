@@ -59,7 +59,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
               data: {
                 email: profile.email,
                 displayName: profile.name || profile.email.split("@")[0],
-                avatarUrl: (profile as Record<string, unknown>).picture as string || null,
+                avatarUrl: ((profile as Record<string, unknown>)?.picture as string) ?? null,
               },
             });
           }
