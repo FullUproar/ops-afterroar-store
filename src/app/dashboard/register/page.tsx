@@ -375,7 +375,7 @@ export default function RegisterPage() {
   const router = useRouter();
   const storeName = useStoreName();
   const storeSettings = useStoreSettings();
-  const { staff, effectiveRole } = useStore();
+  const { staff, effectiveRole, store: storeCtx } = useStore();
   const { isTraining } = useTrainingMode();
   const { setMode } = useMode();
 
@@ -795,7 +795,8 @@ export default function RegisterPage() {
   const subtotal = cart.reduce((s, i) => s + i.price_cents * i.quantity, 0);
   const cartItemCount = cart.reduce((s, i) => s + i.quantity, 0);
   const taxRate = storeSettings.tax_rate_percent;
-  const taxReady = taxRate > 0; // Settings loaded with a real tax rate
+  // Tax is "ready" once store settings have loaded (even if rate is 0 = no tax)
+  const taxReady = !!storeCtx; // Settings loaded — rate might be 0 (no tax) and that's fine
 
   const discountCents = discounts.reduce((sum, d) => {
     if (d.scope === "cart") {
