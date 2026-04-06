@@ -220,7 +220,7 @@ export function Sidebar() {
                           : "text-muted hover:bg-card-hover hover:text-foreground lg:border-l-2 lg:border-transparent"
                       )}
                     >
-                      <span className="w-5 text-center">{item.icon}</span>
+                      <span className="w-5 text-center opacity-60" style={{ fontFamily: 'inherit' }}>{item.icon}</span>
                       <span className="hidden lg:inline">{item.label}</span>
                     </Link>
                   );
@@ -243,7 +243,7 @@ export function Sidebar() {
                   : "text-muted hover:bg-card-hover hover:text-foreground border-l-2 border-transparent"
               )}
             >
-              <span className="w-5 text-center">{item.icon}</span>
+              <span className="w-5 text-center opacity-60" style={{ fontFamily: 'inherit' }}>{item.icon}</span>
               {item.label}
             </Link>
           );

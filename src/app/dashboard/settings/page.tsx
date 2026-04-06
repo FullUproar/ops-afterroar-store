@@ -14,8 +14,10 @@ import { useTrainingMode } from '@/lib/training-mode';
 import { PageHeader } from '@/components/page-header';
 import { HelpTooltip } from '@/components/help-tooltip';
 import { PermissionsEditor } from '@/components/permissions-editor';
-import { LocationPicker } from '@/components/location-picker';
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
+
+const LocationPicker = dynamic(() => import('@/components/location-picker').then(m => ({ default: m.LocationPicker })), { ssr: false });
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
