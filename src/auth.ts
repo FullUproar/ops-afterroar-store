@@ -55,8 +55,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           });
           // Auto-create HQ user on first Google sign-in
           if (!hqUser) {
+            const crypto = await import("crypto");
             hqUser = await prisma.user.create({
               data: {
+                id: crypto.randomUUID(),
                 email: profile.email,
                 displayName: profile.name || profile.email.split("@")[0],
                 avatarUrl: ((profile as Record<string, unknown>)?.picture as string) ?? null,
