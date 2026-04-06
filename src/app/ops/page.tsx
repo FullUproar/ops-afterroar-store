@@ -60,18 +60,21 @@ export default function OpsMonitorPage() {
   const [pushError, setPushError] = useState<string | null>(null);
   const [swRegistration, setSwRegistration] = useState<ServiceWorkerRegistration | null>(null);
   const [testSending, setTestSending] = useState(false);
+  const [sentryErrors, setSentryErrors] = useState<Array<{ id: string; title: string; culprit: string; count: number; level: string; link: string }>>([]);
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Fetch health data
   const fetchData = useCallback(async () => {
     try {
-      const [liveRes, histRes] = await Promise.all([
+      const [liveRes, histRes, errRes] = await Promise.all([
         fetch("/api/health").then((r) => r.json()),
         fetch("/api/health/synthetic").then((r) => (r.ok ? r.json() : null)),
+        fetch("/api/health/errors").then((r) => (r.ok ? r.json() : null)),
       ]);
       setLive(liveRes);
       setHistorical(histRes);
+      if (errRes?.errors) setSentryErrors(errRes.errors);
       setLastRefresh(new Date());
     } catch {
       // Silent fail — will retry on next interval
@@ -596,6 +599,32 @@ export default function OpsMonitorPage() {
               )}
             </div>
           </div>
+
+          {/* Sentry Errors */}
+          {sentryErrors.length > 0 && (
+            <div style={{ background: "#1a1a2e", borderRadius: 12, padding: 16 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: "#ef4444", marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#ef4444", display: "inline-block" }} />
+                {sentryErrors.length} Unresolved Error{sentryErrors.length !== 1 ? "s" : ""}
+              </div>
+              {sentryErrors.slice(0, 5).map((err) => (
+                <a
+                  key={err.id}
+                  href={err.link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ display: "block", padding: "8px 0", borderBottom: "1px solid #ffffff10", textDecoration: "none" }}
+                >
+                  <div style={{ fontSize: 13, fontWeight: 500, color: "#fff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {err.title}
+                  </div>
+                  <div style={{ fontSize: 11, color: "#666", marginTop: 2 }}>
+                    {err.culprit} &middot; {err.count}x &middot; {err.level}
+                  </div>
+                </a>
+              ))}
+            </div>
+          )}
 
           {/* Quick Stats */}
           <div
