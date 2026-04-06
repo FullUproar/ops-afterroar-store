@@ -9,6 +9,11 @@ export async function middleware(request: NextRequest) {
     path === "/" ||
     path === "/login" ||
     path === "/signup" ||
+    path === "/features" ||
+    path === "/pricing" ||
+    path === "/terms" ||
+    path === "/privacy" ||
+    path === "/support" ||
     path === "/ops" ||
     path.startsWith("/api/auth/") ||
     path.startsWith("/api/debug") ||

@@ -32,6 +32,9 @@ export default function Home() {
           <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-[#94a3b8] sm:text-xl">
             The operating system for friendly local game stores.
           </p>
+          <p className="mt-4 text-sm text-[#4a4a6a] tracking-wide">
+            POS &middot; TCG Pricing &middot; Events &middot; Inventory &middot; Marketplace &middot; Cafe &middot; Shipping
+          </p>
           <div className="mt-10">
             <Link
               href="/features"
