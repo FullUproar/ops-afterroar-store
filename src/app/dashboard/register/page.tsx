@@ -1027,16 +1027,32 @@ export default function RegisterPage() {
     setCart((prev) => prev.filter((_, i) => i !== index));
   }
 
+  // Over-stock warning state
+  const [overStockPending, setOverStockPending] = useState<{ index: number; qty: number; max: number } | null>(null);
+
   function commitQtyEdit(index: number, directValue?: number) {
     const newQty = directValue ?? parseInt(editQtyValue, 10);
     if (!newQty || newQty <= 0) { removeItem(index); } else {
-      setCart((prev) => prev.map((c, i) => i === index ? { ...c, quantity: Math.min(newQty, c.max_quantity) } : c));
+      const item = cart[index];
+      if (item && newQty > item.max_quantity && item.max_quantity > 0) {
+        // Show over-stock warning
+        setOverStockPending({ index, qty: newQty, max: item.max_quantity });
+      } else {
+        setCart((prev) => prev.map((c, i) => i === index ? { ...c, quantity: newQty } : c));
+      }
     }
     if (directValue === undefined) {
       setEditingQtyIndex(null);
     }
     setEditQtyValue("");
     (document.activeElement as HTMLElement)?.blur();
+  }
+
+  function confirmOverStock() {
+    if (!overStockPending) return;
+    setCart((prev) => prev.map((c, i) => i === overStockPending.index ? { ...c, quantity: overStockPending.qty } : c));
+    setHasZeroStockOverride(true);
+    setOverStockPending(null);
   }
 
   // ---- Discount helpers ----
@@ -1530,6 +1546,37 @@ export default function RegisterPage() {
             </div>
             <p className="text-[11px] text-amber-200/50">
               Inventory count will go negative. Adjust stock later.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* ====== OVER-STOCK WARNING ====== */}
+      {overStockPending && (
+        <div className="absolute inset-0 z-[70] flex items-center justify-center bg-black/50">
+          <div className="mx-4 w-full max-w-sm rounded-xl border border-amber-500/40 bg-amber-950 p-5 shadow-2xl space-y-3">
+            <p className="text-base font-semibold text-amber-200">
+              {cart[overStockPending.index]?.name}
+            </p>
+            <p className="text-sm text-amber-200/80">
+              System shows {overStockPending.max} in stock. Sell {overStockPending.qty} anyway?
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={confirmOverStock}
+                className="flex-1 rounded-xl bg-amber-600 py-3 text-sm font-semibold text-white active:bg-amber-700 transition-colors"
+              >
+                Sell {overStockPending.qty}
+              </button>
+              <button
+                onClick={() => setOverStockPending(null)}
+                className="flex-1 rounded-xl border border-amber-500/30 bg-transparent py-3 text-sm font-medium text-amber-300 active:bg-amber-900 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+            <p className="text-[11px] text-amber-200/50">
+              Inventory will go negative. Reconcile stock later.
             </p>
           </div>
         </div>
