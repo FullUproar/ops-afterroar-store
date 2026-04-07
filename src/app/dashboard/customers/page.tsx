@@ -108,6 +108,8 @@ export default function CustomersPage() {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ name: '', email: '', phone: '' });
   const [saving, setSaving] = useState(false);
+  const [page, setPage] = useState(0);
+  const PAGE_SIZE = 25;
 
   const loadCustomers = useCallback(async () => {
     try {
@@ -158,6 +160,13 @@ export default function CustomersPage() {
     }
     return true;
   });
+
+  // Pagination
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+  const paginated = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+
+  // Reset page when filters change
+  useEffect(() => { setPage(0); }, [search, segmentFilter]);
 
   const segmentButtons: Array<{ key: CustomerSegment | 'all'; label: string; count: number | null }> = [
     { key: 'all', label: 'All', count: counts?.total ?? null },
@@ -275,9 +284,14 @@ export default function CustomersPage() {
         />
       ) : (
         <>
+          {/* Result count + pagination header */}
+          <div className="flex items-center justify-between text-xs text-muted">
+            <span>{filtered.length} customer{filtered.length !== 1 ? 's' : ''}{totalPages > 1 ? ` — page ${page + 1} of ${totalPages}` : ''}</span>
+          </div>
+
           {/* Mobile card view */}
           <div className="md:hidden space-y-3">
-            {filtered.map((c) => (
+            {paginated.map((c) => (
               <Link
                 key={c.id}
                 href={`/dashboard/customers/${c.id}`}
@@ -303,7 +317,7 @@ export default function CustomersPage() {
           </div>
 
           {/* Desktop table */}
-          <div className="hidden md:block bg-card border border-card-border rounded-xl overflow-hidden shadow-sm dark:shadow-none">
+          <div className="hidden md:block bg-card border border-card-border rounded-xl shadow-sm dark:shadow-none">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-card-border text-muted text-left">
@@ -316,7 +330,7 @@ export default function CustomersPage() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((c) => (
+                {paginated.map((c) => (
                   <Link
                     key={c.id}
                     href={`/dashboard/customers/${c.id}`}
@@ -347,6 +361,54 @@ export default function CustomersPage() {
               </tbody>
             </table>
           </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-2 pt-2">
+              <button
+                onClick={() => setPage((p) => Math.max(0, p - 1))}
+                disabled={page === 0}
+                className="px-3 py-1.5 rounded-lg border border-card-border bg-card text-sm text-muted hover:text-foreground disabled:opacity-30 transition-colors"
+              >
+                Previous
+              </button>
+              <div className="flex gap-1">
+                {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
+                  // Show pages around current page
+                  let pageNum: number;
+                  if (totalPages <= 7) {
+                    pageNum = i;
+                  } else if (page < 3) {
+                    pageNum = i;
+                  } else if (page > totalPages - 4) {
+                    pageNum = totalPages - 7 + i;
+                  } else {
+                    pageNum = page - 3 + i;
+                  }
+                  return (
+                    <button
+                      key={pageNum}
+                      onClick={() => setPage(pageNum)}
+                      className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${
+                        page === pageNum
+                          ? 'bg-accent text-white'
+                          : 'text-muted hover:text-foreground hover:bg-card-hover'
+                      }`}
+                    >
+                      {pageNum + 1}
+                    </button>
+                  );
+                })}
+              </div>
+              <button
+                onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+                disabled={page >= totalPages - 1}
+                className="px-3 py-1.5 rounded-lg border border-card-border bg-card text-sm text-muted hover:text-foreground disabled:opacity-30 transition-colors"
+              >
+                Next
+              </button>
+            </div>
+          )}
         </>
       )}
     </div>

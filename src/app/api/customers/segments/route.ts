@@ -93,8 +93,9 @@ export async function GET(request: NextRequest) {
     const ninetyDaysAgo = new Date(now);
     ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
 
+    // SECURITY: explicit store_id filter (belt-and-suspenders with tenant extension)
     const customers = await db.posCustomer.findMany({
-      where: { deletion_requested: false },
+      where: { store_id: storeId, deletion_requested: false },
       select: {
         id: true,
         name: true,
@@ -230,7 +231,7 @@ export async function POST(request: NextRequest) {
     ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
 
     const customers = await db.posCustomer.findMany({
-      where: { deletion_requested: false },
+      where: { store_id: storeId, deletion_requested: false },
       select: {
         id: true,
         name: true,
