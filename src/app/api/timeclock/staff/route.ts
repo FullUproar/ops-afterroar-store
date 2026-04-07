@@ -6,10 +6,10 @@ import { requirePermission, handleAuthError } from "@/lib/require-staff";
 /* ------------------------------------------------------------------ */
 export async function GET() {
   try {
-    const { db } = await requirePermission("staff.manage");
+    const { db, storeId } = await requirePermission("staff.manage");
 
     const staff = await db.posStaff.findMany({
-      where: { active: true },
+      where: { store_id: storeId, active: true },
       select: { id: true, name: true },
     });
 

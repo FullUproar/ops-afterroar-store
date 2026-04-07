@@ -10,13 +10,13 @@ export async function GET() {
 
     // Find open time entry (clocked in but not out)
     const openEntry = await db.posTimeEntry.findFirst({
-      where: { staff_id: staff.id, clock_out: null },
+      where: { store_id: storeId, staff_id: staff.id, clock_out: null },
       orderBy: { clock_in: "desc" },
     });
 
     // Get recent entries
     const recent = await db.posTimeEntry.findMany({
-      where: { staff_id: staff.id },
+      where: { store_id: storeId, staff_id: staff.id },
       orderBy: { clock_in: "desc" },
       take: 10,
     });
@@ -28,6 +28,7 @@ export async function GET() {
 
     const weekEntries = await db.posTimeEntry.findMany({
       where: {
+        store_id: storeId,
         staff_id: staff.id,
         clock_in: { gte: weekStart },
         clock_out: { not: null },
@@ -67,7 +68,7 @@ export async function POST(request: NextRequest) {
     if (body.action === "clock_in") {
       // Check not already clocked in
       const existing = await db.posTimeEntry.findFirst({
-        where: { staff_id: staff.id, clock_out: null },
+        where: { store_id: storeId, staff_id: staff.id, clock_out: null },
       });
       if (existing) {
         return NextResponse.json({ error: "Already clocked in" }, { status: 400 });
@@ -87,7 +88,7 @@ export async function POST(request: NextRequest) {
 
     if (body.action === "clock_out") {
       const openEntry = await db.posTimeEntry.findFirst({
-        where: { staff_id: staff.id, clock_out: null },
+        where: { store_id: storeId, staff_id: staff.id, clock_out: null },
         orderBy: { clock_in: "desc" },
       });
 
