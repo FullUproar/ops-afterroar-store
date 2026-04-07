@@ -75,6 +75,7 @@ export default function SettingsPage() {
   const { isTraining, setTraining } = useTrainingMode();
   const currentSettings = useStoreSettings();
   const [settings, setSettings] = useState<StoreSettings>(currentSettings);
+  const [initialSynced, setInitialSynced] = useState(false);
   const [saving, setSaving] = useState<string | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
   const [error, setError] = useState('');
@@ -101,10 +102,14 @@ export default function SettingsPage() {
   const [stripeLoading, setStripeLoading] = useState(true);
   const [stripeConnecting, setStripeConnecting] = useState(false);
 
-  // Sync when store context loads
+  // Sync once when store context first loads (not on every render)
+  const storeId = store?.id;
   useEffect(() => {
-    setSettings(currentSettings);
-  }, [currentSettings]);
+    if (storeId && !initialSynced) {
+      setSettings(currentSettings);
+      setInitialSynced(true);
+    }
+  }, [storeId, initialSynced, currentSettings]);
 
   // Venue search effect
   useEffect(() => {

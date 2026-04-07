@@ -46,6 +46,37 @@ test.describe("authenticated: settings navigation", () => {
     await expect(page).toHaveURL(/\/dashboard/);
   });
 
+  test("can click sidebar link from settings to navigate", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/dashboard/settings", { waitUntil: "networkidle" });
+    await expect(page.locator("text=Changes save automatically")).toBeVisible({ timeout: 10_000 });
+
+    // Wait for sidebar to render
+    await page.waitForTimeout(2000);
+
+    // Expand Admin group (Settings is in Admin)
+    // Then click Dashboard link which is in a different group
+    const salesGroup = page.locator("button:has-text('Sales')");
+    if (await salesGroup.isVisible()) {
+      await salesGroup.click();
+      await page.waitForTimeout(300);
+    }
+
+    // Try clicking the Register link (should be in Sales group)
+    const registerLink = page.locator('a[href="/dashboard/register"]');
+    if (await registerLink.isVisible()) {
+      await registerLink.click();
+      await page.waitForURL("**/dashboard/register**", { timeout: 10_000 });
+      await expect(page).toHaveURL(/register/);
+    } else {
+      // Fallback: check if ANY sidebar link is clickable
+      const anyLink = page.locator('nav a[href^="/dashboard/"]').first();
+      const href = await anyLink.getAttribute("href");
+      await anyLink.click();
+      await page.waitForURL(`**${href}**`, { timeout: 10_000 });
+    }
+  });
+
   test("no hydration errors on dashboard page", async ({ page }) => {
     const errors: string[] = [];
     page.on("pageerror", (err) => errors.push(`PAGE_ERROR: ${err.message}`));
