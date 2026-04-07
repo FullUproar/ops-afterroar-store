@@ -211,7 +211,7 @@ export default function HelpPage() {
       </div>
 
       {/* Category pills */}
-      <div className="flex gap-1.5 overflow-x-auto pb-1">
+      <div className="flex gap-1.5 overflow-x-auto pb-1 max-w-full">
         <button
           onClick={() => setSelectedCategory(null)}
           className={`rounded-lg px-3 py-1.5 text-sm font-medium whitespace-nowrap transition-colors ${
