@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
     // Fetch the store relation needed for receipt/settings
     // SECURITY: use tenant-scoped db for staff lookup
     const staffWithStore = await db.posStaff.findFirst({
-      where: { id: staff.id },
+      where: { id: staff.id, store_id: storeId },
       select: { id: true, store_id: true, store: { select: { name: true, settings: true } } },
     });
 
@@ -83,6 +83,7 @@ export async function POST(request: NextRequest) {
     if (client_tx_id) {
       const existing = await db.posLedgerEntry.findFirst({
         where: {
+          store_id: storeId,
           type: "sale",
           metadata: { path: ["client_tx_id"], equals: client_tx_id },
         },
@@ -109,7 +110,7 @@ export async function POST(request: NextRequest) {
     const itemIds = inventoryItems.map((i) => i.inventory_item_id).filter(Boolean) as string[];
     const invItems = itemIds.length > 0
       ? await db.posInventoryItem.findMany({
-          where: { id: { in: itemIds } },
+          where: { id: { in: itemIds }, store_id: storeId },
           select: { id: true, name: true, quantity: true, price_cents: true, cost_cents: true, category: true, attributes: true },
         })
       : [];
@@ -246,7 +247,7 @@ export async function POST(request: NextRequest) {
         );
       }
       const customer = await db.posCustomer.findFirst({
-        where: { id: customer_id },
+        where: { id: customer_id, store_id: storeId },
         select: { credit_balance_cents: true },
       });
 
@@ -511,7 +512,7 @@ export async function POST(request: NextRequest) {
     if (customer_id) {
       try {
         const visitCust = await db.posCustomer.findFirst({
-          where: { id: customer_id },
+          where: { id: customer_id, store_id: storeId },
           select: { afterroar_user_id: true },
         });
         if (visitCust?.afterroar_user_id) {
@@ -533,7 +534,7 @@ export async function POST(request: NextRequest) {
             if (cat === "board_game" && inv?.name && item.inventory_item_id) {
               // Get full item for catalog link and BGG ID
               const fullItem = await db.posInventoryItem.findFirst({
-                where: { id: item.inventory_item_id },
+                where: { id: item.inventory_item_id, store_id: storeId },
                 select: { catalog_product_id: true, attributes: true },
               });
               const attrs = (fullItem?.attributes ?? {}) as Record<string, unknown>;
@@ -595,7 +596,7 @@ export async function POST(request: NextRequest) {
     if (customer_id) {
       // SECURITY: use tenant-scoped db to prevent cross-store customer lookup
       const cust = await db.posCustomer.findFirst({
-        where: { id: customer_id },
+        where: { id: customer_id, store_id: storeId },
         select: { name: true },
       });
       if (cust) receipt.customer_name = cust.name;

@@ -18,11 +18,11 @@ function generateGiftCardCode(): string {
 /* ------------------------------------------------------------------ */
 export async function GET(request: NextRequest) {
   try {
-    const { db } = await requirePermission("customers.edit");
+    const { db, storeId } = await requirePermission("customers.edit");
 
     const search = request.nextUrl.searchParams.get("q");
 
-    const where: Record<string, unknown> = {};
+    const where: Record<string, unknown> = { store_id: storeId };
     if (search) {
       where.code = { contains: search.toUpperCase(), mode: "insensitive" };
     }
@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
     let attempts = 0;
     while (attempts < 10) {
       // SECURITY: scope to store_id — gift card codes could collide across stores
-      const existing = await db.posGiftCard.findFirst({ where: { code } });
+      const existing = await db.posGiftCard.findFirst({ where: { store_id: storeId, code } });
       if (!existing) break;
       code = generateGiftCardCode();
       attempts++;

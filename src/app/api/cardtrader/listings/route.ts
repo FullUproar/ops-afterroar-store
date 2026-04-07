@@ -10,13 +10,14 @@ import { getCardTraderClient } from "@/lib/cardtrader";
  */
 export async function GET(request: NextRequest) {
   try {
-    const { db } = await requirePermissionAndFeature("inventory.adjust", "ecommerce");
+    const { db, storeId } = await requirePermissionAndFeature("inventory.adjust", "ecommerce");
 
     const params = request.nextUrl.searchParams;
     const filter = params.get("filter") || "all"; // "listed", "unlisted", "all"
     const limit = Math.min(parseInt(params.get("limit") || "50", 10), 200);
 
     const where: Record<string, unknown> = {
+      store_id: storeId,
       category: "tcg_single",
       active: true,
       quantity: { gt: 0 },
@@ -49,6 +50,7 @@ export async function GET(request: NextRequest) {
     // Stats
     const listedCount = await db.posInventoryItem.count({
       where: {
+        store_id: storeId,
         category: "tcg_single",
         active: true,
         listed_on_cardtrader: true,
@@ -86,7 +88,7 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const { db } = await requirePermissionAndFeature("inventory.adjust", "ecommerce");
+    const { db, storeId } = await requirePermissionAndFeature("inventory.adjust", "ecommerce");
 
     const ct = getCardTraderClient();
     if (!ct) {
@@ -107,7 +109,7 @@ export async function POST(request: NextRequest) {
     }
 
     const item = await db.posInventoryItem.findFirst({
-      where: { id: inventory_item_id, category: "tcg_single" },
+      where: { id: inventory_item_id, store_id: storeId, category: "tcg_single" },
     });
 
     if (!item) {
@@ -185,7 +187,7 @@ export async function POST(request: NextRequest) {
  */
 export async function DELETE(request: NextRequest) {
   try {
-    const { db } = await requirePermissionAndFeature("inventory.adjust", "ecommerce");
+    const { db, storeId } = await requirePermissionAndFeature("inventory.adjust", "ecommerce");
 
     const ct = getCardTraderClient();
     if (!ct) {
@@ -206,7 +208,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     const item = await db.posInventoryItem.findFirst({
-      where: { id: inventory_item_id, category: "tcg_single" },
+      where: { id: inventory_item_id, store_id: storeId, category: "tcg_single" },
     });
 
     if (!item) {

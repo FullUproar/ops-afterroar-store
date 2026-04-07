@@ -13,11 +13,11 @@ import { getStoreSettings } from "@/lib/store-settings-shared";
 
 export async function GET(request: NextRequest) {
   try {
-    const { db } = await requireStaff();
+    const { db, storeId } = await requireStaff();
     const status = request.nextUrl.searchParams.get("status") || "open";
 
     const tabs = await db.posTab.findMany({
-      where: { status },
+      where: { store_id: storeId, status },
       orderBy: { opened_at: "desc" },
       include: {
         items: { orderBy: { created_at: "asc" } },
@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "tab_id and name required" }, { status: 400 });
       }
 
-      const tab = await db.posTab.findFirst({ where: { id: tab_id, status: "open" } });
+      const tab = await db.posTab.findFirst({ where: { id: tab_id, store_id: storeId, status: "open" } });
       if (!tab) {
         return NextResponse.json({ error: "Tab not found or closed" }, { status: 404 });
       }
@@ -93,11 +93,11 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "tab_id and inventory_item_id required" }, { status: 400 });
       }
 
-      const tab = await db.posTab.findFirst({ where: { id: tab_id, status: "open" } });
+      const tab = await db.posTab.findFirst({ where: { id: tab_id, store_id: storeId, status: "open" } });
       if (!tab) return NextResponse.json({ error: "Tab not found or closed" }, { status: 404 });
 
       const invItem = await db.posInventoryItem.findFirst({
-        where: { id: inventory_item_id },
+        where: { id: inventory_item_id, store_id: storeId },
         select: { id: true, name: true, price_cents: true },
       });
       if (!invItem) return NextResponse.json({ error: "Inventory item not found" }, { status: 404 });
@@ -161,7 +161,7 @@ export async function POST(request: NextRequest) {
       if (!tab_id) return NextResponse.json({ error: "tab_id required" }, { status: 400 });
 
       const tab = await db.posTab.findFirst({
-        where: { id: tab_id, status: "open" },
+        where: { id: tab_id, store_id: storeId, status: "open" },
         include: { items: true },
       });
       if (!tab) return NextResponse.json({ error: "Tab not found" }, { status: 404 });
@@ -214,7 +214,7 @@ export async function POST(request: NextRequest) {
       }
 
       const tab = await db.posTab.findFirst({
-        where: { id: tab_id, status: "open" },
+        where: { id: tab_id, store_id: storeId, status: "open" },
         include: { items: true },
       });
       if (!tab) {
@@ -223,7 +223,7 @@ export async function POST(request: NextRequest) {
 
       // Calculate total with tax
       const subtotal = tab.items.reduce((s, i) => s + i.price_cents * i.quantity, 0);
-      const store = await db.posStore.findFirst({ select: { settings: true } });
+      const store = await db.posStore.findFirst({ where: { id: storeId }, select: { settings: true } });
       const settings = getStoreSettings((store?.settings ?? {}) as Record<string, unknown>);
       const taxRate = settings.tax_rate_percent || getDefaultTaxRate();
       const taxCents = Math.round(subtotal * (taxRate / 100));
@@ -308,7 +308,7 @@ export async function POST(request: NextRequest) {
       const { tab_id, new_table_label } = body;
       if (!tab_id) return NextResponse.json({ error: "tab_id required" }, { status: 400 });
 
-      const tab = await db.posTab.findFirst({ where: { id: tab_id, status: "open" } });
+      const tab = await db.posTab.findFirst({ where: { id: tab_id, store_id: storeId, status: "open" } });
       if (!tab) return NextResponse.json({ error: "Tab not found" }, { status: 404 });
 
       const oldTable = tab.table_label;
@@ -328,7 +328,7 @@ export async function POST(request: NextRequest) {
       }
 
       const tab = await db.posTab.findFirst({
-        where: { id: tab_id, status: "open" },
+        where: { id: tab_id, store_id: storeId, status: "open" },
         include: { items: true },
       });
       if (!tab) return NextResponse.json({ error: "Tab not found" }, { status: 404 });
@@ -371,9 +371,11 @@ export async function POST(request: NextRequest) {
     // ---- MENU ITEMS CRUD ----
     if (action === "get_menu") {
       const menuItems = await db.posMenuItem.findMany({
+        where: { store_id: storeId },
         orderBy: [{ category: "asc" }, { sort_order: "asc" }, { name: "asc" }],
       });
       const modifiers = await db.posMenuModifier.findMany({
+        where: { store_id: storeId },
         orderBy: { sort_order: "asc" },
       });
       return NextResponse.json({ menu_items: menuItems, modifiers });
@@ -420,10 +422,10 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "tab_id and menu_item_id required" }, { status: 400 });
       }
 
-      const tab = await db.posTab.findFirst({ where: { id: tab_id, status: "open" } });
+      const tab = await db.posTab.findFirst({ where: { id: tab_id, store_id: storeId, status: "open" } });
       if (!tab) return NextResponse.json({ error: "Tab not found" }, { status: 404 });
 
-      const menuItem = await db.posMenuItem.findFirst({ where: { id: menu_item_id } });
+      const menuItem = await db.posMenuItem.findFirst({ where: { id: menu_item_id, store_id: storeId } });
       if (!menuItem) return NextResponse.json({ error: "Menu item not found" }, { status: 404 });
 
       // Age check
@@ -461,7 +463,7 @@ export async function POST(request: NextRequest) {
       });
 
       // Auto-waive table fee check
-      const settings = getStoreSettings((await db.posStore.findFirst({ select: { settings: true } }))?.settings as Record<string, unknown> ?? {});
+      const settings = getStoreSettings((await db.posStore.findFirst({ where: { id: storeId }, select: { settings: true } }))?.settings as Record<string, unknown> ?? {});
       const freeThreshold = (settings.cafe_free_threshold_cents as number) || 0;
       if (freeThreshold > 0 && !tab.table_fee_waived) {
         const updatedTab = await db.posTab.findFirst({

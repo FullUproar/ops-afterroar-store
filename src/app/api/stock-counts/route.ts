@@ -3,9 +3,10 @@ import { requirePermission, handleAuthError } from "@/lib/require-staff";
 
 export async function GET() {
   try {
-    const { db } = await requirePermission("inventory.adjust");
+    const { db, storeId } = await requirePermission("inventory.adjust");
 
     const data = await db.posStockCount.findMany({
+      where: { store_id: storeId },
       orderBy: { started_at: "desc" },
       include: {
         staff: { select: { name: true } },
@@ -28,7 +29,7 @@ export async function POST(request: NextRequest) {
 
     // Get matching inventory items
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const where: any = { active: true };
+    const where: any = { store_id: storeId, active: true };
     if (category_filter && category_filter !== "all") {
       where.category = category_filter;
     }

@@ -19,14 +19,15 @@ export async function POST(request: NextRequest) {
   const store = await prisma.posStore.findFirst({ where: { slug: store_slug }, select: { id: true } });
   if (!store) return NextResponse.json({ error: "Store not found" }, { status: 404 });
 
-  const db = getTenantClient(store.id);
+  const storeId = store.id;
+  const db = getTenantClient(storeId);
 
   // Find or create tab for this table
   let activeTabId = tab_id;
   if (!activeTabId) {
     // Check for existing open tab at this table
     const existingTab = await db.posTab.findFirst({
-      where: { table_label: table_label, status: "open" },
+      where: { store_id: storeId, table_label: table_label, status: "open" },
     });
     if (existingTab) {
       activeTabId = existingTab.id;

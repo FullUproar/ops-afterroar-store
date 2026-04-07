@@ -6,11 +6,11 @@ import { requireStaff, requirePermission, handleAuthError } from "@/lib/require-
 /* ------------------------------------------------------------------ */
 export async function GET() {
   try {
-    const { db } = await requireStaff();
+    const { db, storeId } = await requireStaff();
 
     // Find the most recent drawer_open that doesn't have a matching drawer_close
     const lastOpen = await db.posLedgerEntry.findFirst({
-      where: { type: "drawer_open" },
+      where: { store_id: storeId, type: "drawer_open" },
       orderBy: { created_at: "desc" },
     });
 
@@ -21,6 +21,7 @@ export async function GET() {
     // Check if there's a drawer_close after it
     const closeAfter = await db.posLedgerEntry.findFirst({
       where: {
+        store_id: storeId,
         type: "drawer_close",
         created_at: { gte: lastOpen.created_at },
       },
@@ -33,6 +34,7 @@ export async function GET() {
     // Drawer is open — count sales during session
     const salesDuringSession = await db.posLedgerEntry.findMany({
       where: {
+        store_id: storeId,
         type: "sale",
         created_at: { gte: lastOpen.created_at },
       },
@@ -101,13 +103,14 @@ export async function POST(request: NextRequest) {
 
     // Check if a drawer is already open
     const lastOpen = await db.posLedgerEntry.findFirst({
-      where: { type: "drawer_open" },
+      where: { store_id: storeId, type: "drawer_open" },
       orderBy: { created_at: "desc" },
     });
 
     if (lastOpen) {
       const closeAfter = await db.posLedgerEntry.findFirst({
         where: {
+          store_id: storeId,
           type: "drawer_close",
           created_at: { gte: lastOpen.created_at },
         },
@@ -162,7 +165,7 @@ export async function PATCH(request: NextRequest) {
 
     // Find the open drawer
     const lastOpen = await db.posLedgerEntry.findFirst({
-      where: { type: "drawer_open" },
+      where: { store_id: storeId, type: "drawer_open" },
       orderBy: { created_at: "desc" },
     });
 
@@ -172,6 +175,7 @@ export async function PATCH(request: NextRequest) {
 
     const closeAfter = await db.posLedgerEntry.findFirst({
       where: {
+        store_id: storeId,
         type: "drawer_close",
         created_at: { gte: lastOpen.created_at },
       },
@@ -184,6 +188,7 @@ export async function PATCH(request: NextRequest) {
     // Calculate expected cash
     const salesDuringSession = await db.posLedgerEntry.findMany({
       where: {
+        store_id: storeId,
         type: "sale",
         created_at: { gte: lastOpen.created_at },
       },

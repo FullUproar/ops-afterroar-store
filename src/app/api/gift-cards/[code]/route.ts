@@ -10,11 +10,11 @@ export async function GET(
   { params }: { params: Promise<{ code: string }> }
 ) {
   try {
-    const { db } = await requireStaff();
+    const { db, storeId } = await requireStaff();
     const { code } = await params;
 
     const card = await db.posGiftCard.findFirst({
-      where: { code: code.toUpperCase() },
+      where: { store_id: storeId, code: code.toUpperCase() },
     });
 
     if (!card) {
@@ -27,6 +27,7 @@ export async function GET(
     // Get transaction history
     const history = await db.posLedgerEntry.findMany({
       where: {
+        store_id: storeId,
         type: { in: ["gift_card_sale", "gift_card_redeem"] },
         metadata: { path: ["code"], equals: code.toUpperCase() },
       },
@@ -66,7 +67,7 @@ export async function POST(
     }
 
     const card = await db.posGiftCard.findFirst({
-      where: { code: code.toUpperCase(), active: true },
+      where: { store_id: storeId, code: code.toUpperCase(), active: true },
     });
 
     if (!card) {

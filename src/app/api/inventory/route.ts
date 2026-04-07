@@ -3,7 +3,7 @@ import { requireStaff, handleAuthError } from "@/lib/require-staff";
 
 export async function GET(request: NextRequest) {
   try {
-    const { db } = await requireStaff();
+    const { db, storeId } = await requireStaff();
 
     const searchParams = request.nextUrl.searchParams;
     const page = parseInt(searchParams.get("page") || "1", 10);
@@ -11,6 +11,7 @@ export async function GET(request: NextRequest) {
     const skip = (page - 1) * limit;
 
     const data = await db.posInventoryItem.findMany({
+      where: { store_id: storeId },
       orderBy: { name: "asc" },
       skip,
       take: limit,
@@ -54,7 +55,7 @@ export async function POST(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
-    const { db } = await requireStaff();
+    const { db, storeId } = await requireStaff();
 
     const body = await request.json();
     const { id, ...updates } = body;
@@ -81,6 +82,14 @@ export async function PATCH(request: NextRequest) {
       if (key in updates) {
         sanitized[key] = updates[key];
       }
+    }
+
+    // Verify item belongs to this store before updating
+    const existing = await db.posInventoryItem.findFirst({
+      where: { id, store_id: storeId },
+    });
+    if (!existing) {
+      return NextResponse.json({ error: "Item not found" }, { status: 404 });
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

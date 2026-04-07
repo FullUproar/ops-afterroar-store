@@ -30,6 +30,7 @@ export async function POST(request: NextRequest) {
     const original = await db.posLedgerEntry.findFirst({
       where: {
         id: body.ledger_entry_id,
+        store_id: storeId,
         type: "sale",
       },
     });
@@ -44,6 +45,7 @@ export async function POST(request: NextRequest) {
     // Check if already voided
     const existingVoid = await db.posLedgerEntry.findFirst({
       where: {
+        store_id: storeId,
         type: "void",
         metadata: {
           path: ["original_ledger_entry_id"],
@@ -165,13 +167,14 @@ export async function POST(request: NextRequest) {
 /* ------------------------------------------------------------------ */
 export async function GET() {
   try {
-    const { db } = await requirePermission("checkout");
+    const { db, storeId } = await requirePermission("checkout");
 
     const voidWindowMinutes = 30;
     const cutoff = new Date(Date.now() - voidWindowMinutes * 60000);
 
     const lastSale = await db.posLedgerEntry.findFirst({
       where: {
+        store_id: storeId,
         type: "sale",
         created_at: { gte: cutoff },
       },
@@ -185,6 +188,7 @@ export async function GET() {
     // Check if already voided
     const existingVoid = await db.posLedgerEntry.findFirst({
       where: {
+        store_id: storeId,
         type: "void",
         metadata: {
           path: ["original_ledger_entry_id"],

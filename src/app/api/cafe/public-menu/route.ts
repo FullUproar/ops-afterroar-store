@@ -10,13 +10,14 @@ export async function GET(request: NextRequest) {
   const store = await prisma.posStore.findFirst({ where: { slug }, select: { id: true } });
   if (!store) return NextResponse.json({ error: "Store not found" }, { status: 404 });
 
-  const db = getTenantClient(store.id);
+  const storeId = store.id;
+  const db = getTenantClient(storeId);
   const [menuItems, modifiers] = await Promise.all([
     db.posMenuItem.findMany({
-      where: { available: true },
+      where: { store_id: storeId, available: true },
       orderBy: [{ category: "asc" }, { sort_order: "asc" }],
     }),
-    db.posMenuModifier.findMany({ orderBy: { sort_order: "asc" } }),
+    db.posMenuModifier.findMany({ where: { store_id: storeId }, orderBy: { sort_order: "asc" } }),
   ]);
 
   return NextResponse.json({ menu_items: menuItems, modifiers }, {

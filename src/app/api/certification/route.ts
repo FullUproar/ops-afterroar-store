@@ -7,9 +7,10 @@ import { runAllChecks } from "@/lib/certification/checks";
 /* ------------------------------------------------------------------ */
 export async function GET() {
   try {
-    const { db } = await requirePermission("store.settings");
+    const { db, storeId } = await requirePermission("store.settings");
 
     const certs = await db.posCertification.findMany({
+      where: { store_id: storeId },
       orderBy: { created_at: "desc" },
       take: 20,
     });

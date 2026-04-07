@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
 
     // Validate the transaction
     const entry = await db.posLedgerEntry.findFirst({
-      where: { id: ledger_entry_id },
+      where: { id: ledger_entry_id, store_id: storeId },
     });
 
     if (!entry) {
@@ -59,14 +59,14 @@ export async function POST(request: NextRequest) {
 
     // Validate customer exists
     const customer = await db.posCustomer.findFirst({
-      where: { id: customer_id },
+      where: { id: customer_id, store_id: storeId },
     });
     if (!customer) {
       return NextResponse.json({ error: "Customer not found" }, { status: 404 });
     }
 
     // Calculate points
-    const store = await db.posStore.findFirst({ select: { settings: true } });
+    const store = await db.posStore.findFirst({ where: { id: storeId }, select: { settings: true } });
     const settings = getStoreSettings((store?.settings ?? {}) as Record<string, unknown>);
     const points = calculatePurchasePoints(entry.amount_cents, settings as unknown as Record<string, unknown>);
 

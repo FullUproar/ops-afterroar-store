@@ -3,7 +3,7 @@ import { requirePermission, handleAuthError } from "@/lib/require-staff";
 
 export async function GET(req: NextRequest) {
   try {
-    const { db } = await requirePermission("reports");
+    const { db, storeId } = await requirePermission("reports");
 
     const url = new URL(req.url);
     const periodKey = url.searchParams.get("period") || "30d";
@@ -38,6 +38,7 @@ export async function GET(req: NextRequest) {
     // Fetch all sale entries in period
     const entries = await db.posLedgerEntry.findMany({
       where: {
+        store_id: storeId,
         type: "sale",
         created_at: { gte: from, lte: toEnd },
       },
