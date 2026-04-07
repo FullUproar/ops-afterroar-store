@@ -4,6 +4,25 @@ import { auth } from "@/auth";
 
 const GOD_ADMIN = "info@fulluproar.com";
 
+export async function GET() {
+  const session = await auth();
+  if (session?.user?.email !== GOD_ADMIN) {
+    return new NextResponse("Forbidden", { status: 403 });
+  }
+
+  return new NextResponse(`<!DOCTYPE html>
+<html><body style="font-family:system-ui;background:#0a0a0a;color:#fff;padding:40px;text-align:center">
+<h2>Run Pending Migrations</h2>
+<p style="color:#999">032: Add hold_type to pos_tabs (POS unification)</p>
+<button onclick="fetch('/api/admin/migrate',{method:'POST'}).then(r=>r.json()).then(d=>{document.getElementById('r').textContent=JSON.stringify(d,null,2)}).catch(e=>{document.getElementById('r').textContent='Error: '+e})" style="padding:12px 32px;background:#FF8200;color:#fff;border:none;border-radius:8px;font-size:16px;cursor:pointer;font-weight:bold">
+Run Migration
+</button>
+<pre id="r" style="margin-top:20px;text-align:left;background:#1a1a2e;padding:16px;border-radius:8px;color:#4ade80"></pre>
+</body></html>`, {
+    headers: { "Content-Type": "text/html" },
+  });
+}
+
 /**
  * POST /api/admin/migrate — run pending migrations
  * GOD MODE only. Runs raw SQL migrations against the database.
