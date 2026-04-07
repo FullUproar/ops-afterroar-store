@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import Link from "next/link";
 import { SearchInput } from "@/components/search-input";
 import { useStore } from "@/lib/store-context";
 import {
@@ -661,7 +662,10 @@ export default function InventoryPage() {
                 className="rounded-xl border border-card-border bg-card p-4 shadow-sm dark:shadow-none"
               >
                 <div className="flex items-center justify-between">
-                  <span className="font-semibold text-foreground truncate mr-2 leading-snug">
+                  <Link
+                    href={`/dashboard/inventory/${item.id}`}
+                    className="font-semibold text-foreground truncate mr-2 leading-snug hover:text-accent transition-colors"
+                  >
                     {item.name}
                     {Boolean((item.attributes as Record<string, unknown>)?.foil) && (
                       <StatusBadge variant="pending" className="ml-1.5">Foil</StatusBadge>
@@ -672,7 +676,7 @@ export default function InventoryPage() {
                     {item.catalog_product_id && !item.shared_to_catalog && (
                       <StatusBadge variant="info" className="ml-1.5">Linked</StatusBadge>
                     )}
-                  </span>
+                  </Link>
                   <span className="text-sm font-semibold text-foreground whitespace-nowrap tabular-nums">
                     {formatCents(item.price_cents)}
                   </span>
@@ -773,7 +777,12 @@ export default function InventoryPage() {
                     className="bg-background hover:bg-card/50 transition-colors"
                   >
                     <td className="px-4 py-3 text-foreground font-medium">
-                      {item.name}
+                      <Link
+                        href={`/dashboard/inventory/${item.id}`}
+                        className="hover:text-accent transition-colors"
+                      >
+                        {item.name}
+                      </Link>
                       {Boolean((item.attributes as Record<string, unknown>)?.foil) && (
                         <span className="ml-2 inline-block rounded bg-yellow-900/50 px-1.5 py-0.5 text-xs text-yellow-400">
                           Foil
