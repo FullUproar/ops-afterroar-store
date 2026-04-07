@@ -106,6 +106,11 @@ export default function InventoryPage() {
   // Print labels modal
   const [showLabels, setShowLabels] = useState(false);
 
+  // Shopify sync
+  const [showShopifySync, setShowShopifySync] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [syncResult, setSyncResult] = useState<string | null>(null);
+
   // Scan to add
   const [showScanner, setShowScanner] = useState(false);
   const [learnBarcode, setLearnBarcode] = useState<string | null>(null);
@@ -415,6 +420,12 @@ export default function InventoryPage() {
         action={
           <div className="flex gap-1.5 sm:gap-2">
             <button
+              onClick={() => setShowShopifySync(!showShopifySync)}
+              className="hidden sm:block rounded-xl border border-blue-500/30 px-4 py-2 text-sm font-medium text-blue-400 hover:bg-blue-500/10 transition-colors"
+            >
+              Shopify Sync
+            </button>
+            <button
               onClick={() => setShowLabels(true)}
               className="hidden sm:block rounded-xl border border-card-border px-4 py-2 text-sm font-medium text-muted hover:bg-card-hover transition-colors"
             >
@@ -437,6 +448,52 @@ export default function InventoryPage() {
           </div>
         }
       />
+
+      {/* Shopify Sync Panel */}
+      {showShopifySync && (
+        <div className="rounded-xl border border-blue-500/20 bg-blue-950/5 p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-blue-400">Shopify Inventory Sync</h3>
+            <button onClick={() => setShowShopifySync(false)} className="text-xs text-muted hover:text-foreground">Close</button>
+          </div>
+          <p className="text-xs text-muted">Manage online allocation for all Shopify-linked items at once.</p>
+          <div className="flex flex-wrap gap-2">
+            {[
+              { action: "sync_from_shopify", label: "Sync from Shopify", desc: "Set allocations to match current Shopify quantities" },
+              { action: "match_stock", label: "All Stock Online", desc: "Set allocation = full stock for every item" },
+              { action: "zero_all", label: "Take All Offline", desc: "Set all allocations to 0" },
+              { action: "push_all", label: "Push to Shopify", desc: "Push current allocations to Shopify" },
+            ].map((btn) => (
+              <button
+                key={btn.action}
+                onClick={async () => {
+                  setSyncing(true);
+                  setSyncResult(null);
+                  try {
+                    const res = await fetch("/api/inventory/shopify-sync", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ action: btn.action }),
+                    });
+                    const data = await res.json();
+                    setSyncResult(res.ok ? `${btn.label}: ${data.updated ?? 0} items updated` : data.error);
+                  } catch {
+                    setSyncResult("Sync failed");
+                  } finally {
+                    setSyncing(false);
+                  }
+                }}
+                disabled={syncing}
+                title={btn.desc}
+                className="rounded-lg border border-blue-500/20 bg-blue-500/5 px-3 py-2 text-xs font-medium text-blue-300 hover:bg-blue-500/15 disabled:opacity-50 transition-colors"
+              >
+                {syncing ? "..." : btn.label}
+              </button>
+            ))}
+          </div>
+          {syncResult && <p className="text-xs text-blue-300">{syncResult}</p>}
+        </div>
+      )}
 
       <SearchInput
         value={searchQuery}
