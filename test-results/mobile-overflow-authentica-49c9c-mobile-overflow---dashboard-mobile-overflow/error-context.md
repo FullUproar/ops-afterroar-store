@@ -6,82 +6,24 @@
 
 # Test info
 
-- Name: mobile-overflow.spec.ts >> authenticated: mobile overflow checks >> mobile overflow - /dashboard/singles
+- Name: mobile-overflow.spec.ts >> authenticated: mobile overflow checks >> mobile overflow - /dashboard
 - Location: tests\mobile-overflow.spec.ts:32:9
 
 # Error details
 
 ```
-Error: /dashboard/singles has 1 clipped buttons/links:
-<button> "Yu-Gi-Oh" overflows right by 11px
+TimeoutError: page.goto: Timeout 30000ms exceeded.
+Call log:
+  - navigating to "https://www.afterroar.store/dashboard", waiting until "domcontentloaded"
 
-expect(received).toBe(expected) // Object.is equality
-
-Expected: 0
-Received: 1
 ```
 
 # Page snapshot
 
 ```yaml
 - generic [active] [ref=e1]:
-  - generic [ref=e4]:
-    - main [ref=e5]:
-      - generic [ref=e6]:
-        - generic [ref=e8]:
-          - generic [ref=e10]: Offline
-          - generic [ref=e11]: Sales will queue locally
-        - button "Notifications" [ref=e13]:
-          - img [ref=e14]
-      - generic [ref=e17]:
-        - generic [ref=e18]:
-          - generic [ref=e19]:
-            - button "Go back" [ref=e20]:
-              - img [ref=e21]
-            - heading "TCG Singles" [level=1] [ref=e23]
-          - link "+ Add Cards" [ref=e25] [cursor=pointer]:
-            - /url: /dashboard/catalog
-        - generic [ref=e26]:
-          - button "My Inventory" [ref=e27]
-          - button "Marketplace" [ref=e28]
-        - generic [ref=e29]:
-          - generic [ref=e30]:
-            - link "Card Evaluator" [ref=e31] [cursor=pointer]:
-              - /url: /dashboard/singles/evaluate
-            - link "Bulk Pricing" [ref=e32] [cursor=pointer]:
-              - /url: /dashboard/singles/pricing
-            - link "eBay Listings" [ref=e33] [cursor=pointer]:
-              - /url: /dashboard/singles/ebay
-            - link "Bulk Buylist" [ref=e34] [cursor=pointer]:
-              - /url: /dashboard/trade-ins/bulk
-          - generic [ref=e36]:
-            - button "All" [ref=e37]
-            - button "MTG" [ref=e38]
-            - button "Pokemon" [ref=e39]
-            - button "Lorcana" [ref=e40]
-            - button "Yu-Gi-Oh" [ref=e41]
-          - textbox "Search your inventory..." [ref=e42]
-          - generic [ref=e43]:
-            - img [ref=e44]
-            - text: Loading singles...
-    - navigation [ref=e47]:
-      - generic [ref=e48]:
-        - link "◈ Register" [ref=e49] [cursor=pointer]:
-          - /url: /dashboard/register
-          - generic [ref=e50]: ◈
-          - generic [ref=e51]: Register
-        - link "▦ Inventory" [ref=e52] [cursor=pointer]:
-          - /url: /dashboard/inventory
-          - generic [ref=e53]: ▦
-          - generic [ref=e54]: Inventory
-        - link "♟ Customers" [ref=e55] [cursor=pointer]:
-          - /url: /dashboard/customers
-          - generic [ref=e56]: ♟
-          - generic [ref=e57]: Customers
-        - button "··· More" [ref=e58]:
-          - generic [ref=e59]: ···
-          - generic [ref=e60]: More
-  - alert [ref=e61]
+  - generic [ref=e3]: Loading...
+  - alert [ref=e4]
 ```
 
 # Test source
@@ -119,7 +61,8 @@ Received: 1
   30  | test.describe("authenticated: mobile overflow checks", () => {
   31  |   for (const pagePath of PAGES) {
   32  |     test(`mobile overflow - ${pagePath}`, async ({ page }) => {
-  33  |       await page.goto(pagePath, { waitUntil: "domcontentloaded", timeout: 30_000 });
+> 33  |       await page.goto(pagePath, { waitUntil: "domcontentloaded", timeout: 30_000 });
+      |                  ^ TimeoutError: page.goto: Timeout 30000ms exceeded.
   34  |       await page.waitForTimeout(2000);
   35  | 
   36  |       const viewportWidth = 390;
@@ -187,8 +130,7 @@ Received: 1
   98  |       expect(
   99  |         clippedButtons.length,
   100 |         `${pagePath} has ${clippedButtons.length} clipped buttons/links:\n${clippedButtons.join("\n")}`
-> 101 |       ).toBe(0);
-      |         ^ Error: /dashboard/singles has 1 clipped buttons/links:
+  101 |       ).toBe(0);
   102 |     });
   103 |   }
   104 | });

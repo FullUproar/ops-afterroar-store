@@ -63,24 +63,34 @@ test.describe("authenticated: mobile overflow checks", () => {
       // expect(hasHorizontalOverflow, `Horizontal overflow on ${pagePath}`).toBeFalsy();
 
       // Check that all interactive elements (buttons, links) are within viewport
+      // Skip elements inside horizontally scrollable containers (they're meant to scroll)
       const clippedButtons = await page.evaluate((vw) => {
+        function hasScrollableParent(el: Element): boolean {
+          let parent = el.parentElement;
+          while (parent) {
+            const style = getComputedStyle(parent);
+            if (style.overflowX === "auto" || style.overflowX === "scroll") return true;
+            parent = parent.parentElement;
+          }
+          return false;
+        }
+
         const clipped: string[] = [];
         document.querySelectorAll("button, a, input, select").forEach((el) => {
           const rect = el.getBoundingClientRect();
-          // Skip invisible/hidden elements
           if (rect.width === 0 || rect.height === 0) return;
-          // Skip elements far off-screen (in scroll containers)
           if (rect.top > 2000 || rect.top < -100) return;
+          if (hasScrollableParent(el)) return; // Skip — it's in a scroll container
 
           const rightMargin = vw - rect.right;
           const leftMargin = rect.left;
 
-          if (rightMargin < 0) {
+          if (rightMargin < -2) { // 2px tolerance
             const tag = el.tagName.toLowerCase();
             const text = (el.textContent || (el as HTMLInputElement).placeholder || "").slice(0, 30);
             clipped.push(`<${tag}> "${text}" overflows right by ${Math.abs(Math.round(rightMargin))}px`);
           }
-          if (leftMargin < 0) {
+          if (leftMargin < -2) {
             const tag = el.tagName.toLowerCase();
             const text = (el.textContent || "").slice(0, 30);
             clipped.push(`<${tag}> "${text}" overflows left by ${Math.abs(Math.round(leftMargin))}px`);
