@@ -46,7 +46,7 @@ async function loginAndGetSession(browser: Browser, creds: { email: string; pass
   // Get store info
   const meRes = await page.request.get(`${BASE_URL}/api/me`);
   const meText = await meRes.text();
-  let me: Record<string, unknown>;
+  let me: Record<string, Record<string, string>>;
   try {
     me = JSON.parse(meText);
   } catch {

@@ -38,6 +38,7 @@ interface StoreContextValue {
   store: StoreData | null;
   staff: StaffData | null;
   loading: boolean;
+  error: string | null;
   effectiveRole: Role | null;
   actualRole: Role | null;
   isGodAdmin: boolean;
@@ -57,6 +58,7 @@ const StoreContext = createContext<StoreContextValue>({
   store: null,
   staff: null,
   loading: true,
+  error: null,
   effectiveRole: null,
   actualRole: null,
   isGodAdmin: false,
@@ -76,6 +78,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [store, setStore] = useState<StoreData | null>(null);
   const [staff, setStaff] = useState<StaffData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [testRole, setTestRole] = useState<Role | null>(null);
   const [activeStaff, setActiveStaffState] = useState<ActiveStaffData | null>(null);
   const [activeStaffChecked, setActiveStaffChecked] = useState(false);
@@ -88,7 +91,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    async function loadStoreData() {
+    async function loadStoreData(attempt = 1): Promise<void> {
       try {
         const [meRes, authRes] = await Promise.all([
           fetch("/api/me"),
@@ -99,6 +102,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           const data = await meRes.json();
           setStaff(data.staff);
           setStore(data.store);
+          setError(null);
+        } else if (meRes.status >= 500 && attempt < 3) {
+          // Retry on server errors (transient DB connection drops)
+          await new Promise((r) => setTimeout(r, 1000 * attempt));
+          return loadStoreData(attempt + 1);
+        } else if (meRes.status >= 500) {
+          setError("Unable to load store data. The server may be temporarily unavailable.");
         }
 
         if (authRes.ok) {
@@ -108,7 +118,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           }
         }
       } catch {
-        // silently fail
+        if (attempt < 3) {
+          await new Promise((r) => setTimeout(r, 1000 * attempt));
+          return loadStoreData(attempt + 1);
+        }
+        setError("Unable to connect. Check your internet connection.");
       }
       setActiveStaffChecked(true);
       setLoading(false);
@@ -174,6 +188,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         store,
         staff,
         loading,
+        error,
         effectiveRole,
         actualRole,
         isGodAdmin,
