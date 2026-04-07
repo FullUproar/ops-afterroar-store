@@ -9,6 +9,66 @@ import { EmptyState } from '@/components/shared/ui';
 
 type EventWithCount = GameEvent & { checkin_count: number; rsvp_count: number | null };
 
+/* ------------------------------------------------------------------ */
+/*  Tournament types (mirrored from tournaments page)                  */
+/* ------------------------------------------------------------------ */
+
+interface Tournament {
+  id: string;
+  store_id: string;
+  event_id: string | null;
+  name: string;
+  format: string | null;
+  status: string;
+  bracket_type: string;
+  max_players: number | null;
+  current_round: number;
+  total_rounds: number | null;
+  created_at: string;
+  event?: { id: string; name: string } | null;
+  _count?: { players: number; matches: number };
+  players?: TournamentPlayer[];
+  matches?: TournamentMatch[];
+}
+
+interface TournamentPlayer {
+  id: string;
+  tournament_id: string;
+  customer_id: string | null;
+  player_name: string;
+  seed: number | null;
+  wins: number;
+  losses: number;
+  draws: number;
+  dropped: boolean;
+  standing: number | null;
+}
+
+interface TournamentMatch {
+  id: string;
+  tournament_id: string;
+  round_number: number;
+  match_number: number;
+  player1_id: string | null;
+  player2_id: string | null;
+  winner_id: string | null;
+  player1_score: number;
+  player2_score: number;
+  status: string;
+  table_number: string | null;
+}
+
+const TOURNAMENT_STATUS_COLORS: Record<string, string> = {
+  registration: 'bg-blue-900 text-blue-300',
+  active: 'bg-green-900 text-green-300',
+  completed: 'bg-card-hover text-foreground/70',
+};
+
+const FORMAT_OPTIONS = [
+  'standard', 'modern', 'commander', 'draft', 'sealed',
+  'pioneer', 'pauper', 'legacy', 'vintage', 'other',
+];
+
 interface HQGuest {
   id: string;
   userId: string | null;
@@ -78,6 +138,9 @@ export default function EventsPage() {
     entry_fee: '',
     max_players: '',
     description: '',
+    // Tournament fields
+    format: '',
+    bracket_type: 'swiss' as 'swiss' | 'single_elimination',
   });
   const [repeatWeekly, setRepeatWeekly] = useState(false);
   const [repeatWeeks, setRepeatWeeks] = useState(4);
@@ -104,6 +167,8 @@ export default function EventsPage() {
     loadEvents();
   }, [loadEvents]);
 
+  const isTournamentType = form.event_type === 'tournament' || form.event_type === 'fnm';
+
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
@@ -114,7 +179,7 @@ export default function EventsPage() {
         const startsAt = form.starts_at ? new Date(new Date(form.starts_at).getTime() + startOffset).toISOString() : "";
         const endsAt = form.ends_at ? new Date(new Date(form.ends_at).getTime() + startOffset).toISOString() : null;
 
-        await fetch('/api/events', {
+        const res = await fetch('/api/events', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -128,8 +193,24 @@ export default function EventsPage() {
             create_hq_event: createAsHQ && w === 0, // Only create HQ event for the first one
           }),
         });
+
+        // Auto-create linked tournament for tournament/fnm event types
+        if (res.ok && isTournamentType) {
+          const event = await res.json();
+          await fetch('/api/tournaments', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              name: form.name,
+              format: form.format || null,
+              bracket_type: form.bracket_type,
+              max_players: form.max_players ? parseInt(form.max_players) : null,
+              event_id: event.id,
+            }),
+          });
+        }
       }
-      setForm({ name: '', event_type: 'fnm', starts_at: '', ends_at: '', entry_fee: '', max_players: '', description: '' });
+      setForm({ name: '', event_type: 'fnm', starts_at: '', ends_at: '', entry_fee: '', max_players: '', description: '', format: '', bracket_type: 'swiss' });
       setShowForm(false);
       setCreateAsHQ(false);
       setRepeatWeekly(false);
@@ -255,6 +336,44 @@ export default function EventsPage() {
                 className="w-full bg-input-bg border border-input-border rounded-lg px-3 py-2 text-foreground text-sm focus:border-accent focus:outline-none"
               />
             </div>
+            {isTournamentType && (
+              <>
+                <div>
+                  <label className="block text-sm text-muted mb-1">Format</label>
+                  <select
+                    value={form.format}
+                    onChange={(e) => setForm({ ...form, format: e.target.value })}
+                    className="w-full bg-input-bg border border-input-border rounded-lg px-3 py-2 text-foreground text-sm focus:border-accent focus:outline-none"
+                  >
+                    <option value="">Select format...</option>
+                    {FORMAT_OPTIONS.map((f) => (
+                      <option key={f} value={f}>{f.charAt(0).toUpperCase() + f.slice(1)}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm text-muted mb-1">Bracket Type</label>
+                  <div className="flex gap-1 rounded-lg bg-card-hover p-1 border border-input-border">
+                    <button
+                      type="button"
+                      onClick={() => setForm({ ...form, bracket_type: 'swiss' })}
+                      className={`flex-1 rounded px-3 py-1.5 text-sm font-medium transition-colors ${form.bracket_type === 'swiss' ? 'bg-card text-foreground shadow-sm' : 'text-muted'}`}
+                      style={{ minHeight: 'auto' }}
+                    >
+                      Swiss
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setForm({ ...form, bracket_type: 'single_elimination' })}
+                      className={`flex-1 rounded px-3 py-1.5 text-sm font-medium transition-colors ${form.bracket_type === 'single_elimination' ? 'bg-card text-foreground shadow-sm' : 'text-muted'}`}
+                      style={{ minHeight: 'auto' }}
+                    >
+                      Single Elim
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
           <div>
             <label className="block text-sm text-muted mb-1">Description</label>
@@ -389,6 +508,7 @@ export default function EventsPage() {
 
 function MobileEventDetail({ event }: { event: EventWithCount }) {
   const isHQLinked = Boolean(event.afterroar_event_id);
+  const isTournamentEvent = event.event_type === 'tournament' || event.event_type === 'fnm';
   return (
     <div className="space-y-2 text-sm">
       <div className="flex items-center justify-between text-muted">
@@ -407,6 +527,9 @@ function MobileEventDetail({ event }: { event: EventWithCount }) {
       )}
       {event.description && (
         <p className="text-xs text-muted">{event.description}</p>
+      )}
+      {isTournamentEvent && (
+        <InlineTournamentPanel eventId={event.id} />
       )}
     </div>
   );
@@ -656,11 +779,514 @@ function EventRow({
               ) : (
                 <p className="text-sm text-muted">No players checked in yet.</p>
               )}
+
+              {/* Inline tournament management for tournament/fnm events */}
+              {(event.event_type === 'tournament' || event.event_type === 'fnm') && (
+                <InlineTournamentPanel eventId={event.id} />
+              )}
             </div>
           </td>
         </tr>
       )}
     </>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Inline Tournament Panel — embedded in event detail                 */
+/* ------------------------------------------------------------------ */
+
+function InlineTournamentPanel({ eventId }: { eventId: string }) {
+  const [tournament, setTournament] = useState<Tournament | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [expanded, setExpanded] = useState(false);
+  const [playerName, setPlayerName] = useState('');
+  const [addingPlayer, setAddingPlayer] = useState(false);
+  const [creatingTournament, setCreatingTournament] = useState(false);
+
+  // Round timer
+  const [roundStartTime, setRoundStartTime] = useState<Date | null>(null);
+  const [roundMinutes, setRoundMinutes] = useState(50);
+  const [timerDisplay, setTimerDisplay] = useState('');
+
+  // Report match
+  const [reportMatch, setReportMatch] = useState<TournamentMatch | null>(null);
+  const [reportWinnerId, setReportWinnerId] = useState('');
+  const [reportP1Score, setReportP1Score] = useState('0');
+  const [reportP2Score, setReportP2Score] = useState('0');
+  const [reporting, setReporting] = useState(false);
+
+  const loadTournament = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/tournaments?event_id=${eventId}`);
+      if (res.ok) {
+        const data = await res.json();
+        // Find the tournament linked to this event
+        const linked = Array.isArray(data)
+          ? data.find((t: Tournament) => t.event_id === eventId)
+          : null;
+        if (linked) {
+          // Fetch full detail
+          const detailRes = await fetch(`/api/tournaments/${linked.id}`);
+          if (detailRes.ok) {
+            setTournament(await detailRes.json());
+          }
+        }
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [eventId]);
+
+  useEffect(() => { loadTournament(); }, [loadTournament]);
+
+  // Round timer effect
+  useEffect(() => {
+    if (!roundStartTime) return;
+    const interval = setInterval(() => {
+      const elapsed = Math.floor((Date.now() - roundStartTime.getTime()) / 1000);
+      const remaining = roundMinutes * 60 - elapsed;
+      if (remaining <= 0) {
+        setTimerDisplay("TIME!");
+      } else {
+        const m = Math.floor(remaining / 60);
+        const s = remaining % 60;
+        setTimerDisplay(`${m}:${String(s).padStart(2, "0")}`);
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [roundStartTime, roundMinutes]);
+
+  async function handleCreateTournament() {
+    setCreatingTournament(true);
+    try {
+      const res = await fetch('/api/tournaments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: 'Tournament',
+          bracket_type: 'swiss',
+          event_id: eventId,
+        }),
+      });
+      if (res.ok) {
+        loadTournament();
+      }
+    } finally {
+      setCreatingTournament(false);
+    }
+  }
+
+  async function handleAddPlayer() {
+    if (!tournament || !playerName.trim()) return;
+    setAddingPlayer(true);
+    try {
+      const res = await fetch(`/api/tournaments/${tournament.id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'add_player', player_name: playerName.trim() }),
+      });
+      if (res.ok) {
+        setPlayerName('');
+        const detailRes = await fetch(`/api/tournaments/${tournament.id}`);
+        if (detailRes.ok) setTournament(await detailRes.json());
+      }
+    } finally {
+      setAddingPlayer(false);
+    }
+  }
+
+  async function handleStart() {
+    if (!tournament) return;
+    const action = tournament.bracket_type === "swiss" ? "start_swiss" : "start";
+    const res = await fetch(`/api/tournaments/${tournament.id}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action }),
+    });
+    if (res.ok) {
+      setTournament(await res.json());
+      setRoundStartTime(new Date());
+    }
+  }
+
+  async function handleNextRound() {
+    if (!tournament) return;
+    const res = await fetch(`/api/tournaments/${tournament.id}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'next_round' }),
+    });
+    if (res.ok) {
+      setTournament(await res.json());
+      setRoundStartTime(new Date());
+    }
+  }
+
+  async function handleDropPlayer(playerId: string) {
+    if (!tournament) return;
+    await fetch(`/api/tournaments/${tournament.id}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'drop_player', player_id: playerId }),
+    });
+    const detailRes = await fetch(`/api/tournaments/${tournament.id}`);
+    if (detailRes.ok) setTournament(await detailRes.json());
+  }
+
+  async function handleReportMatch() {
+    if (!tournament || !reportMatch || !reportWinnerId) return;
+    setReporting(true);
+    try {
+      const res = await fetch(`/api/tournaments/${tournament.id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'report_match',
+          match_id: reportMatch.id,
+          winner_id: reportWinnerId,
+          player1_score: parseInt(reportP1Score) || 0,
+          player2_score: parseInt(reportP2Score) || 0,
+        }),
+      });
+      if (res.ok) {
+        setTournament(await res.json());
+        setReportMatch(null);
+        setReportWinnerId('');
+        setReportP1Score('0');
+        setReportP2Score('0');
+      }
+    } finally {
+      setReporting(false);
+    }
+  }
+
+  function getPlayerName(playerId: string | null): string {
+    if (!playerId || !tournament?.players) return 'BYE';
+    return tournament.players.find((p) => p.id === playerId)?.player_name || 'Unknown';
+  }
+
+  if (loading) return <p className="text-xs text-muted mt-2">Loading tournament...</p>;
+
+  // No tournament linked yet - offer to create one
+  if (!tournament) {
+    return (
+      <div className="mt-3 pt-3 border-t border-card-border">
+        <button
+          onClick={handleCreateTournament}
+          disabled={creatingTournament}
+          className="px-3 py-1.5 bg-accent hover:opacity-90 disabled:opacity-50 text-white rounded-lg text-xs font-medium transition-colors"
+        >
+          {creatingTournament ? 'Creating...' : 'Create Tournament Bracket'}
+        </button>
+        <p className="text-xs text-muted mt-1">
+          Add a tournament bracket to manage pairings, rounds, and standings.
+        </p>
+      </div>
+    );
+  }
+
+  const players = tournament.players || [];
+  const matches = tournament.matches || [];
+  const rounds: Record<number, TournamentMatch[]> = {};
+  matches.forEach((m) => {
+    if (!rounds[m.round_number]) rounds[m.round_number] = [];
+    rounds[m.round_number].push(m);
+  });
+  const roundNumbers = Object.keys(rounds).map(Number).sort((a, b) => a - b);
+
+  const standings = [...players]
+    .filter((p) => !p.dropped)
+    .sort((a, b) => {
+      if (a.standing && b.standing) return a.standing - b.standing;
+      if (a.standing) return -1;
+      if (b.standing) return 1;
+      if (b.wins !== a.wins) return b.wins - a.wins;
+      return a.losses - b.losses;
+    });
+
+  return (
+    <div className="mt-3 pt-3 border-t border-card-border space-y-3">
+      {/* Tournament header - collapsible */}
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="flex items-center justify-between w-full text-left"
+        style={{ minHeight: 'auto' }}
+      >
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-semibold text-foreground">Tournament</span>
+          <span className={`px-2 py-0.5 rounded text-xs capitalize ${TOURNAMENT_STATUS_COLORS[tournament.status] || 'bg-card-hover text-foreground/70'}`}>
+            {tournament.status}
+          </span>
+          {tournament.format && (
+            <span className="text-xs text-muted">{tournament.format}</span>
+          )}
+          {tournament.current_round > 0 && (
+            <span className="text-xs text-muted">
+              Round {tournament.current_round}/{tournament.total_rounds}
+            </span>
+          )}
+          <span className="text-xs text-muted">
+            {players.filter((p) => !p.dropped).length} players
+          </span>
+        </div>
+        <span className="text-xs text-muted">{expanded ? '\u25BE' : '\u25B8'}</span>
+      </button>
+
+      {expanded && (
+        <div className="space-y-4">
+          {/* Registration phase: add players */}
+          {tournament.status === 'registration' && (
+            <div className="space-y-3">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={playerName}
+                  onChange={(e) => setPlayerName(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleAddPlayer()}
+                  placeholder="Player name"
+                  className="flex-1 max-w-xs bg-input-bg border border-input-border rounded-lg px-3 py-2 text-foreground text-sm focus:border-accent focus:outline-none"
+                />
+                <button
+                  onClick={handleAddPlayer}
+                  disabled={addingPlayer || !playerName.trim()}
+                  className="px-3 py-2 bg-accent hover:opacity-90 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors"
+                >
+                  Add
+                </button>
+              </div>
+              {players.length > 0 && (
+                <div className="space-y-1">
+                  {players.map((p, i) => (
+                    <div key={p.id} className="flex items-center justify-between bg-card-hover rounded-lg px-3 py-2 text-sm text-foreground">
+                      <span>{i + 1}. {p.player_name}</span>
+                      <button onClick={() => handleDropPlayer(p.id)} className="text-red-500 hover:text-red-400 text-xs">
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {players.length >= 2 && (
+                <button
+                  onClick={handleStart}
+                  className="px-4 py-2 bg-green-700 hover:bg-green-600 text-white rounded-lg text-sm font-medium transition-colors"
+                >
+                  Start Tournament ({players.length} players)
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Active / Completed: Bracket */}
+          {(tournament.status === 'active' || tournament.status === 'completed') && roundNumbers.length > 0 && (
+            <div>
+              <h4 className="text-xs text-muted uppercase tracking-wide mb-2">Bracket</h4>
+              <div className="flex gap-6 overflow-x-auto pb-2">
+                {roundNumbers.map((round) => (
+                  <div key={round} className="min-w-50">
+                    <h5 className="text-xs text-muted uppercase tracking-wide mb-2">
+                      {round === (tournament.total_rounds || 1) ? 'Finals' : `Round ${round}`}
+                    </h5>
+                    <div className="space-y-3">
+                      {rounds[round].map((match) => {
+                        const isActive = match.status === 'pending' && match.player1_id && match.player2_id;
+                        return (
+                          <div
+                            key={match.id}
+                            className={`rounded border text-sm ${
+                              match.status === 'completed'
+                                ? 'border-input-border bg-card-hover'
+                                : isActive
+                                ? 'border-indigo-700 bg-card-hover'
+                                : 'border-card-border bg-card'
+                            }`}
+                          >
+                            <div className={`px-2 py-1.5 flex items-center justify-between border-b border-input-border ${
+                              match.winner_id === match.player1_id ? 'text-green-400 font-medium' : 'text-foreground'
+                            }`}>
+                              <span className="text-xs">{match.player1_id ? getPlayerName(match.player1_id) : 'TBD'}</span>
+                              {match.status === 'completed' && <span className="text-[10px] text-muted">{match.player1_score}</span>}
+                            </div>
+                            <div className={`px-2 py-1.5 flex items-center justify-between ${
+                              match.winner_id === match.player2_id ? 'text-green-400 font-medium' : 'text-foreground'
+                            }`}>
+                              <span className="text-xs">{match.player2_id ? getPlayerName(match.player2_id) : 'TBD'}</span>
+                              {match.status === 'completed' && <span className="text-[10px] text-muted">{match.player2_score}</span>}
+                            </div>
+                            {isActive && tournament.status === 'active' && (
+                              <div className="border-t border-input-border px-2 py-1">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setReportMatch(match);
+                                    setReportWinnerId('');
+                                    setReportP1Score('0');
+                                    setReportP2Score('0');
+                                  }}
+                                  className="text-xs text-indigo-400 hover:text-indigo-300"
+                                >
+                                  Report Result
+                                </button>
+                                {match.table_number && (
+                                  <span className="text-[10px] text-muted ml-2">{match.table_number}</span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Round Timer + Next Round (Swiss) */}
+          {tournament.status === "active" && tournament.bracket_type === "swiss" && (
+            <div className="flex items-center justify-between bg-card-hover rounded-lg px-3 py-2">
+              <div className="flex items-center gap-3">
+                <div className="text-center">
+                  <div className={`text-xl font-mono font-bold tabular-nums ${timerDisplay === "TIME!" ? "text-red-400 animate-pulse" : "text-foreground"}`}>
+                    {timerDisplay || "--:--"}
+                  </div>
+                  <div className="text-[10px] text-muted">Round Timer</div>
+                </div>
+                {!roundStartTime && (
+                  <button onClick={() => setRoundStartTime(new Date())} className="px-2 py-1 bg-accent text-white rounded text-xs font-medium" style={{ minHeight: "auto" }}>
+                    Start Timer
+                  </button>
+                )}
+                <div className="flex items-center gap-1">
+                  <input type="number" min={10} max={90} value={roundMinutes} onChange={(e) => setRoundMinutes(parseInt(e.target.value) || 50)} className="w-12 bg-input-bg border border-input-border rounded px-2 py-1 text-foreground text-xs text-center" />
+                  <span className="text-[10px] text-muted">min</span>
+                </div>
+              </div>
+              <div>
+                {(() => {
+                  const currentRoundMatches = rounds[tournament.current_round] || [];
+                  const allComplete = currentRoundMatches.length > 0 && currentRoundMatches.every((m) => m.status === "completed");
+                  return allComplete ? (
+                    <button onClick={handleNextRound} className="px-3 py-1.5 bg-green-700 hover:bg-green-600 text-white rounded text-xs font-medium">
+                      {tournament.current_round >= (tournament.total_rounds || 99) ? "Finalize" : `Round ${tournament.current_round + 1}`}
+                    </button>
+                  ) : (
+                    <span className="text-[10px] text-muted">
+                      {currentRoundMatches.filter((m) => m.status !== "completed").length} pending
+                    </span>
+                  );
+                })()}
+              </div>
+            </div>
+          )}
+
+          {/* Standings */}
+          {(tournament.status === 'active' || tournament.status === 'completed') && standings.length > 0 && (
+            <div>
+              <h4 className="text-xs text-muted uppercase tracking-wide mb-2">
+                {tournament.status === 'completed' ? 'Final Standings' : 'Standings'}
+              </h4>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-muted text-left">
+                    <th className="pb-1 font-medium text-xs">#</th>
+                    <th className="pb-1 font-medium text-xs">Player</th>
+                    <th className="pb-1 font-medium text-xs text-center">W</th>
+                    <th className="pb-1 font-medium text-xs text-center">L</th>
+                    <th className="pb-1 font-medium text-xs text-center">D</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {standings.map((p, i) => (
+                    <tr key={p.id} className={`border-t border-card-border ${
+                      p.standing === 1 ? 'text-yellow-400' : 'text-foreground'
+                    }`}>
+                      <td className="py-1 text-xs">{p.standing || i + 1}</td>
+                      <td className="py-1 text-xs font-medium">
+                        {p.player_name}
+                        {p.standing === 1 && tournament.status === 'completed' && (
+                          <span className="ml-1 px-1.5 py-0.5 rounded text-[10px] bg-yellow-900 text-yellow-300">Champ</span>
+                        )}
+                      </td>
+                      <td className="py-1 text-xs text-center text-green-400">{p.wins}</td>
+                      <td className="py-1 text-xs text-center text-red-400">{p.losses}</td>
+                      <td className="py-1 text-xs text-center text-muted">{p.draws}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* Report Match Modal */}
+          {reportMatch && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-overlay-bg outline-none" onClick={() => setReportMatch(null)} onKeyDown={(e) => { if (e.key === "Escape") setReportMatch(null); }} tabIndex={-1} ref={(el) => el?.focus()}>
+              <div className="w-full max-w-sm bg-card border border-card-border rounded-xl p-6 shadow-2xl mx-4" onClick={(e) => e.stopPropagation()}>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-lg font-semibold text-foreground">Report Match Result</h2>
+                  <button onClick={() => setReportMatch(null)} className="flex items-center justify-center h-8 w-8 rounded-full text-muted hover:text-foreground active:bg-card-hover transition-colors text-lg">&times;</button>
+                </div>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm text-muted mb-1">Winner</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {[reportMatch.player1_id, reportMatch.player2_id].filter(Boolean).map((pid) => (
+                        <button
+                          key={pid}
+                          onClick={() => setReportWinnerId(pid!)}
+                          className={`px-3 py-2 rounded text-sm font-medium transition-colors ${
+                            reportWinnerId === pid
+                              ? 'bg-green-700 text-foreground'
+                              : 'bg-card-hover text-foreground/70 hover:bg-card-hover'
+                          }`}
+                        >
+                          {getPlayerName(pid!)}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs text-muted mb-1">{getPlayerName(reportMatch.player1_id)} Score</label>
+                      <input
+                        type="number"
+                        min={0}
+                        value={reportP1Score}
+                        onChange={(e) => setReportP1Score(e.target.value)}
+                        className="w-full bg-input-bg border border-input-border rounded px-3 py-2 text-foreground text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-muted mb-1">{getPlayerName(reportMatch.player2_id)} Score</label>
+                      <input
+                        type="number"
+                        min={0}
+                        value={reportP2Score}
+                        onChange={(e) => setReportP2Score(e.target.value)}
+                        className="w-full bg-input-bg border border-input-border rounded px-3 py-2 text-foreground text-sm"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-3">
+                    <button onClick={() => setReportMatch(null)} className="flex-1 px-3 py-2 bg-card-hover hover:bg-card-hover text-foreground rounded text-sm">
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleReportMatch}
+                      disabled={reporting || !reportWinnerId}
+                      className="flex-1 px-3 py-2 bg-green-700 hover:bg-green-600 disabled:opacity-50 text-white rounded text-sm font-medium"
+                    >
+                      {reporting ? 'Saving...' : 'Submit'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -717,7 +1343,7 @@ function EventCalendar({ events, expandedId, onEventClick }: { events: EventWith
         {cells.map((cell, i) => (
           <div
             key={i}
-            className={`min-h-[80px] border-b border-r border-card-border p-1 ${
+            className={`min-h-20 border-b border-r border-card-border p-1 ${
               cell.day === null ? "bg-card-hover/30" : isToday(cell.day) ? "bg-accent/5" : ""
             }`}
           >

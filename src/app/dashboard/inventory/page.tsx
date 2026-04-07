@@ -14,6 +14,7 @@ import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/shared/ui";
 import { BarcodeScanner } from "@/components/barcode-scanner";
 import { BarcodeLearnModal } from "@/components/barcode-learn-modal";
+import { PrintLabelsModal } from "@/components/print-labels-modal";
 import { useScanner } from "@/hooks/use-scanner";
 
 const CATEGORIES: { value: ItemCategory; label: string }[] = [
@@ -99,6 +100,9 @@ export default function InventoryPage() {
   >([]);
   const [adjustSubmitting, setAdjustSubmitting] = useState(false);
   const [adjustError, setAdjustError] = useState<string | null>(null);
+
+  // Print labels modal
+  const [showLabels, setShowLabels] = useState(false);
 
   // Scan to add
   const [showScanner, setShowScanner] = useState(false);
@@ -404,12 +408,12 @@ export default function InventoryPage() {
         title="Inventory"
         action={
           <div className="flex gap-2">
-            <a
-              href="/dashboard/inventory/labels"
+            <button
+              onClick={() => setShowLabels(true)}
               className="rounded-xl border border-card-border px-4 py-2 text-sm font-medium text-muted hover:bg-card-hover transition-colors"
             >
               Print Labels
-            </a>
+            </button>
             <button
               onClick={() => setShowScanner(true)}
               className="flex items-center gap-2 rounded-xl border border-card-border px-4 py-2 text-sm font-medium text-muted hover:bg-card-hover transition-colors"
@@ -1086,6 +1090,11 @@ export default function InventoryPage() {
           onClose={() => setShowScanner(false)}
           title="Scan to Add"
         />
+      )}
+
+      {/* Print Labels Modal */}
+      {showLabels && (
+        <PrintLabelsModal onClose={() => setShowLabels(false)} />
       )}
 
       {/* Learn Barcode Modal */}

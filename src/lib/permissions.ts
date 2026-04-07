@@ -315,17 +315,18 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard/customers", label: "Customers", icon: "♟", permission: "customers.view" },
   { href: "/dashboard/customers/insights", label: "Customer Insights", icon: "◎", permission: "customers.view", feature: "intelligence" },
   { href: "/dashboard/events", label: "Events", icon: "★", permission: "events.checkin" },
-  { href: "/dashboard/tournaments", label: "Tournaments", icon: "⊕", permission: "events.manage", feature: "events" },
+  // Tournaments merged into Events page — direct URL still works for backward compat
+  // { href: "/dashboard/tournaments", label: "Tournaments", icon: "\u2295", permission: "events.manage", feature: "events" },
   // { href: "/dashboard/purchase-orders", label: "Purchase Orders", icon: "\u229e", permission: "inventory.adjust" }, // Hidden until ready
   { href: "/dashboard/stock-counts", label: "Stock Count", icon: "\u25a4", permission: "inventory.adjust" },
   { href: "/dashboard/promotions", label: "Promotions", icon: "✦", permission: "inventory.pricing" },
-  { href: "/dashboard/reports", label: "Reports", icon: "◩", permission: "reports" },
+  { href: "/dashboard/cash-flow", label: "Store Intelligence", icon: "◉", permission: "cash_flow", feature: "intelligence" },
+  { href: "/dashboard/reports/sales", label: "Sales & Profitability", icon: "◆", permission: "reports" },
   { href: "/dashboard/reports/inventory-health", label: "Inventory Health", icon: "▣", permission: "reports" },
-  { href: "/dashboard/reports/sales", label: "Sales Analysis", icon: "◆", permission: "reports" },
+  { href: "/dashboard/reports", label: "Event ROI", icon: "◩", permission: "reports" },
   { href: "/dashboard/reports/margins", label: "Margins", icon: "△", permission: "reports", feature: "advanced_reports" },
   { href: "/dashboard/reports/staff", label: "Staff Performance", icon: "⊞", permission: "reports", feature: "advanced_reports" },
   { href: "/dashboard/reports/channels", label: "Channels", icon: "◎", permission: "reports", feature: "ecommerce" },
-  { href: "/dashboard/cash-flow", label: "Cash Flow", icon: "◎", permission: "cash_flow", feature: "intelligence" },
   // Catalog is accessed via "+ Add" button on TCG Singles page, not sidebar
   // { href: "/dashboard/catalog", label: "Catalog", icon: "⊕", permission: "inventory.create", feature: "tcg_engine" },
   { href: "/dashboard/import", label: "Import", icon: "⤓", permission: "import" },

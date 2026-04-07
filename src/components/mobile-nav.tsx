@@ -90,7 +90,6 @@ const MORE_GROUPS: NavGroup[] = [
       { href: "/dashboard/catalog", label: "Catalog", icon: "\u2295", permission: "inventory.adjust" },
       { href: "/dashboard/purchase-orders", label: "Purchase Orders", icon: "\u229E", permission: "inventory.adjust" },
       { href: "/dashboard/stock-counts", label: "Stock Count", icon: "\u25A4", permission: "inventory.adjust" },
-      { href: "/dashboard/inventory/labels", label: "Labels", icon: "\u2630", permission: "inventory.view" },
       { href: "/dashboard/game-library", label: "Game Library", icon: "\u265C", permission: "inventory.view" },
     ],
   },

@@ -570,8 +570,8 @@ export default function CashFlowPage() {
       {/* ---- HEADER ---- */}
       <div className="flex items-center justify-between">
         <div>
-          <PageHeader title="Cash Flow Intelligence" />
-          <p className="mt-1 text-sm text-muted">Where your money is, where it&apos;s going, and where it&apos;s stuck.</p>
+          <PageHeader title="Store Intelligence" />
+          <p className="mt-1 text-sm text-muted">Cash flow, inventory health, and actionable insights for your store.</p>
         </div>
         <div className="flex gap-1 rounded-xl bg-card-hover/80 p-1 shadow-inner">
           {(['today', 'this_week', 'this_month'] as const).map((p) => (

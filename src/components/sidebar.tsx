@@ -33,6 +33,8 @@ const NAV_GROUPS: NavGroup[] = [
       "/dashboard/deck-builder",
       "/dashboard/game-library",
       "/dashboard/consignment",
+      "/dashboard/promotions",
+      "/dashboard/preorders",
       // "/dashboard/purchase-orders", // Hidden until ready
       "/dashboard/stock-counts",
       "/dashboard/locations",
@@ -45,15 +47,15 @@ const NAV_GROUPS: NavGroup[] = [
   },
   {
     label: "Events",
-    hrefs: ["/dashboard/events", "/dashboard/tournaments"],
+    hrefs: ["/dashboard/events"],
   },
   {
     label: "Trade & Returns",
     hrefs: ["/dashboard/trade-ins", "/dashboard/returns"],
   },
   {
-    label: "Reports",
-    hrefs: ["/dashboard", "/dashboard/reports", "/dashboard/reports/inventory-health", "/dashboard/reports/sales", "/dashboard/reports/margins", "/dashboard/reports/staff", "/dashboard/reports/channels", "/dashboard/cash-flow"],
+    label: "Intelligence",
+    hrefs: ["/dashboard/cash-flow", "/dashboard/reports/sales", "/dashboard/reports/margins", "/dashboard/reports/inventory-health", "/dashboard/reports", "/dashboard/reports/staff", "/dashboard/reports/channels"],
   },
   {
     label: "Afterroar Network",
@@ -63,15 +65,18 @@ const NAV_GROUPS: NavGroup[] = [
     label: "Admin",
     hrefs: [
       "/dashboard/staff",
-      "/dashboard/billing",
-      "/dashboard/settings",
-      "/dashboard/import",
       "/dashboard/timeclock",
-      "/dashboard/promotions",
-      "/dashboard/preorders",
       "/dashboard/issues",
       "/dashboard/ops-log",
       "/dashboard/help",
+    ],
+  },
+  {
+    label: "Settings",
+    hrefs: [
+      "/dashboard/settings",
+      "/dashboard/billing",
+      "/dashboard/import",
     ],
   },
 ];
