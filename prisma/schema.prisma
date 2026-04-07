@@ -152,6 +152,9 @@ model PosTab {
   age_verified      Boolean   @default(false)
   parent_tab_id     String?
   transferred_from  String?
+  hold_type         String?   @default("cafe") // cafe | retail_park
+  parked_by_staff_id String?
+  parked_at         DateTime? @db.Timestamptz()
   opened_at         DateTime  @default(now()) @db.Timestamptz()
   closed_at         DateTime? @db.Timestamptz()
 
@@ -162,6 +165,7 @@ model PosTab {
 
   @@index([store_id])
   @@index([store_id, status])
+  @@index([store_id, hold_type, status])
   @@map("pos_tabs")
 }
 

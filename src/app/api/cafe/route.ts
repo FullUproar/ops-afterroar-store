@@ -488,6 +488,80 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(item, { status: 201 });
     }
 
+    /* ── park_cart: save register cart as a DB-backed tab ── */
+    if (action === "park_cart") {
+      const { items, label, customer_id } = body as {
+        items: Array<{ inventory_item_id: string | null; name: string; price_cents: number; quantity: number; category?: string }>;
+        label?: string;
+        customer_id?: string;
+      };
+      if (!items?.length) return NextResponse.json({ error: "items required" }, { status: 400 });
+
+      const tab = await db.posTab.create({
+        data: {
+          store_id: storeId,
+          staff_id: staff.id,
+          customer_id: customer_id || null,
+          table_label: label || `Cart ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`,
+          hold_type: "retail_park",
+          parked_by_staff_id: staff.id,
+          parked_at: new Date(),
+          items: {
+            create: items.map((i) => ({
+              name: i.name,
+              price_cents: i.price_cents,
+              quantity: i.quantity,
+              item_type: "retail",
+              status: "pending",
+              inventory_item_id: i.inventory_item_id || null,
+            })),
+          },
+        },
+        include: { items: true },
+      });
+
+      return NextResponse.json(tab, { status: 201 });
+    }
+
+    /* ── list_parked: get all parked carts ── */
+    if (action === "list_parked") {
+      const parked = await db.posTab.findMany({
+        where: { store_id: storeId, hold_type: "retail_park", status: "open" },
+        include: { items: true, customer: { select: { name: true } } },
+        orderBy: { parked_at: "desc" },
+      });
+      return NextResponse.json(parked);
+    }
+
+    /* ── recall_cart: retrieve a parked cart ── */
+    if (action === "recall_cart") {
+      const { tab_id } = body;
+      if (!tab_id) return NextResponse.json({ error: "tab_id required" }, { status: 400 });
+
+      const tab = await db.posTab.findFirst({
+        where: { id: tab_id, store_id: storeId, hold_type: "retail_park", status: "open" },
+        include: { items: true, customer: { select: { id: true, name: true } } },
+      });
+      if (!tab) return NextResponse.json({ error: "Parked cart not found" }, { status: 404 });
+
+      // Delete the tab (it's being recalled into the register)
+      await db.posTab.update({
+        where: { id: tab_id },
+        data: { status: "voided" },
+      });
+
+      return NextResponse.json({
+        items: tab.items.map((i) => ({
+          inventory_item_id: i.inventory_item_id,
+          name: i.name,
+          price_cents: i.price_cents,
+          quantity: i.quantity,
+          category: i.item_type,
+        })),
+        customer: tab.customer,
+      });
+    }
+
     return NextResponse.json({ error: "Unknown action" }, { status: 400 });
   } catch (error) {
     return handleAuthError(error);
