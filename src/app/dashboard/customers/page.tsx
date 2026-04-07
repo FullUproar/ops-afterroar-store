@@ -109,16 +109,21 @@ export default function CustomersPage() {
   const [form, setForm] = useState({ name: '', email: '', phone: '' });
   const [saving, setSaving] = useState(false);
   const [page, setPage] = useState(0);
-  const [sortKey, setSortKey] = useState<string>('name');
+  const [sortKey, setSortKey] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const PAGE_SIZE = 10;
 
   function handleSort(key: string) {
     if (sortKey === key) {
-      setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+      if (sortDir === 'asc') {
+        setSortDir('desc');
+      } else {
+        // Third click: turn off sorting
+        setSortKey(null);
+      }
     } else {
       setSortKey(key);
-      setSortDir(key === 'name' || key === 'email' ? 'asc' : 'desc');
+      setSortDir(key === 'name' || key === 'email' || key === 'segment' ? 'asc' : 'desc');
     }
     setPage(0);
   }
@@ -178,10 +183,10 @@ export default function CustomersPage() {
     return true;
   });
 
-  // Sort
-  const sorted = [...filtered].sort((a, b) => {
+  // Sort (null = no sort, use default order from API)
+  const sorted = sortKey ? [...filtered].sort((a, b) => {
     const dir = sortDir === 'asc' ? 1 : -1;
-    switch (sortKey) {
+    switch (sortKey as string) {
       case 'name': return dir * a.name.localeCompare(b.name);
       case 'email': return dir * (a.email || '').localeCompare(b.email || '');
       case 'segment': return dir * a.segment.localeCompare(b.segment);
@@ -194,7 +199,7 @@ export default function CustomersPage() {
       }
       default: return 0;
     }
-  });
+  }) : filtered;
 
   // Pagination
   const totalPages = Math.ceil(sorted.length / PAGE_SIZE);
