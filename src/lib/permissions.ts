@@ -341,7 +341,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard/ops-log", label: "Ops Log", icon: "◉", permission: "ops_log" },
   { href: "/dashboard/staff", label: "Staff", icon: "⊞", permission: "staff.manage" },
   { href: "/dashboard/billing", label: "Subscription", icon: "◈", permission: "store.settings" },
-  { href: "/dashboard/settings", label: "Settings", icon: "⚙", permission: "store.settings" },
+  // Settings is now a nav group with sub-pages — no standalone item needed
   { href: "/dashboard/settings/store", label: "Store", icon: "⌂", permission: "store.settings" },
   { href: "/dashboard/settings/payments", label: "Payments", icon: "◈", permission: "store.settings" },
   { href: "/dashboard/settings/staff", label: "Roles & Access", icon: "⊞", permission: "store.settings" },
