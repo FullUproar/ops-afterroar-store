@@ -115,7 +115,8 @@ export function Sidebar() {
   const { mode, setMode } = useMode();
 
   // Build visible items per group — filter by permission, feature module, and hidden items
-  const hiddenItems = ((store?.settings as Record<string, unknown>)?.hidden_nav_items as string[]) || [];
+  const rawHidden = (store?.settings as Record<string, unknown>)?.hidden_nav_items;
+  const hiddenItems = Array.isArray(rawHidden) ? rawHidden as string[] : [];
   const visibleNav = NAV_ITEMS.filter(
     (item) => can(item.permission) && (!item.feature || hasModule(item.feature)) && !hiddenItems.includes(item.href)
   );

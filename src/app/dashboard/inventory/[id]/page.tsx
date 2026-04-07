@@ -1098,7 +1098,8 @@ function HoldsSection({ itemId, itemName }: { itemId: string; itemName: string }
   useEffect(() => {
     fetch(`/api/inventory/holds?item_id=${itemId}`)
       .then(r => r.ok ? r.json() : [])
-      .then(setHolds)
+      .then(data => setHolds(Array.isArray(data) ? data : []))
+      .catch(() => setHolds([]))
       .finally(() => setLoading(false));
   }, [itemId]);
 
