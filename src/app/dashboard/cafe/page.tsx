@@ -97,18 +97,28 @@ export default function CafePage() {
     return () => clearInterval(interval);
   }, [loadTabs, loadKDS, view]);
 
+  const [tabError, setTabError] = useState<string | null>(null);
+
   async function openTab() {
-    const res = await fetch("/api/cafe", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "open_tab", table_label: newTabTable || null }),
-    });
-    if (res.ok) {
-      const tab = await res.json();
-      setShowNewTab(false);
-      setNewTabTable("");
-      loadTabs();
-      setActiveTab({ ...tab, items: [] });
+    setTabError(null);
+    try {
+      const res = await fetch("/api/cafe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "open_tab", table_label: newTabTable || null }),
+      });
+      if (res.ok) {
+        const tab = await res.json();
+        setShowNewTab(false);
+        setNewTabTable("");
+        loadTabs();
+        setActiveTab({ ...tab, items: [] });
+      } else {
+        const err = await res.json().catch(() => ({ error: "Failed to open tab" }));
+        setTabError(err.error || "Failed to open tab");
+      }
+    } catch {
+      setTabError("Network error — couldn't open tab");
     }
   }
 
@@ -204,9 +214,10 @@ export default function CafePage() {
             placeholder="Table label (optional)"
             className="w-full rounded-lg border border-input-border bg-input-bg px-3 py-2 text-sm text-foreground placeholder:text-muted focus:border-accent focus:outline-none"
           />
+          {tabError && <p className="text-xs text-red-400">{tabError}</p>}
           <div className="flex gap-2">
             <button onClick={openTab} className="px-4 py-2 bg-accent text-white rounded-lg text-sm font-medium">Open</button>
-            <button onClick={() => setShowNewTab(false)} className="px-4 py-2 border border-card-border text-muted rounded-lg text-sm">Cancel</button>
+            <button onClick={() => { setShowNewTab(false); setTabError(null); }} className="px-4 py-2 border border-card-border text-muted rounded-lg text-sm">Cancel</button>
           </div>
         </div>
       )}
