@@ -1516,9 +1516,7 @@ function ShopifyConnectionSection() {
         }),
       });
       if (res.ok) {
-        setSaved(true);
-        setToken("");
-        setTimeout(() => setSaved(false), 3000);
+        window.location.reload();
       } else {
         setError("Failed to save.");
       }
