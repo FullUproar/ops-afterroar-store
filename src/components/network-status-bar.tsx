@@ -67,9 +67,9 @@ export function NetworkStatusBar() {
 
       {/* Failed transactions alert */}
       {status.failedTxCount > 0 && (
-        <span className="ml-auto text-red-400">
-          {status.failedTxCount} failed — needs review
-        </span>
+        <a href="/dashboard/ops-log" className="ml-auto text-red-400 hover:text-red-300 hover:underline transition-colors">
+          {status.failedTxCount} failed — review
+        </a>
       )}
 
       {/* Cache not ready warning */}
