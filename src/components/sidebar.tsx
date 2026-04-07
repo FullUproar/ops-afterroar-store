@@ -128,7 +128,8 @@ export function Sidebar() {
   const isActive = useCallback(
     (href: string) => {
       if (href === "/dashboard") return pathname === "/dashboard";
-      return pathname.startsWith(href);
+      // Exact match OR pathname continues with / (prevents /reports matching /reports/sales)
+      return pathname === href || pathname.startsWith(href + "/");
     },
     [pathname]
   );
