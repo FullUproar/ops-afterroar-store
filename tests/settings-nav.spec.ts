@@ -32,14 +32,13 @@ test.describe("authenticated: settings navigation", () => {
     await page.goto("/dashboard/settings", { waitUntil: "networkidle" });
     await expect(page.locator("text=Changes save automatically")).toBeVisible({ timeout: 10_000 });
 
-    // Click through each tab — if any crashes, the page dies
-    for (const tab of ["Payments", "Staff", "Integrations", "Intelligence", "Operations", "Store"]) {
-      // Use exact match to avoid sidebar group name collision
-      await page.locator(`button:has-text("${tab}")`).last().click();
+    // Navigate through each settings sub-page via URL
+    for (const tab of ["payments", "staff", "integrations", "intelligence", "operations", "store"]) {
+      await page.goto(`/dashboard/settings/${tab}`, { waitUntil: "domcontentloaded" });
       await page.waitForTimeout(500);
     }
 
-    // Verify page is still alive by checking content is visible
+    // Verify page is still alive
     await expect(page.locator("text=Changes save automatically")).toBeVisible();
 
     // Navigate away via full page load
