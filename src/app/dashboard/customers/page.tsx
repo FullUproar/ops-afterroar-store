@@ -109,7 +109,7 @@ export default function CustomersPage() {
   const [form, setForm] = useState({ name: '', email: '', phone: '' });
   const [saving, setSaving] = useState(false);
   const [page, setPage] = useState(0);
-  const PAGE_SIZE = 25;
+  const PAGE_SIZE = 10;
 
   const loadCustomers = useCallback(async () => {
     try {
