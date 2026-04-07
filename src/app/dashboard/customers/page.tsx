@@ -109,7 +109,24 @@ export default function CustomersPage() {
   const [form, setForm] = useState({ name: '', email: '', phone: '' });
   const [saving, setSaving] = useState(false);
   const [page, setPage] = useState(0);
+  const [sortKey, setSortKey] = useState<string>('name');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const PAGE_SIZE = 10;
+
+  function handleSort(key: string) {
+    if (sortKey === key) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortKey(key);
+      setSortDir(key === 'name' || key === 'email' ? 'asc' : 'desc');
+    }
+    setPage(0);
+  }
+
+  function sortArrow(key: string) {
+    if (sortKey !== key) return '';
+    return sortDir === 'asc' ? ' ▲' : ' ▼';
+  }
 
   const loadCustomers = useCallback(async () => {
     try {
@@ -161,9 +178,27 @@ export default function CustomersPage() {
     return true;
   });
 
+  // Sort
+  const sorted = [...filtered].sort((a, b) => {
+    const dir = sortDir === 'asc' ? 1 : -1;
+    switch (sortKey) {
+      case 'name': return dir * a.name.localeCompare(b.name);
+      case 'email': return dir * (a.email || '').localeCompare(b.email || '');
+      case 'segment': return dir * a.segment.localeCompare(b.segment);
+      case 'lifetime_spend': return dir * (a.lifetime_spend_cents - b.lifetime_spend_cents);
+      case 'credit': return dir * (a.credit_balance_cents - b.credit_balance_cents);
+      case 'last_purchase': {
+        const da = a.last_purchase_date ? new Date(a.last_purchase_date).getTime() : 0;
+        const db = b.last_purchase_date ? new Date(b.last_purchase_date).getTime() : 0;
+        return dir * (da - db);
+      }
+      default: return 0;
+    }
+  });
+
   // Pagination
-  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
-  const paginated = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+  const totalPages = Math.ceil(sorted.length / PAGE_SIZE);
+  const paginated = sorted.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
   // Reset page when filters change
   useEffect(() => { setPage(0); }, [search, segmentFilter]);
@@ -329,12 +364,12 @@ export default function CustomersPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-card-border text-muted text-left">
-                  <th className="px-4 py-3 font-medium">Name</th>
-                  <th className="px-4 py-3 font-medium">Segment</th>
-                  <th className="px-4 py-3 font-medium">Email</th>
-                  <th className="px-4 py-3 font-medium text-right">Lifetime Spend</th>
-                  <th className="px-4 py-3 font-medium text-right">Store Credit</th>
-                  <th className="px-4 py-3 font-medium text-right">Last Purchase</th>
+                  <th className="px-4 py-3 font-medium cursor-pointer hover:text-foreground select-none transition-colors" onClick={() => handleSort('name')}>Name{sortArrow('name')}</th>
+                  <th className="px-4 py-3 font-medium cursor-pointer hover:text-foreground select-none transition-colors" onClick={() => handleSort('segment')}>Segment{sortArrow('segment')}</th>
+                  <th className="px-4 py-3 font-medium cursor-pointer hover:text-foreground select-none transition-colors" onClick={() => handleSort('email')}>Email{sortArrow('email')}</th>
+                  <th className="px-4 py-3 font-medium text-right cursor-pointer hover:text-foreground select-none transition-colors" onClick={() => handleSort('lifetime_spend')}>Lifetime Spend{sortArrow('lifetime_spend')}</th>
+                  <th className="px-4 py-3 font-medium text-right cursor-pointer hover:text-foreground select-none transition-colors" onClick={() => handleSort('credit')}>Store Credit{sortArrow('credit')}</th>
+                  <th className="px-4 py-3 font-medium text-right cursor-pointer hover:text-foreground select-none transition-colors" onClick={() => handleSort('last_purchase')}>Last Purchase{sortArrow('last_purchase')}</th>
                 </tr>
               </thead>
               <tbody>
