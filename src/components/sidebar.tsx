@@ -82,6 +82,7 @@ const NAV_GROUPS: NavGroup[] = [
       "/dashboard/settings/integrations",
       "/dashboard/settings/intelligence",
       "/dashboard/settings/operations",
+      "/dashboard/settings/test-mode",
       "/dashboard/billing",
       "/dashboard/import",
     ],

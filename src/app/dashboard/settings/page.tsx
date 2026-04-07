@@ -46,15 +46,16 @@ interface StripeConnectStatus {
 /*  Tab definitions — which SETTINGS_SECTIONS keys go where            */
 /* ------------------------------------------------------------------ */
 
-type TabKey = 'store' | 'payments' | 'staff' | 'integrations' | 'intelligence' | 'operations';
+type TabKey = 'store' | 'payments' | 'staff' | 'integrations' | 'intelligence' | 'operations' | 'test-mode';
 
 const TABS: { key: TabKey; label: string; icon: string; description: string }[] = [
   { key: 'store', label: 'Store', icon: '⌂', description: 'Your store identity, tax, checkout, and receipt settings' },
   { key: 'payments', label: 'Payments', icon: '◈', description: 'Stripe, card reader, and payment method configuration' },
-  { key: 'staff', label: 'Staff', icon: '⊞', description: 'Roles, permissions, training mode, and mobile access' },
-  { key: 'integrations', label: 'Integrations', icon: '◎', description: 'Afterroar Network and external connections' },
+  { key: 'staff', label: 'Staff', icon: '⊞', description: 'Roles, permissions, and mobile access' },
+  { key: 'integrations', label: 'Integrations', icon: '◎', description: 'Afterroar Network, Shopify, and external connections' },
   { key: 'intelligence', label: 'Intelligence', icon: '◉', description: 'Store advisor, cash flow thresholds, and monthly fixed costs' },
   { key: 'operations', label: 'Operations', icon: '⚙', description: 'Cafe, loyalty, promotions, and appearance' },
+  { key: 'test-mode', label: 'Test Mode', icon: '◌', description: 'Training mode, demo data, and testing tools' },
 ];
 
 const TAB_SECTIONS: Record<TabKey, string[]> = {
@@ -64,6 +65,7 @@ const TAB_SECTIONS: Record<TabKey, string[]> = {
   integrations: [],
   intelligence: ['intelligence', 'intelligence_costs', 'intelligence_thresholds'],
   operations: ['cafe', 'loyalty', 'promo_guardrails', 'nav_visibility'],
+  'test-mode': [],
 };
 
 /* ------------------------------------------------------------------ */
@@ -431,43 +433,6 @@ export default function SettingsPage() {
               <PermissionsEditor />
             </div>
 
-            {/* Training Mode */}
-            {(effectiveRole === 'owner' || isGodAdmin) && (
-              <div className={`rounded-xl border p-6 shadow-sm dark:shadow-none ${isTraining ? 'border-yellow-500/30 bg-yellow-950/10' : 'border-card-border bg-card'}`}>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h2 className="text-sm font-semibold text-foreground">Training Mode</h2>
-                    <p className="mt-0.5 text-xs text-muted">
-                      New employees can practice without affecting real data. Transactions are tagged and excluded from reports.
-                    </p>
-                  </div>
-                  <button
-                    onClick={async () => {
-                      const goingOff = isTraining;
-                      setTraining(!isTraining);
-                      // Auto-clean demo data when leaving training mode
-                      if (goingOff) {
-                        try {
-                          await fetch("/api/store/seed-demo", { method: "DELETE" });
-                        } catch { /* best effort */ }
-                      }
-                    }}
-                    className={`relative inline-flex h-6 w-11 shrink-0 rounded-full transition-colors ${isTraining ? 'bg-yellow-500' : 'bg-card-hover border border-card-border'}`}
-                  >
-                    <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${isTraining ? 'translate-x-5' : 'translate-x-0.5'} mt-0.5`} />
-                  </button>
-                </div>
-                {isTraining && (
-                  <div className="mt-3 space-y-3">
-                    <p className="text-xs text-yellow-400">
-                      Training mode is ON. All transactions will be marked as training data and excluded from reports.
-                    </p>
-                    <DemoDataButtons />
-                  </div>
-                )}
-              </div>
-            )}
-
             {/* Employee Phone Links */}
             {store?.slug && (
               <div className="rounded-xl border border-card-border bg-card p-6 shadow-sm dark:shadow-none">
@@ -628,6 +593,9 @@ export default function SettingsPage() {
               </div>
             </div>
 
+            {/* Shopify Connection */}
+            <ShopifyConnectionSection />
+
             {/* Marketplace Sync hint */}
             <div className="rounded-xl border border-dashed border-card-border bg-card-hover p-4 text-center">
               <p className="text-sm text-muted">
@@ -706,6 +674,45 @@ export default function SettingsPage() {
                 ))}
               </div>
             </div>
+          </>
+        )}
+
+        {/* ════════════════ TEST MODE TAB ════════════════ */}
+        {activeTab === 'test-mode' && (
+          <>
+            {/* Training Mode Toggle */}
+            {(effectiveRole === 'owner' || isGodAdmin) && (
+              <div className={`rounded-xl border p-6 shadow-sm dark:shadow-none ${isTraining ? 'border-yellow-500/30 bg-yellow-950/10' : 'border-card-border bg-card'}`}>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-sm font-semibold text-foreground">Training Mode</h2>
+                    <p className="mt-0.5 text-xs text-muted">
+                      Practice without affecting real data. Transactions are tagged and excluded from reports.
+                    </p>
+                  </div>
+                  <button
+                    onClick={async () => {
+                      const goingOff = isTraining;
+                      setTraining(!isTraining);
+                      if (goingOff) {
+                        try { await fetch("/api/store/seed-demo", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) }); } catch {}
+                      }
+                    }}
+                    className={`relative inline-flex h-6 w-11 shrink-0 rounded-full transition-colors ${isTraining ? 'bg-yellow-500' : 'bg-card-hover border border-card-border'}`}
+                  >
+                    <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${isTraining ? 'translate-x-5' : 'translate-x-0.5'} mt-0.5`} />
+                  </button>
+                </div>
+                {isTraining && (
+                  <div className="mt-3 space-y-3">
+                    <p className="text-xs text-yellow-400">
+                      Training mode is ON. All transactions are marked as training data.
+                    </p>
+                    <DemoDataButtons />
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* GOD MODE (admin only) */}
             {isGodAdmin && (
@@ -1469,6 +1476,138 @@ function DemoDataButtons() {
         </button>
       </div>
       {message && <p className="text-xs text-yellow-300">{message}</p>}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Shopify Connection Section                                         */
+/* ------------------------------------------------------------------ */
+
+function ShopifyConnectionSection() {
+  const { store } = useStore();
+  const storeSettings = (store?.settings ?? {}) as Record<string, unknown>;
+  const currentUrl = (storeSettings.shopify_url as string) || "";
+  const hasToken = !!(storeSettings.shopify_access_token as string);
+
+  const [shopUrl, setShopUrl] = useState(currentUrl);
+  const [token, setToken] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [disconnecting, setDisconnecting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function connect() {
+    if (!shopUrl || !token) {
+      setError("Store URL and access token are required.");
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    try {
+      // Verify the token works
+      const testUrl = shopUrl.includes(".myshopify.com") ? shopUrl : `${shopUrl}.myshopify.com`;
+      const res = await fetch("/api/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          shopify_url: testUrl,
+          shopify_access_token: token,
+        }),
+      });
+      if (res.ok) {
+        setSaved(true);
+        setToken("");
+        setTimeout(() => setSaved(false), 3000);
+      } else {
+        setError("Failed to save.");
+      }
+    } catch {
+      setError("Network error.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function disconnect() {
+    setDisconnecting(true);
+    try {
+      await fetch("/api/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ shopify_url: "", shopify_access_token: "" }),
+      });
+      window.location.reload();
+    } finally {
+      setDisconnecting(false);
+    }
+  }
+
+  return (
+    <div className="rounded-xl border border-card-border bg-card p-6 shadow-sm dark:shadow-none">
+      <h2 className="text-sm font-semibold text-foreground">Shopify</h2>
+      <p className="mt-0.5 text-xs text-muted">
+        Connect your Shopify store for real-time inventory sync. In-store sales update Shopify automatically.
+      </p>
+
+      <div className="mt-4">
+        {currentUrl && hasToken ? (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-green-500" />
+              <span className="text-sm text-green-400 font-medium">Connected</span>
+              <span className="text-sm text-foreground">{currentUrl}</span>
+            </div>
+            <div className="text-xs text-muted space-y-1">
+              <p>Inventory syncs automatically after each in-store sale.</p>
+              <p>Online orders are pulled in via webhook.</p>
+              <p>Set online allocations on each item&apos;s detail page.</p>
+            </div>
+            <button
+              onClick={disconnect}
+              disabled={disconnecting}
+              className="px-3 py-1.5 bg-card-hover hover:bg-zinc-600 disabled:opacity-50 text-foreground rounded text-xs font-medium"
+            >
+              {disconnecting ? "Disconnecting..." : "Disconnect"}
+            </button>
+            {saved && <p className="text-xs text-green-400">Connected!</p>}
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <div>
+              <label className="block text-xs text-muted mb-1">Shopify Store URL</label>
+              <input
+                type="text"
+                value={shopUrl}
+                onChange={(e) => setShopUrl(e.target.value)}
+                placeholder="your-store.myshopify.com"
+                className="w-full rounded-xl border border-input-border bg-input-bg px-3 py-2 text-sm text-foreground placeholder:text-muted focus:border-accent focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-muted mb-1">Admin API Access Token</label>
+              <input
+                type="password"
+                value={token}
+                onChange={(e) => setToken(e.target.value)}
+                placeholder="shpat_..."
+                className="w-full rounded-xl border border-input-border bg-input-bg px-3 py-2 text-sm text-foreground placeholder:text-muted focus:border-accent focus:outline-none font-mono"
+              />
+              <p className="mt-1 text-[11px] text-muted/70">
+                Create a custom app in Shopify with read/write products + inventory scopes. Token is stored encrypted.
+              </p>
+            </div>
+            {error && <p className="text-xs text-red-400">{error}</p>}
+            <button
+              onClick={connect}
+              disabled={saving || !shopUrl || !token}
+              className="px-4 py-2 bg-accent hover:opacity-90 disabled:opacity-50 text-white rounded-xl text-sm font-medium"
+            >
+              {saving ? "Connecting..." : "Connect Shopify"}
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

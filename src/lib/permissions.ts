@@ -348,6 +348,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard/settings/integrations", label: "Integrations", icon: "◎", permission: "store.settings" },
   { href: "/dashboard/settings/intelligence", label: "Intelligence", icon: "◉", permission: "store.settings" },
   { href: "/dashboard/settings/operations", label: "Operations", icon: "⚙", permission: "store.settings" },
+  { href: "/dashboard/settings/test-mode", label: "Test Mode", icon: "◌", permission: "store.settings" },
   { href: "/dashboard/help", label: "Help", icon: "?", permission: "checkout" },
   { href: "/dashboard/network", label: "Network", icon: "\u25C9", permission: "store.settings" },
 ];
