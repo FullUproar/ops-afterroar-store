@@ -31,13 +31,34 @@ const DEMO_ITEMS = [
   { name: "Bottled Water", category: "food_drink", price_cents: 200, cost_cents: 30, quantity: 100, attributes: { type: "bottled" } },
 ];
 
-const DEMO_CUSTOMERS = [
-  { name: "Alex Thompson", email: "alex@example.com", phone: "555-0101" },
-  { name: "Sarah Kim", email: "sarah@example.com", phone: "555-0102" },
-  { name: "Jake Rivera", email: "jake@example.com", phone: "555-0103" },
-  { name: "Emily Watson", email: "emily@example.com", phone: "555-0104" },
-  { name: "Dylan Chen", email: "dylan@example.com", phone: "555-0105" },
+const FIRST_NAMES = [
+  "Liam","Noah","Oliver","James","Elijah","William","Henry","Lucas","Benjamin","Theodore",
+  "Jack","Levi","Alexander","Mason","Ethan","Daniel","Jacob","Logan","Jackson","Sebastian",
+  "Emma","Olivia","Charlotte","Amelia","Sophia","Isabella","Mia","Evelyn","Harper","Luna",
+  "Camila","Gianna","Elizabeth","Eleanor","Chloe","Sofia","Layla","Riley","Zoey","Nora",
+  "Lily","Hazel","Violet","Aurora","Savannah","Audrey","Brooklyn","Bella","Claire","Skylar",
 ];
+const LAST_NAMES = [
+  "Smith","Johnson","Williams","Brown","Jones","Garcia","Miller","Davis","Rodriguez","Martinez",
+  "Hernandez","Lopez","Gonzalez","Wilson","Anderson","Thomas","Taylor","Moore","Jackson","Martin",
+  "Lee","Perez","Thompson","White","Harris","Sanchez","Clark","Ramirez","Lewis","Robinson",
+  "Walker","Young","Allen","King","Wright","Scott","Torres","Nguyen","Hill","Flores",
+  "Green","Adams","Nelson","Baker","Hall","Rivera","Campbell","Mitchell","Carter","Roberts",
+];
+
+function generateDemoCustomers(count: number) {
+  const customers = [];
+  for (let i = 0; i < count; i++) {
+    const first = FIRST_NAMES[i % FIRST_NAMES.length];
+    const last = LAST_NAMES[Math.floor(i / FIRST_NAMES.length) % LAST_NAMES.length];
+    customers.push({
+      name: `${first} ${last}`,
+      email: `${first.toLowerCase()}.${last.toLowerCase()}${i}@demo.example`,
+      phone: `555-${String(1000 + i).padStart(4, "0")}`,
+    });
+  }
+  return customers;
+}
 
 const DEMO_EVENTS = [
   { name: "Friday Night Magic", event_type: "fnm", entry_fee_cents: 500, max_players: 32, days_from_now: 3 },
@@ -49,11 +70,13 @@ export async function POST() {
   try {
     const { db, storeId } = await requirePermission("store.settings");
 
-    // Check if store already has data
-    const existingItems = await db.posInventoryItem.count();
-    if (existingItems > 5) {
+    // Check if demo data already exists
+    const existingDemo = await db.posCustomer.count({
+      where: { store_id: storeId, email: { endsWith: "@demo.example" } },
+    });
+    if (existingDemo > 0) {
       return NextResponse.json({
-        error: "Store already has inventory. Demo data is for new stores only.",
+        error: "Demo data already seeded. Delete it first before re-seeding.",
       }, { status: 400 });
     }
 
@@ -68,13 +91,14 @@ export async function POST() {
       });
     }
 
-    // Seed customers
-    for (const cust of DEMO_CUSTOMERS) {
+    // Seed customers (100 for realistic pagination testing)
+    const demoCustomers = generateDemoCustomers(100);
+    for (const cust of demoCustomers) {
       await db.posCustomer.create({
         data: {
           store_id: storeId,
           ...cust,
-          credit_balance_cents: 0,
+          credit_balance_cents: Math.floor(Math.random() * 5000),
         },
       });
     }
@@ -104,9 +128,35 @@ export async function POST() {
     return NextResponse.json({
       success: true,
       items: DEMO_ITEMS.length,
-      customers: DEMO_CUSTOMERS.length,
+      customers: demoCustomers.length,
       events: DEMO_EVENTS.length,
-      message: `Added ${DEMO_ITEMS.length} products, ${DEMO_CUSTOMERS.length} customers, and ${DEMO_EVENTS.length} upcoming events.`,
+      message: `Added ${DEMO_ITEMS.length} products, ${demoCustomers.length} customers, and ${DEMO_EVENTS.length} upcoming events.`,
+    });
+  } catch (error) {
+    return handleAuthError(error);
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/*  DELETE /api/store/seed-demo — remove all demo data                  */
+/*  Cleans up demo customers (@demo.example), seeded inventory, events  */
+/* ------------------------------------------------------------------ */
+export async function DELETE() {
+  try {
+    const { db, storeId } = await requirePermission("store.settings");
+
+    // Delete demo customers (identifiable by @demo.example email)
+    const deletedCustomers = await db.posCustomer.deleteMany({
+      where: { store_id: storeId, email: { endsWith: "@demo.example" } },
+    });
+
+    // Delete demo events (optional — keep if they want them)
+    // Not deleting inventory since they may have modified it
+
+    return NextResponse.json({
+      success: true,
+      deleted: { customers: deletedCustomers.count },
+      message: `Removed ${deletedCustomers.count} demo customers.`,
     });
   } catch (error) {
     return handleAuthError(error);

@@ -462,16 +462,28 @@ export default function SettingsPage() {
                     </p>
                   </div>
                   <button
-                    onClick={() => setTraining(!isTraining)}
+                    onClick={async () => {
+                      const goingOff = isTraining;
+                      setTraining(!isTraining);
+                      // Auto-clean demo data when leaving training mode
+                      if (goingOff) {
+                        try {
+                          await fetch("/api/store/seed-demo", { method: "DELETE" });
+                        } catch { /* best effort */ }
+                      }
+                    }}
                     className={`relative inline-flex h-6 w-11 shrink-0 rounded-full transition-colors ${isTraining ? 'bg-yellow-500' : 'bg-card-hover border border-card-border'}`}
                   >
                     <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${isTraining ? 'translate-x-5' : 'translate-x-0.5'} mt-0.5`} />
                   </button>
                 </div>
                 {isTraining && (
-                  <p className="mt-3 text-xs text-yellow-400">
-                    Training mode is ON. All transactions will be marked as training data and excluded from reports.
-                  </p>
+                  <div className="mt-3 space-y-3">
+                    <p className="text-xs text-yellow-400">
+                      Training mode is ON. All transactions will be marked as training data and excluded from reports.
+                    </p>
+                    <DemoDataButtons />
+                  </div>
                 )}
               </div>
             )}
@@ -1383,6 +1395,70 @@ function GeofenceSection({
 
       {saving === "timeclock_geofence_enabled" && <p className="mt-2 text-xs text-muted">Saving...</p>}
       {saved === "timeclock_geofence_enabled" && <p className="mt-2 text-xs text-green-400">Saved</p>}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Demo Data Buttons — seed / clean up test data (training mode only)  */
+/* ------------------------------------------------------------------ */
+
+function DemoDataButtons() {
+  const [seeding, setSeeding] = useState(false);
+  const [cleaning, setCleaning] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+
+  async function seedDemo() {
+    setSeeding(true);
+    setMessage(null);
+    try {
+      const res = await fetch("/api/store/seed-demo", { method: "POST" });
+      const data = await res.json();
+      setMessage(res.ok ? data.message : data.error);
+    } catch {
+      setMessage("Failed to seed demo data.");
+    } finally {
+      setSeeding(false);
+    }
+  }
+
+  async function cleanDemo() {
+    setCleaning(true);
+    setMessage(null);
+    try {
+      const res = await fetch("/api/store/seed-demo", { method: "DELETE" });
+      const data = await res.json();
+      setMessage(res.ok ? data.message : data.error);
+    } catch {
+      setMessage("Failed to clean up demo data.");
+    } finally {
+      setCleaning(false);
+    }
+  }
+
+  return (
+    <div className="rounded-lg border border-yellow-500/20 bg-yellow-950/10 p-3 space-y-2">
+      <p className="text-xs text-yellow-300 font-medium">Demo Data</p>
+      <p className="text-[11px] text-yellow-400/70">
+        Populate the store with sample customers, inventory, and events for testing. Cleaned up automatically when you leave training mode.
+      </p>
+      <div className="flex gap-2">
+        <button
+          onClick={seedDemo}
+          disabled={seeding || cleaning}
+          className="px-3 py-1.5 bg-yellow-600 text-white rounded text-xs font-medium hover:bg-yellow-500 disabled:opacity-50 transition-colors"
+        >
+          {seeding ? "Seeding..." : "Seed Demo Data"}
+        </button>
+        <button
+          onClick={cleanDemo}
+          disabled={seeding || cleaning}
+          className="px-3 py-1.5 border border-yellow-500/30 text-yellow-400 rounded text-xs font-medium hover:bg-yellow-950/30 disabled:opacity-50 transition-colors"
+        >
+          {cleaning ? "Cleaning..." : "Clean Up Demo Data"}
+        </button>
+      </div>
+      {message && <p className="text-xs text-yellow-300">{message}</p>}
     </div>
   );
 }
