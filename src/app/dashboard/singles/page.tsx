@@ -7,7 +7,7 @@ import { useStore } from "@/lib/store-context";
 import { formatCents, parseDollars } from "@/lib/types";
 import type { Permission } from "@/lib/permissions";
 import { PageHeader } from "@/components/page-header";
-import { ConditionBadge, CardImage, SetInfo } from "@/components/tcg/shared";
+import { ConditionBadge, CardImage } from "@/components/tcg/shared";
 
 /* ================================================================== */
 /*  Types                                                              */
@@ -421,7 +421,7 @@ function InventoryTab({
                             </div>
                             {/* Set/condition visible on mobile when columns are hidden */}
                             <div className="flex items-center gap-1.5 mt-0.5 md:hidden">
-                              <span className="text-[10px] text-muted truncate max-w-[120px]">
+                              <span className="text-[10px] text-muted truncate max-w-30">
                                 {item.set_name || item.set_code || ""}
                               </span>
                               <ConditionBadge condition={item.condition} size="xs" />
@@ -437,7 +437,7 @@ function InventoryTab({
 
                       {/* Set */}
                       <td className="px-3 py-2.5 hidden md:table-cell">
-                        <span className="text-muted text-xs truncate block max-w-[160px]">
+                        <span className="text-muted text-xs truncate block max-w-40">
                           {item.set_name || item.set_code || "--"}
                         </span>
                       </td>
@@ -1018,7 +1018,7 @@ function MarketplaceTab({
               >
                 {/* Card Image */}
                 {card.image_url ? (
-                  <div className="relative aspect-[488/680] bg-background">
+                  <div className="relative aspect-488/680 bg-background">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={card.image_url}
@@ -1037,7 +1037,7 @@ function MarketplaceTab({
                     )}
                   </div>
                 ) : (
-                  <div className="aspect-[488/680] bg-background flex items-center justify-center text-zinc-600 text-sm">
+                  <div className="aspect-488/680 bg-background flex items-center justify-center text-zinc-600 text-sm">
                     No Image
                   </div>
                 )}
@@ -1135,7 +1135,7 @@ function MarketplaceTab({
 
             <div className="flex gap-4 mb-5">
               {addForm.card.small_image_url && (
-                <div className="flex-shrink-0 w-28">
+                <div className="shrink-0 w-28">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={addForm.card.small_image_url} alt={addForm.card.name} className="w-full rounded" />
                 </div>
