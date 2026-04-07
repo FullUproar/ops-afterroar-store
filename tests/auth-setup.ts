@@ -22,8 +22,8 @@ setup("authenticate as bot-owner", async ({ page }) => {
   await page.getByRole("button", { name: "Sign In", exact: true }).click();
 
   // Wait for redirect to dashboard (auth complete)
-  await page.waitForURL("**/dashboard**", { timeout: 15_000 });
-  await page.waitForLoadState("networkidle");
+  await page.waitForURL("**/dashboard**", { timeout: 15_000, waitUntil: "domcontentloaded" });
+  await page.waitForTimeout(2000);
 
   // Save signed-in state
   await page.context().storageState({ path: AUTH_FILE });
