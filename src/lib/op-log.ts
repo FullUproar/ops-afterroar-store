@@ -19,7 +19,8 @@ export type EventType =
   | "sync.failed" | "sync.retry"
   | "system.error" | "system.startup"
   | "mobile.sale" | "mobile.paired" | "mobile.revoked"
-  | "manager.override";
+  | "manager.override"
+  | "passport.linked" | "passport.disconnected" | "passport.deleted";
 
 export interface OpLogParams {
   storeId: string;

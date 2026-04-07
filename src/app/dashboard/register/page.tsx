@@ -471,6 +471,13 @@ export default function RegisterPage() {
   const noticeBannerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [zeroStockItem, setZeroStockItem] = useState<InventoryItem | null>(null);
   const [hasZeroStockOverride, setHasZeroStockOverride] = useState(false);
+
+  // Passport consent modal
+  const [passportScanResult, setPassportScanResult] = useState<{
+    afterroar_user_id: string;
+    profile: { displayName: string | null; avatarUrl: string | null; reputationScore: number | null; identityVerified: boolean };
+  } | null>(null);
+  const [passportLinking, setPassportLinking] = useState(false);
   const [lastCardBrand, setLastCardBrand] = useState<string | null>(null);
   const [lastCardLast4, setLastCardLast4] = useState<string | null>(null);
 
@@ -613,26 +620,27 @@ export default function RegisterPage() {
       // If pay sheet is showing and this is NOT a gift card, ignore non-gift-card scans
       if (showPaySheetRef.current) return;
 
-      // Check if this is an Afterroar Passport QR/barcode (CUID format)
-      if (barcode.startsWith("c") && barcode.length >= 20 && /^[a-z0-9]+$/.test(barcode)) {
+      // Check if this is an Afterroar Passport QR code (URL with /p/) or raw user ID (CUID)
+      const isPassportUrl = barcode.startsWith("https://") && barcode.includes("/p/");
+      const isPassportCuid = barcode.startsWith("c") && barcode.length >= 20 && /^[a-z0-9]+$/.test(barcode);
+      if (isPassportUrl || isPassportCuid) {
         try {
-          // First: check local DB for existing customer with this afterroar_user_id
-          const custRes = await fetch(`/api/customers?q=${encodeURIComponent(barcode)}`);
-          if (custRes.ok) {
-            const custData = await custRes.json();
-            if (custData.length > 0) {
-              setCustomer(custData[0]);
-              showItemAdded(`${custData[0].name} attached`);
-              return;
-            }
-          }
-          // Not found locally — look up on HQ Passport API and auto-create
-          const passportRes = await fetch(`/api/passport/lookup?afterroar_user_id=${encodeURIComponent(barcode)}`);
-          if (passportRes.ok) {
-            const passport = await passportRes.json();
-            if (passport.customer) {
-              setCustomer(passport.customer);
-              showItemAdded(`${passport.customer.name} attached`);
+          const scanRes = await fetch("/api/passport/scan", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ code: barcode }),
+          });
+          if (scanRes.ok) {
+            const scanData = await scanRes.json();
+            if (scanData.found) {
+              if (scanData.alreadyLinked && scanData.customer) {
+                // Already linked — attach to transaction
+                setCustomer(scanData.customer);
+                showItemAdded(`${scanData.customer.name} attached`);
+              } else if (scanData.requiresConsent) {
+                // First scan — show consent modal
+                setPassportScanResult(scanData);
+              }
               return;
             }
           }
@@ -672,6 +680,25 @@ export default function RegisterPage() {
         const item = zeroStockMatch;
         setZeroStockItem(item);
       } else {
+        // No inventory match — check if this could be a Passport short code (8 alphanumeric chars)
+        if (/^[a-zA-Z0-9]{8}$/.test(barcode)) {
+          try {
+            const barcodeRes = await fetch(`/api/passport/barcode?code=${encodeURIComponent(barcode)}`);
+            if (barcodeRes.ok) {
+              const barcodeData = await barcodeRes.json();
+              if (barcodeData.found) {
+                if (barcodeData.alreadyLinked && barcodeData.customer) {
+                  setCustomer(barcodeData.customer);
+                  showItemAdded(`${barcodeData.customer.name} attached`);
+                } else if (barcodeData.requiresConsent) {
+                  setPassportScanResult(barcodeData);
+                }
+                return;
+              }
+            }
+          } catch {}
+        }
+        // Not a Passport code either — open the barcode learn modal
         playBeep(400, 0.15, 0.06);
         setScannerFlash("error");
         if (scannerFlashTimerRef.current) clearTimeout(scannerFlashTimerRef.current);
@@ -2024,6 +2051,77 @@ export default function RegisterPage() {
                   })}
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ====== PASSPORT CONSENT MODAL ====== */}
+      {passportScanResult && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/60" onClick={() => { setPassportScanResult(null); setPassportLinking(false); }} />
+          <div className="relative bg-card rounded-2xl border border-card-border w-full max-w-sm mx-4">
+            <div className="p-5 space-y-4">
+              <div className="flex items-center gap-3">
+                {passportScanResult.profile.avatarUrl ? (
+                  <img src={passportScanResult.profile.avatarUrl} alt="" className="w-12 h-12 rounded-full object-cover" />
+                ) : (
+                  <div className="w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold" style={{ backgroundColor: "#7D55C7", color: "white" }}>
+                    {(passportScanResult.profile.displayName || "?")[0].toUpperCase()}
+                  </div>
+                )}
+                <div className="min-w-0 flex-1">
+                  <div className="text-base font-bold text-foreground truncate">{passportScanResult.profile.displayName || "Afterroar Player"}</div>
+                  <div className="flex items-center gap-2 text-sm text-muted">
+                    {passportScanResult.profile.identityVerified && (
+                      <span className="inline-flex items-center gap-1 text-green-400">
+                        <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.403 12.652a3 3 0 010-5.304 3 3 0 00-3.75-3.751 3 3 0 00-5.305 0 3 3 0 00-3.751 3.75 3 3 0 000 5.305 3 3 0 003.75 3.751 3 3 0 005.305 0 3 3 0 003.751-3.75zm-2.546-4.46a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" /></svg>
+                        Verified
+                      </span>
+                    )}
+                    {passportScanResult.profile.reputationScore !== null && (
+                      <span>Rep: {passportScanResult.profile.reputationScore}</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <p className="text-sm text-muted">Link this player to your store? They will appear as a customer for transactions, events, and loyalty.</p>
+              <div className="flex gap-2">
+                <button onClick={() => { setPassportScanResult(null); setPassportLinking(false); }} disabled={passportLinking} className="flex-1 rounded-xl border border-card-border px-4 py-2.5 text-sm font-medium text-muted hover:text-foreground hover:bg-card-hover transition-colors disabled:opacity-50" style={{ minHeight: 44 }}>Decline</button>
+                <button
+                  disabled={passportLinking}
+                  onClick={async () => {
+                    setPassportLinking(true);
+                    try {
+                      const res = await fetch("/api/passport/link", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ afterroar_user_id: passportScanResult.afterroar_user_id }),
+                      });
+                      if (res.ok) {
+                        const data = await res.json();
+                        if (data.customer) {
+                          setCustomer(data.customer);
+                          showItemAdded(`${data.customer.name} linked`);
+                        }
+                      } else {
+                        const err = await res.json().catch(() => ({ error: "Link failed" }));
+                        if (res.status === 409 && err.existing_customer_id) {
+                          showItemAdded(`Already linked to ${err.existing_customer_name}`);
+                        }
+                      }
+                    } catch {
+                      // Graceful degrade — don't block POS
+                    }
+                    setPassportScanResult(null);
+                    setPassportLinking(false);
+                  }}
+                  className="flex-1 rounded-xl font-medium text-white transition-colors disabled:opacity-50"
+                  style={{ height: 44, backgroundColor: "#7D55C7", minHeight: 44 }}
+                >
+                  {passportLinking ? "Linking..." : "Link Player"}
+                </button>
+              </div>
             </div>
           </div>
         </div>
