@@ -149,11 +149,22 @@ export function Sidebar() {
 
   function toggleGroup(label: string) {
     setExpanded((prev) => {
-      // Simple: if it has an explicit value, flip it. Otherwise it's implicitly open (active) or closed (inactive).
       const currentlyOpen = label in prev
         ? !!prev[label]
-        : activeGroup?.label === label; // active group defaults open, others default closed
-      const next = { ...prev, [label]: !currentlyOpen };
+        : activeGroup?.label === label;
+
+      if (currentlyOpen) {
+        // Closing this group
+        const next = { ...prev, [label]: false };
+        storeExpanded(next);
+        return next;
+      }
+
+      // Opening this group — close all others (accordion behavior)
+      const next: Record<string, boolean> = {};
+      for (const g of visibleGroups) {
+        next[g.label] = g.label === label;
+      }
       storeExpanded(next);
       return next;
     });

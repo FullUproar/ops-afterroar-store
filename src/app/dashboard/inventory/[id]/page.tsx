@@ -289,6 +289,27 @@ export default function InventoryDetailPage() {
     }
   }
 
+  /* ---- Delete item ---- */
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  async function handleDelete() {
+    if (!item) return;
+    setDeleting(true);
+    try {
+      const res = await fetch("/api/inventory", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: item.id }),
+      });
+      if (res.ok) {
+        window.location.href = "/dashboard/inventory";
+      }
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   /* ---- Render ---- */
   if (loading) {
     return (
@@ -936,6 +957,42 @@ export default function InventoryDetailPage() {
                 {adjustSubmitting ? "Adjusting..." : "Confirm Adjustment"}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Item */}
+      {can("inventory.adjust") && (
+        <div className="rounded-xl border border-red-500/10 bg-card p-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-medium text-foreground">Delete Item</h3>
+              <p className="text-xs text-muted mt-0.5">Permanently remove this item. For mistakes only.</p>
+            </div>
+            {!showDeleteConfirm ? (
+              <button
+                onClick={() => setShowDeleteConfirm(true)}
+                className="px-3 py-1.5 text-xs font-medium text-red-400 hover:text-red-300 transition-colors"
+              >
+                Delete
+              </button>
+            ) : (
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowDeleteConfirm(false)}
+                  className="px-3 py-1.5 text-xs text-muted hover:text-foreground transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDelete}
+                  disabled={deleting}
+                  className="px-3 py-1.5 bg-red-600 text-white rounded text-xs font-medium hover:bg-red-500 disabled:opacity-50 transition-colors"
+                >
+                  {deleting ? "Deleting..." : "Confirm Delete"}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

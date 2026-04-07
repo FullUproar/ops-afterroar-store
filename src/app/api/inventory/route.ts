@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireStaff, handleAuthError } from "@/lib/require-staff";
+import { requireStaff, requirePermission, handleAuthError } from "@/lib/require-staff";
 
 export async function GET(request: NextRequest) {
   try {
@@ -99,6 +99,33 @@ export async function PATCH(request: NextRequest) {
     });
 
     return NextResponse.json(data);
+  } catch (error) {
+    return handleAuthError(error);
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const { db, storeId } = await requirePermission("inventory.adjust");
+
+    const body = await request.json();
+    const { id } = body;
+
+    if (!id) {
+      return NextResponse.json({ error: "Item id is required" }, { status: 400 });
+    }
+
+    // Verify item belongs to this store
+    const existing = await db.posInventoryItem.findFirst({
+      where: { id, store_id: storeId },
+    });
+    if (!existing) {
+      return NextResponse.json({ error: "Item not found" }, { status: 404 });
+    }
+
+    await db.posInventoryItem.delete({ where: { id } });
+
+    return NextResponse.json({ success: true, deleted: id });
   } catch (error) {
     return handleAuthError(error);
   }

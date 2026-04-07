@@ -49,13 +49,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Item not found" }, { status: 404 });
     }
 
-    // Prevent negative stock
-    if (item.quantity + adjustment < 0) {
-      return NextResponse.json(
-        { error: "Adjustment would result in negative stock" },
-        { status: 400 }
-      );
-    }
+    // Allow negative stock (flags discrepancy rather than blocking)
+    // Negative inventory is a real scenario: sold item before receiving shipment,
+    // or physical count reveals less than system thinks.
 
     const result = await prisma.$transaction(async (tx) => {
       // Update inventory quantity
