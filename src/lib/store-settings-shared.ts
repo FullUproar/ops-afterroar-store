@@ -66,6 +66,7 @@ export interface StoreSettings {
   mobile_allow_discounts: boolean;    // can mobile register apply discounts
   mobile_allow_refunds: boolean;      // can mobile register process refunds (default false)
   mobile_allow_cash: boolean;         // can mobile register accept cash (default true)
+  hidden_nav_items: string[];        // hrefs of nav items to hide (e.g. ["/dashboard/cafe", "/dashboard/consignment"])
   [key: string]: unknown;
 }
 
@@ -131,6 +132,7 @@ export const SETTINGS_DEFAULTS: StoreSettings = {
   mobile_allow_discounts: false,
   mobile_allow_refunds: false,
   mobile_allow_cash: true,
+  hidden_nav_items: [],
 };
 
 /** Server-safe: get typed settings from a store record */

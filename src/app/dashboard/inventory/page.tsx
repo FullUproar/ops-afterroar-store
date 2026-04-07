@@ -83,6 +83,7 @@ export default function InventoryPage() {
   const [form, setForm] = useState<NewItemForm>({ ...EMPTY_FORM });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // Sorting
   type SortField = "name" | "price" | "quantity" | "category";
@@ -116,30 +117,34 @@ export default function InventoryPage() {
     enabled: !showScanner && !learnBarcode && !showAddForm,
   });
 
+  const loadInventory = useCallback(async () => {
+    try {
+      setLoadError(null);
+      const [invRes, locRes] = await Promise.all([
+        fetch("/api/inventory"),
+        fetch("/api/locations"),
+      ]);
+      if (!invRes.ok) {
+        setLoadError("Failed to load inventory. Try again.");
+        return;
+      }
+      const data = await invRes.json();
+      setItems(data as InventoryItem[]);
+      if (locRes.ok) {
+        const locData = await locRes.json();
+        setLocations(locData);
+      }
+    } catch {
+      setLoadError("Failed to load inventory. Try again.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   // Initial load
   useEffect(() => {
-    async function load() {
-      try {
-        const [invRes, locRes] = await Promise.all([
-          fetch("/api/inventory"),
-          fetch("/api/locations"),
-        ]);
-        if (invRes.ok) {
-          const data = await invRes.json();
-          setItems(data as InventoryItem[]);
-        }
-        if (locRes.ok) {
-          const locData = await locRes.json();
-          setLocations(locData);
-        }
-      } catch (err) {
-        console.error("Failed to load inventory:", err);
-      } finally {
-        setLoading(false);
-      }
-    }
-    load();
-  }, []);
+    loadInventory();
+  }, [loadInventory]);
 
   // Debounced search
   useEffect(() => {
@@ -619,11 +624,23 @@ export default function InventoryPage() {
         </div>
       )}
 
+      {loadError && (
+        <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-center">
+          <p className="text-sm text-red-400">{loadError}</p>
+          <button
+            onClick={() => { setLoadError(null); loadInventory(); }}
+            className="mt-2 text-xs text-red-300 underline hover:text-red-200"
+          >
+            Try again
+          </button>
+        </div>
+      )}
+
       {loading ? (
         <div className="text-center text-muted py-12">
           Loading inventory...
         </div>
-      ) : items.length === 0 ? (
+      ) : items.length === 0 && !loadError ? (
         <EmptyState
           icon="&#x1F4E6;"
           title={searchQuery ? "No items match your search" : "No inventory items yet"}

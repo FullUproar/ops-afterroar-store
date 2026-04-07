@@ -85,17 +85,23 @@ export function IntelligenceFeed({ compact }: { compact?: boolean }) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [generatedAt, setGeneratedAt] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const loadInsights = useCallback(async (refresh = false) => {
     try {
+      setLoadError(null);
       if (refresh) setRefreshing(true);
       const qs = refresh ? "?refresh=1" : "";
       const res = await fetch(`/api/intelligence${qs}`);
-      if (res.ok) {
-        const data = await res.json();
-        setInsights(data.insights ?? []);
-        setGeneratedAt(data.generated_at ?? null);
+      if (!res.ok) {
+        setLoadError("Unable to load insights. Try again.");
+        return;
       }
+      const data = await res.json();
+      setInsights(data.insights ?? []);
+      setGeneratedAt(data.generated_at ?? null);
+    } catch {
+      setLoadError("Unable to load insights. Try again.");
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -145,7 +151,17 @@ export function IntelligenceFeed({ compact }: { compact?: boolean }) {
       </div>
 
       {/* Content */}
-      {loading ? (
+      {loadError ? (
+        <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-center">
+          <p className="text-sm text-red-400">{loadError}</p>
+          <button
+            onClick={() => { setLoadError(null); loadInsights(); }}
+            className="mt-2 text-xs text-red-300 underline hover:text-red-200"
+          >
+            Try again
+          </button>
+        </div>
+      ) : loading ? (
         <div className="flex items-center justify-center py-12">
           <div className="text-center">
             <div className="mx-auto mb-3 h-6 w-6 animate-spin rounded-full border-2 border-accent border-t-transparent" />

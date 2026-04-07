@@ -113,9 +113,10 @@ export function Sidebar() {
   const { store, staff, effectiveRole, isTestMode, can, hasModule, activeStaff, endShift } = useStore();
   const { mode, setMode } = useMode();
 
-  // Build visible items per group — filter by permission AND feature module
+  // Build visible items per group — filter by permission, feature module, and hidden items
+  const hiddenItems = ((store?.settings as Record<string, unknown>)?.hidden_nav_items as string[]) || [];
   const visibleNav = NAV_ITEMS.filter(
-    (item) => can(item.permission) && (!item.feature || hasModule(item.feature))
+    (item) => can(item.permission) && (!item.feature || hasModule(item.feature)) && !hiddenItems.includes(item.href)
   );
 
   // Map href -> NavItem for quick lookup

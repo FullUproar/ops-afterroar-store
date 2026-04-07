@@ -108,6 +108,8 @@ export default function CustomersPage() {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ name: '', email: '', phone: '' });
   const [saving, setSaving] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [createError, setCreateError] = useState<string | null>(null);
   const [page, setPage] = useState(0);
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
@@ -135,12 +137,17 @@ export default function CustomersPage() {
 
   const loadCustomers = useCallback(async () => {
     try {
+      setLoadError(null);
       const res = await fetch('/api/customers/segments');
-      if (res.ok) {
-        const data = await res.json();
-        setCustomers(data.customers ?? []);
-        setCounts(data.counts ?? null);
+      if (!res.ok) {
+        setLoadError('Failed to load customers. Try again.');
+        return;
       }
+      const data = await res.json();
+      setCustomers(data.customers ?? []);
+      setCounts(data.counts ?? null);
+    } catch {
+      setLoadError('Failed to load customers. Try again.');
     } finally {
       setLoading(false);
     }
@@ -153,6 +160,7 @@ export default function CustomersPage() {
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
+    setCreateError(null);
     try {
       const res = await fetch('/api/customers', {
         method: 'POST',
@@ -162,8 +170,14 @@ export default function CustomersPage() {
       if (res.ok) {
         setForm({ name: '', email: '', phone: '' });
         setShowForm(false);
+        setCreateError(null);
         loadCustomers();
+      } else {
+        const body = await res.json().catch(() => ({ error: 'Failed to add customer' }));
+        setCreateError(body.error || 'Failed to add customer');
       }
+    } catch {
+      setCreateError('Network error — could not add customer');
     } finally {
       setSaving(false);
     }
@@ -271,6 +285,9 @@ export default function CustomersPage() {
               />
             </div>
           </div>
+          {createError && (
+            <p className="text-sm text-red-400">{createError}</p>
+          )}
           <button
             type="submit"
             disabled={saving}
@@ -322,9 +339,21 @@ export default function CustomersPage() {
         />
       </div>
 
+      {loadError && (
+        <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-center">
+          <p className="text-sm text-red-400">{loadError}</p>
+          <button
+            onClick={() => { setLoadError(null); loadCustomers(); }}
+            className="mt-2 text-xs text-red-300 underline hover:text-red-200"
+          >
+            Try again
+          </button>
+        </div>
+      )}
+
       {loading ? (
         <p className="text-muted">Loading customers...</p>
-      ) : filtered.length === 0 ? (
+      ) : filtered.length === 0 && !loadError ? (
         <EmptyState
           icon="&#x1F465;"
           title={search || segmentFilter !== 'all' ? 'No customers match your filters' : 'No customers yet'}

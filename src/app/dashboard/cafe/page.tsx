@@ -53,6 +53,7 @@ export default function CafePage() {
   const [tabs, setTabs] = useState<Tab[]>([]);
   const [kdsItems, setKdsItems] = useState<Array<TabItem & { tab: { table_label: string | null; customer: { name: string } | null } }>>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [view, setView] = useState<"tabs" | "kds">("tabs");
   const [activeTab, setActiveTab] = useState<Tab | null>(null);
 
@@ -72,8 +73,15 @@ export default function CafePage() {
 
   const loadTabs = useCallback(async () => {
     try {
+      setLoadError(null);
       const res = await fetch("/api/cafe?status=open");
-      if (res.ok) setTabs(await res.json());
+      if (!res.ok) {
+        setLoadError("Failed to load tabs. Try again.");
+        return;
+      }
+      setTabs(await res.json());
+    } catch {
+      setLoadError("Failed to load tabs. Try again.");
     } finally {
       setLoading(false);
     }
@@ -152,19 +160,29 @@ export default function CafePage() {
   }
 
   async function addItemToTab(tabId: string, name: string, priceCents: number) {
-    await fetch("/api/cafe", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "add_item", tab_id: tabId, name, price_cents: priceCents }),
-    });
-    // Refresh tab
-    const res = await fetch("/api/cafe?status=open");
-    if (res.ok) {
-      const allTabs: Tab[] = await res.json();
-      setTabs(allTabs);
-      setActiveTab(allTabs.find((t) => t.id === tabId) || null);
+    setAddItemError(null);
+    try {
+      const addRes = await fetch("/api/cafe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "add_item", tab_id: tabId, name, price_cents: priceCents }),
+      });
+      if (!addRes.ok) {
+        const body = await addRes.json().catch(() => ({ error: "Failed to add item" }));
+        setAddItemError(body.error || "Failed to add item to tab");
+        return;
+      }
+      // Refresh tab
+      const res = await fetch("/api/cafe?status=open");
+      if (res.ok) {
+        const allTabs: Tab[] = await res.json();
+        setTabs(allTabs);
+        setActiveTab(allTabs.find((t) => t.id === tabId) || null);
+      }
+      loadKDS();
+    } catch {
+      setAddItemError("Network error — could not add item to tab");
     }
-    loadKDS();
   }
 
   async function markServed(itemId: string) {
@@ -176,6 +194,7 @@ export default function CafePage() {
     loadKDS();
   }
 
+  const [addItemError, setAddItemError] = useState<string | null>(null);
   const [showClosePayment, setShowClosePayment] = useState<string | null>(null); // tab_id
   const [closing, setClosing] = useState(false);
 
@@ -228,6 +247,18 @@ export default function CafePage() {
             <button onClick={openTab} className="px-4 py-2 bg-accent text-white rounded-lg text-sm font-medium">Open</button>
             <button onClick={() => { setShowNewTab(false); setTabError(null); }} className="px-4 py-2 border border-card-border text-muted rounded-lg text-sm">Cancel</button>
           </div>
+        </div>
+      )}
+
+      {loadError && (
+        <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-center">
+          <p className="text-sm text-red-400">{loadError}</p>
+          <button
+            onClick={() => { setLoadError(null); loadTabs(); }}
+            className="mt-2 text-xs text-red-300 underline hover:text-red-200"
+          >
+            Try again
+          </button>
         </div>
       )}
 
@@ -364,6 +395,18 @@ export default function CafePage() {
                     </button>
                   )}
                 </div>
+
+                {addItemError && (
+                  <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-center">
+                    <p className="text-sm text-red-400">{addItemError}</p>
+                    <button
+                      onClick={() => setAddItemError(null)}
+                      className="mt-1 text-xs text-red-300 underline hover:text-red-200"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                )}
 
                 {/* Quick menu */}
                 <div className="rounded-xl border border-card-border bg-card p-4">

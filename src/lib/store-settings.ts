@@ -428,6 +428,30 @@ export const SETTINGS_SECTIONS = [
       },
     ],
   },
+  {
+    key: "nav_visibility",
+    label: "Feature Visibility",
+    description: "Hide features you don't use to keep the interface clean. Hidden features can be re-enabled anytime.",
+    fields: [
+      {
+        key: "hidden_nav_items",
+        label: "Hidden from navigation",
+        type: "multiselect" as const,
+        options: [
+          { value: "/dashboard/cafe", label: "Cafe" },
+          { value: "/dashboard/singles", label: "TCG Singles" },
+          { value: "/dashboard/deck-builder", label: "Deck Builder" },
+          { value: "/dashboard/game-library", label: "Game Library" },
+          { value: "/dashboard/consignment", label: "Consignment" },
+          { value: "/dashboard/promotions", label: "Promotions" },
+          { value: "/dashboard/preorders", label: "Preorders" },
+          { value: "/dashboard/stock-counts", label: "Stock Count" },
+          { value: "/dashboard/fulfillment", label: "Fulfillment" },
+          { value: "/dashboard/network", label: "Afterroar Network" },
+        ],
+      },
+    ],
+  },
 ];
 
 /* ------------------------------------------------------------------ */

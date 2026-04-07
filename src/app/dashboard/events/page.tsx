@@ -145,6 +145,7 @@ export default function EventsPage() {
   const [repeatWeekly, setRepeatWeekly] = useState(false);
   const [repeatWeeks, setRepeatWeeks] = useState(4);
   const [saving, setSaving] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
 
   const settings = (store?.settings ?? {}) as Record<string, unknown>;
@@ -153,11 +154,16 @@ export default function EventsPage() {
 
   const loadEvents = useCallback(async () => {
     try {
+      setLoadError(null);
       const res = await fetch('/api/events');
-      if (res.ok) {
-        const data = await res.json();
-        setEvents(data);
+      if (!res.ok) {
+        setLoadError('Failed to load events. Try again.');
+        return;
       }
+      const data = await res.json();
+      setEvents(data);
+    } catch {
+      setLoadError('Failed to load events. Try again.');
     } finally {
       setLoading(false);
     }
@@ -430,9 +436,21 @@ export default function EventsPage() {
         </form>
       )}
 
+      {loadError && (
+        <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-center">
+          <p className="text-sm text-red-400">{loadError}</p>
+          <button
+            onClick={() => { setLoadError(null); loadEvents(); }}
+            className="mt-2 text-xs text-red-300 underline hover:text-red-200"
+          >
+            Try again
+          </button>
+        </div>
+      )}
+
       {loading ? (
         <p className="text-muted">Loading events...</p>
-      ) : events.length === 0 ? (
+      ) : events.length === 0 && !loadError ? (
         <EmptyState
           icon="&#x1F3AE;"
           title="No events yet"

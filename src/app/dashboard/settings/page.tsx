@@ -63,7 +63,7 @@ const TAB_SECTIONS: Record<TabKey, string[]> = {
   staff: ['staff_lock', 'mobile_register'], // timeclock rendered manually for GPS button
   integrations: [],
   intelligence: ['intelligence', 'intelligence_costs', 'intelligence_thresholds'],
-  operations: ['cafe', 'loyalty', 'promo_guardrails'],
+  operations: ['cafe', 'loyalty', 'promo_guardrails', 'nav_visibility'],
 };
 
 /* ------------------------------------------------------------------ */
