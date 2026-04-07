@@ -19,7 +19,9 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: "POS",
     hrefs: [
+      "/dashboard",
       "/dashboard/register",
+      "/dashboard/cafe",
       "/dashboard/drawer",
       "/dashboard/orders",
       "/dashboard/fulfillment",
@@ -74,7 +76,12 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: "Settings",
     hrefs: [
-      "/dashboard/settings",
+      "/dashboard/settings/store",
+      "/dashboard/settings/payments",
+      "/dashboard/settings/staff",
+      "/dashboard/settings/integrations",
+      "/dashboard/settings/intelligence",
+      "/dashboard/settings/operations",
       "/dashboard/billing",
       "/dashboard/import",
     ],
@@ -184,7 +191,7 @@ export function Sidebar() {
       <div className="border-b border-card-border px-2 lg:px-4 py-4 flex items-center justify-center lg:justify-start">
         <img src="/logo-ring-favicon.png" alt="Afterroar" className="h-7 w-7 lg:hidden" />
         <div className="hidden lg:block">
-          <h1 className="text-base font-bold text-foreground truncate">{store?.name || 'Store Ops'}</h1>
+          <h1 className="text-sm font-bold text-foreground leading-tight line-clamp-2">{store?.name || 'Store Ops'}</h1>
           <p className="text-[10px] text-muted/50">Afterroar Ops</p>
         </div>
       </div>
@@ -289,12 +296,6 @@ export function Sidebar() {
           title="Sign out"
         >
           Sign out
-        </button>
-        <button
-          onClick={() => setMode("register")}
-          className="mt-2 w-full rounded-md border border-card-border px-3 py-1.5 text-xs font-medium text-muted hover:text-foreground hover:bg-card-hover transition-colors"
-        >
-          Register Mode
         </button>
       </div>
     </aside>

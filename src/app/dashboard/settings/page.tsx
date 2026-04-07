@@ -16,6 +16,7 @@ import { HelpTooltip } from '@/components/help-tooltip';
 import { PermissionsEditor } from '@/components/permissions-editor';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
+import { usePathname, useRouter } from 'next/navigation';
 
 const LocationPicker = dynamic(() => import('@/components/location-picker').then(m => ({ default: m.LocationPicker })), { ssr: false });
 
@@ -79,14 +80,13 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState<string | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
   const [error, setError] = useState('');
-  const [activeTab, setActiveTab] = useState<TabKey>('store');
+  const pathname = usePathname();
+  const router = useRouter();
 
-  // Auto-select tab based on URL params (e.g., returning from Stripe onboarding)
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('stripe')) setActiveTab('payments');
-    else if (params.get('tab')) setActiveTab((params.get('tab') as TabKey) || 'store');
-  }, []);
+  // Derive active tab from URL pathname
+  const pathTab = pathname.split('/').pop();
+  const activeTab: TabKey = (TABS.some(t => t.key === pathTab) ? pathTab : 'store') as TabKey;
+  const setActiveTab = (tab: TabKey) => router.push(`/dashboard/settings/${tab}`);
 
   // Afterroar integration state
   const [venueSearch, setVenueSearch] = useState('');
@@ -288,7 +288,7 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-4">
-      <PageHeader title="Settings" backHref="/dashboard" />
+      <PageHeader title={TABS.find(t => t.key === activeTab)?.label || 'Settings'} backHref="/dashboard" />
       <p className="text-sm text-muted -mt-2">
         {store?.name} &middot; Changes save automatically
       </p>
@@ -299,27 +299,7 @@ export default function SettingsPage() {
         </div>
       )}
 
-      {/* ── Tab Bar ── */}
-      <div className="border-b border-card-border overflow-x-auto">
-        <nav className="flex gap-0 min-w-max">
-          {TABS.map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
-              className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
-                activeTab === tab.key
-                  ? 'border-accent text-foreground'
-                  : 'border-transparent text-muted hover:text-foreground hover:border-card-border'
-              }`}
-            >
-              <span className="text-base">{tab.icon}</span>
-              {tab.label}
-            </button>
-          ))}
-        </nav>
-      </div>
-
-      {/* ── Tab Description ── */}
+      {/* Tab description */}
       <p className="text-xs text-muted">
         {TABS.find((t) => t.key === activeTab)?.description}
       </p>

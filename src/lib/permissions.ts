@@ -329,7 +329,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard/reports/channels", label: "Channels", icon: "◎", permission: "reports", feature: "ecommerce" },
   // Catalog is accessed via "+ Add" button on TCG Singles page, not sidebar
   // { href: "/dashboard/catalog", label: "Catalog", icon: "⊕", permission: "inventory.create", feature: "tcg_engine" },
-  { href: "/dashboard/import", label: "Import", icon: "⤓", permission: "import" },
+  { href: "/dashboard/import", label: "Data Import", icon: "⤓", permission: "import" },
   { href: "/dashboard/orders", label: "Orders", icon: "⊟", permission: "checkout" },
   { href: "/dashboard/fulfillment", label: "Fulfillment", icon: "▶", permission: "manage_orders", feature: "ecommerce" },
   { href: "/dashboard/drawer", label: "Drawer", icon: "▣", permission: "checkout" },
@@ -342,6 +342,12 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard/staff", label: "Staff", icon: "⊞", permission: "staff.manage" },
   { href: "/dashboard/billing", label: "Subscription", icon: "◈", permission: "store.settings" },
   { href: "/dashboard/settings", label: "Settings", icon: "⚙", permission: "store.settings" },
+  { href: "/dashboard/settings/store", label: "Store", icon: "⌂", permission: "store.settings" },
+  { href: "/dashboard/settings/payments", label: "Payments", icon: "◈", permission: "store.settings" },
+  { href: "/dashboard/settings/staff", label: "Roles & Access", icon: "⊞", permission: "store.settings" },
+  { href: "/dashboard/settings/integrations", label: "Integrations", icon: "◎", permission: "store.settings" },
+  { href: "/dashboard/settings/intelligence", label: "Intelligence", icon: "◉", permission: "store.settings" },
+  { href: "/dashboard/settings/operations", label: "Operations", icon: "⚙", permission: "store.settings" },
   { href: "/dashboard/help", label: "Help", icon: "?", permission: "checkout" },
   { href: "/dashboard/network", label: "Network", icon: "\u25C9", permission: "store.settings" },
 ];
