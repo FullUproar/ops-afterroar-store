@@ -42,6 +42,8 @@ export async function middleware(request: NextRequest) {
     path.startsWith("/api/orders/ingest") ||
     path.startsWith("/connect") ||
     path.startsWith("/api/connect") ||
+    path.startsWith("/invite") ||
+    path.startsWith("/api/staff/accept-invite") ||
     path.startsWith("/embed") ||
     path.startsWith("/status") ||
     path.startsWith("/api/health") ||

@@ -423,9 +423,12 @@ model PosStaff {
   role       String   @default("cashier")
   name       String
   active     Boolean  @default(true)
-  pin_hash   String?
-  badge_code String?
-  created_at DateTime @default(now()) @db.Timestamptz()
+  pin_hash           String?
+  badge_code         String?
+  invite_token       String?
+  invite_expires_at  DateTime? @db.Timestamptz()
+  invite_accepted_at DateTime? @db.Timestamptz()
+  created_at         DateTime  @default(now()) @db.Timestamptz()
 
   user           User             @relation(fields: [user_id], references: [id], onDelete: Cascade)
   store          PosStore         @relation(fields: [store_id], references: [id], onDelete: Cascade)
@@ -1161,6 +1164,27 @@ model PosCatalogProduct {
   image_uri             String?
   last_synced_at        DateTime? @db.Timestamptz()
 
+  // Universal product metadata (shared across network)
+  publisher             String?
+  distributor           String?
+  release_year          Int?
+  msrp_cents            Int?
+  bgg_id                String?   // BoardGameGeek ID
+  bgg_rating            Decimal?  @db.Decimal(3, 1)
+  bgg_weight            Decimal?  @db.Decimal(3, 2)
+  min_players           Int?
+  max_players           Int?
+  min_play_time         Int?      // minutes
+  max_play_time         Int?
+  min_age               Int?
+  mechanics             String?   // comma-separated
+  themes                String?   // comma-separated
+
+  // Sealed product fields
+  contents_description  String?   // e.g., "36 packs, 15 cards per pack"
+  cards_per_pack        Int?
+  packs_per_box         Int?
+
   inventory_items PosInventoryItem[]
   pricing         PosCatalogPricing[]
 
@@ -1168,6 +1192,7 @@ model PosCatalogProduct {
   @@index([game])
   @@index([oracle_id])
   @@index([scryfall_id])
+  @@index([bgg_id])
   @@map("pos_catalog_products")
 }
 

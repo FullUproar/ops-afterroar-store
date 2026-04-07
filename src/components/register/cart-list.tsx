@@ -130,8 +130,24 @@ export function CartList({
                     </span>
                   </div>
 
-                  {/* Quantity — tap once = +/- stepper, tap number again = keypad */}
-                  {editingQtyIndex === index ? (
+                  {/* Quantity — tap = stepper, tap number = direct input */}
+                  {editingQtyIndex === -1000 - index ? (
+                    /* Direct number input mode */
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      autoFocus
+                      value={editQtyValue}
+                      onChange={(e) => onSetEditQtyValue(e.target.value.replace(/\D/g, ""))}
+                      onKeyDown={(e) => {
+                        e.stopPropagation();
+                        if (e.key === "Enter") onCommitQtyEdit(index);
+                        if (e.key === "Escape") { onSetEditingQtyIndex(null); onSetEditQtyValue(""); }
+                      }}
+                      onBlur={() => onCommitQtyEdit(index)}
+                      className="shrink-0 w-14 h-9 rounded-lg border border-accent bg-accent/10 text-accent text-center text-lg font-bold tabular-nums focus:outline-none"
+                    />
+                  ) : editingQtyIndex === index ? (
                     <div className="flex items-center gap-1">
                       <button
                         onClick={() => {
@@ -146,9 +162,9 @@ export function CartList({
                       </button>
                       <button
                         onClick={() => {
-                          // Second tap on number — switch to keypad mode
+                          // Second tap on number — switch to direct input
                           onSetEditQtyValue(String(item.quantity));
-                          onSetEditingQtyIndex(-1000 - index); // Signal keypad mode with negative offset
+                          onSetEditingQtyIndex(-1000 - index);
                         }}
                         className="shrink-0 w-10 rounded-lg border border-accent bg-accent/10 text-accent text-lg font-bold tabular-nums flex items-center justify-center"
                         style={{ height: 36, touchAction: "manipulation" }}

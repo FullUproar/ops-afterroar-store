@@ -52,6 +52,35 @@ export async function POST(request: NextRequest) {
     );
     results.push("032c: parked_at added");
 
+    // 033: Catalog enrichment — universal product metadata
+    const catalogFields = [
+      "publisher TEXT", "distributor TEXT", "release_year INT", "msrp_cents INT",
+      "bgg_id TEXT", "bgg_rating DECIMAL(3,1)", "bgg_weight DECIMAL(3,2)",
+      "min_players INT", "max_players INT", "min_play_time INT", "max_play_time INT",
+      "min_age INT", "mechanics TEXT", "themes TEXT",
+      "contents_description TEXT", "cards_per_pack INT", "packs_per_box INT",
+    ];
+    for (const field of catalogFields) {
+      const [name] = field.split(" ");
+      await prisma.$executeRawUnsafe(
+        `ALTER TABLE pos_catalog_products ADD COLUMN IF NOT EXISTS ${field}`
+      );
+    }
+    results.push("033: catalog enrichment fields added");
+
+    // 034: Staff invite tokens
+    const inviteFields = [
+      "invite_token TEXT",
+      "invite_expires_at TIMESTAMPTZ",
+      "invite_accepted_at TIMESTAMPTZ",
+    ];
+    for (const field of inviteFields) {
+      await prisma.$executeRawUnsafe(
+        `ALTER TABLE pos_staff ADD COLUMN IF NOT EXISTS ${field}`
+      );
+    }
+    results.push("034: staff invite fields added");
+
     return NextResponse.json({ success: true, results });
   } catch (error) {
     return NextResponse.json(

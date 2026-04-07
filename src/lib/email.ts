@@ -15,7 +15,7 @@ interface EmailParams {
   from?: string;
 }
 
-async function sendEmail(params: EmailParams): Promise<boolean> {
+export async function sendEmail(params: EmailParams): Promise<boolean> {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
     console.log(`[Email] No RESEND_API_KEY — skipping: "${params.subject}" to ${params.to}`);
