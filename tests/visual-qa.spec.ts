@@ -11,7 +11,7 @@ function screenshotName(
   viewport: { width: number; height: number }
 ): string {
   const slug = pagePath.replace(/^\//, "").replace(/\//g, "--") || "home";
-  const device = viewport.width >= 1024 ? "desktop" : "tablet";
+  const device = viewport.width >= 1024 ? "desktop" : viewport.width >= 768 ? "tablet" : "mobile";
   return `${slug}_${device}.png`;
 }
 

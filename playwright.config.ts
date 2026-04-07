@@ -54,6 +54,33 @@ export default defineConfig({
       dependencies: ["setup"],
     },
     {
+      name: "public-mobile",
+      use: {
+        viewport: { width: 390, height: 844 },
+      },
+      grep: /public/,
+      testMatch: /visual-qa\.spec\.ts/,
+    },
+    {
+      name: "auth-mobile",
+      use: {
+        viewport: { width: 390, height: 844 },
+        storageState: "tests/.auth/state.json",
+      },
+      grep: /authenticated/,
+      testMatch: /visual-qa\.spec\.ts/,
+      dependencies: ["setup"],
+    },
+    {
+      name: "mobile-overflow",
+      use: {
+        viewport: { width: 390, height: 844 },
+        storageState: "tests/.auth/state.json",
+      },
+      testMatch: /mobile-overflow\.spec\.ts/,
+      dependencies: ["setup"],
+    },
+    {
       name: "isolation",
       use: {
         viewport: { width: 1280, height: 800 },
