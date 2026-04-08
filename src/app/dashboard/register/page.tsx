@@ -916,6 +916,27 @@ export default function RegisterPage() {
           const filtered = data.filter((d) => d.quantity > 0);
           searchCache.current.set(trimmed.toLowerCase(), filtered);
           setSearchResults(filtered);
+
+          // If no results and looks like a Passport code, try passport lookup
+          if (filtered.length === 0 && /^[A-Z0-9]{8}$/.test(trimmed)) {
+            try {
+              const passRes = await fetch(`/api/passport/barcode?code=${encodeURIComponent(trimmed)}`);
+              if (passRes.ok) {
+                const passData = await passRes.json();
+                if (passData.found) {
+                  if (passData.alreadyLinked && passData.customer) {
+                    setCustomer(passData.customer);
+                    showItemAdded(`${passData.customer.name} attached`);
+                    setSearchQuery(""); setActivePanel(null);
+                  } else if (passData.requiresConsent) {
+                    setPassportScanResult(passData);
+                    setSearchQuery(""); setActivePanel(null);
+                  }
+                  return;
+                }
+              }
+            } catch {}
+          }
         }
       } catch {}
     },
