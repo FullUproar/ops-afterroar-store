@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requirePermissionAndFeature, handleAuthError } from "@/lib/require-staff";
+import { enqueueHQ } from "@/lib/hq-outbox";
 
 /* ------------------------------------------------------------------ */
 /*  /api/fulfillment — Fulfillment queue management                    */
@@ -147,7 +148,7 @@ export async function PATCH(request: NextRequest) {
 
     const order = await db.posOrder.findFirst({
       where: { id: order_id },
-      select: { id: true, fulfillment_status: true },
+      select: { id: true, fulfillment_status: true, source: true, order_number: true, notes: true, store_id: true },
     });
 
     if (!order) {
@@ -191,6 +192,19 @@ export async function PATCH(request: NextRequest) {
       await db.posOrderItem.updateMany({
         where: { order_id, fulfillment_type: "merchant" },
         data: { fulfilled: true },
+      });
+    }
+
+    // If this order came from HQ, notify HQ that it shipped
+    if (fulfillment_status === "shipped" && order.source === "hq_website") {
+      // Extract HQ order ID from notes ("External: {id}") or use order_number
+      const notesMatch = order.notes?.match(/External:\s*(\S+)/);
+      const hqOrderId = notesMatch?.[1] ?? order.order_number;
+      await enqueueHQ(order.store_id, "order_shipped", {
+        hq_order_id: hqOrderId,
+        tracking_number: tracking_number ?? null,
+        carrier: shipping_carrier ?? null,
+        shipped_at: new Date().toISOString(),
       });
     }
 

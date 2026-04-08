@@ -77,6 +77,7 @@ export async function POST(request: NextRequest) {
     if (client_tx_id) {
       const existing = await db.posLedgerEntry.findFirst({
         where: {
+          store_id: storeId, // Explicit defense-in-depth (tenant-prisma also injects)
           type: "trade_in",
           metadata: { path: ["client_tx_id"], equals: client_tx_id },
         },

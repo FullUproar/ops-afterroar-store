@@ -85,6 +85,7 @@ export async function POST(request: NextRequest) {
     if (client_tx_id) {
       const existing = await db.posLedgerEntry.findFirst({
         where: {
+          store_id: storeId, // Explicit defense-in-depth
           type: "refund",
           metadata: { path: ["client_tx_id"], equals: client_tx_id },
         },

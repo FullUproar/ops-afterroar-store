@@ -97,12 +97,17 @@ export function getTenantClient(storeId: string) {
         },
         async findUnique({ model, args, query }) {
           // findUnique requires exact unique fields — we can't inject store_id
-          // into the where clause for unique queries. Instead, we verify after.
+          // into the where clause directly. We verify after fetch and LOG any breach.
           const result = await query(args);
           if (isTenantModel(model) && result) {
             const record = result as Record<string, unknown>;
             if (record.store_id && record.store_id !== storeId) {
-              return null; // Silently hide cross-tenant records
+              console.error(
+                `[TENANT ISOLATION BREACH] ${model}.findUnique returned record from ` +
+                `store_id=${record.store_id}, expected=${storeId}. ` +
+                `Query: ${JSON.stringify((args as Record<string, unknown>).where).slice(0, 200)}`
+              );
+              return null;
             }
           }
           return result;

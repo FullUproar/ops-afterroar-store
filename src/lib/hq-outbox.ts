@@ -21,7 +21,8 @@ export type HQEventType =
   | "purchase_summary"
   | "customer_deletion"
   | "points_reversed"
-  | "fraud_flag";
+  | "fraud_flag"
+  | "order_shipped";
 
 /**
  * Enqueue a write to HQ. Fire-and-forget — never throws, never blocks.

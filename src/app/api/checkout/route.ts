@@ -456,8 +456,20 @@ export async function POST(request: NextRequest) {
       }
 
       // Deduct inventory quantities (skip manual items like gift cards)
+      // Re-validate quantities INSIDE the transaction to prevent overselling
+      // (the pre-transaction check at line ~108 is a fast-fail optimization,
+      // but this is the authoritative check under transactional isolation)
       for (const item of items) {
         if (item.inventory_item_id) {
+          const current = await tx.posInventoryItem.findUnique({
+            where: { id: item.inventory_item_id },
+            select: { quantity: true, name: true },
+          });
+          if (current && current.quantity < item.quantity && !body.allow_negative_stock) {
+            throw new Error(
+              `Insufficient quantity for "${current.name}". Available: ${current.quantity}, requested: ${item.quantity}`
+            );
+          }
           await tx.posInventoryItem.update({
             where: { id: item.inventory_item_id },
             data: { quantity: { decrement: item.quantity } },
@@ -516,7 +528,9 @@ export async function POST(request: NextRequest) {
     // short-circuits if the item has no shopify_inventory_item_id)
     for (const item of items) {
       if (item.inventory_item_id) {
-        pushInventoryToShopify(storeId, item.inventory_item_id).catch(() => {});
+        pushInventoryToShopify(storeId, item.inventory_item_id).catch((err) => {
+          console.error("[Checkout] Shopify inventory sync failed for item", item.inventory_item_id, err);
+        });
       }
     }
 
@@ -567,7 +581,9 @@ export async function POST(request: NextRequest) {
             receiptUrl: `https://www.afterroar.store/r/${receiptToken}`,
           });
         }
-      } catch {}
+      } catch (receiptErr) {
+        console.error("[Checkout] Receipt QR creation failed:", receiptErr);
+      }
     }
 
     // Build receipt
