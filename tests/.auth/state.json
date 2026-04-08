@@ -2,7 +2,7 @@
   "cookies": [
     {
       "name": "__Host-authjs.csrf-token",
-      "value": "d0a57895f3e2a19052d2c43be19ce8c0d60f2eede380cc695d4227d996d3ffe5%7C308878cc743440a0efa39e89a97be3993e65fabedc5d3cb7266b6c1a628eff7c",
+      "value": "c99ed83a9d77eb5bf83d3e80c5ba062a44c6cdfe51d9fddd624c1dcabc626e2c%7Cbd110eaa3ea2483b8f42beb998ef46347de3297f19320be8e238b6456ce39e5f",
       "domain": "www.afterroar.store",
       "path": "/",
       "expires": -1,
@@ -22,14 +22,32 @@
     },
     {
       "name": "__Secure-authjs.session-token",
-      "value": "eyJhbGciOiJkaXIiLCJlbmMiOiJBMjU2Q0JDLUhTNTEyIiwia2lkIjoidW44QVA2YlRHeHhUMzFPZ1h1Y1JXN3RrRlpGdVd1cXV4Q0s5ZHF2N2Zwd2MyTi1PNFQ1YUxQTUwwTWtqQllTd2xaVUVENlhMZHBmamdqZ1JoWGRYU1EifQ..KY951JI5e8IwIQh5yxaewQ.tcM8mZiS8lCelM81l6IPXPW9e6N1Xy7et_Xf81ytIhojuw92iehpHrLRSwYZIPHffxe_QwX2jhZVlBZ-szzY07SK86vufemZ_QlR7VwvEbZjxWxf5dwPeLRy5wDmCmwhtR_qIVEkWgbo4jHiR0lfNYy6GGKWy-MvhP5V165j0GjSg42_3EJpFxrHV4PV_E-7DZtwrsT8aVrDUWbQREzdjAA92J6YFWF3TnN-hGJKxKCHkKgeBxpZ2-AXINYLswUtGCRss2oC7CA3_ilP0pC0ZqttISYvJZaI-NqScd5IDT-ZuOcfWNz6a__Fs_OOGe3lrJmWjqZ8a8W_sRZIbicFN-LPZbkPzUR6qU-Ck9kkyGOJKejcRAr8PA2yVDB7e16HAy5rRzI6nutXFZknlf4zaA.QHSj3koVYKodM7GGziLjl-4BFvdZfJvOOX3moRsVvzs",
+      "value": "eyJhbGciOiJkaXIiLCJlbmMiOiJBMjU2Q0JDLUhTNTEyIiwia2lkIjoidW44QVA2YlRHeHhUMzFPZ1h1Y1JXN3RrRlpGdVd1cXV4Q0s5ZHF2N2Zwd2MyTi1PNFQ1YUxQTUwwTWtqQllTd2xaVUVENlhMZHBmamdqZ1JoWGRYU1EifQ..jZam01jif2vThEjVgiZPzA.VyACAwWLo85kMKqI5FCZc9_qEFa7kcoDhp_8WPw_sAE0lbcTFXgMi4CmORFeteJSBXjgHKl9nlZaNd4qD8SZHriosPlK4vqj_ut2Pi_A7Ku-OJwMqRgfIBJA38DVk6vp6XONwAAmeflrPKwxyK0lE89UUleLrfF430VaPHObGEIywX4UiUvd2P0YLv-7uePB2pye49-wsMGMAZRMkjufCGPKl0fG88iadEKUJw42jeRILKl1j-1Dw6Fgbn9v9L24wSVQJ-s5MJos8380m_uf7ItVJsFuC30cpLmoxQSO3obvVCl-Rx81FThKNPYKKKm1lscLjq6PM9JKgA-fvxrXTeRjuWyPvGgzFLkTXe4CRIAxIdjNcbsFyVmf2Lb3yWdgJAwYSPFJwmoQEdjqs8Ur1Q.AS8qq5eE57Gl_7syxXeJ83Qxh1R7O1rrajIy-oaF_fE",
       "domain": "www.afterroar.store",
       "path": "/",
-      "expires": 1778173037.110859,
+      "expires": 1778200568.746568,
       "httpOnly": true,
       "secure": true,
       "sameSite": "Lax"
     }
   ],
-  "origins": []
+  "origins": [
+    {
+      "origin": "https://www.afterroar.store",
+      "localStorage": [
+        {
+          "name": "store-settings-cache",
+          "value": "{\"venueId\":\"cmni8gm7x00006o8gujsifoz4\",\"tips_mode\":\"always\",\"tips_presets\":[15,20,25],\"hq_webhook_url\":\"https://www.fulluproar.com/api/store-ops/webhook\",\"intel_wpn_level\":\"advanced\",\"loyalty_enabled\":true,\"tax_rate_percent\":7,\"hq_webhook_secret\":\"669b61129910d22d97507d19d6d9bf272c1bdadaf58165c87c20154a5df472df\",\"tips_allow_custom\":true,\"intel_advisor_tone\":\"gamer\",\"intel_at_risk_days\":14,\"intel_monthly_rent\":3200,\"push_subscriptions\":[{\"keys\":{\"auth\":\"vQulI810ELekrnr9fW7n1A\",\"p256dh\":\"BJNrujpvMTyMODzLUKi3NCs2bjydO99MxLG0schkhSv-qGUnJFxl5jvg6pNLfxncUFS1UrDwKdKQ3agj_wuEL-I\"},\"endpoint\":\"https://fcm.googleapis.com/fcm/send/dwiOTiDMVMM:APA91bHoCMoz_2Sya-B9lYa9UD5u4TD1wlQKggkjtTE4wpflGyFc1b5BXPx-ME2LqGw4ySfQA76A8QHIR9SbR1KQ3ZlMZH__g40yDjNjbAah1a4dy2cmNb58HvzgS-rpmfKuVT40dN2q\"}],\"onboarding_complete\":true,\"intel_advisor_enabled\":true,\"intel_dead_stock_days\":30,\"intel_monthly_payroll\":4800,\"intel_monthly_insurance\":280,\"intel_monthly_utilities\":450,\"intel_seasonal_warnings\":true,\"receipt_counter_20260403\":13,\"receipt_counter_20260404\":1,\"receipt_counter_20260407\":2,\"getting_started_dismissed\":true,\"intel_monthly_other_fixed\":650,\"loyalty_points_per_dollar\":1,\"stripe_terminal_reader_id\":\"tmr_Gcd3NAYbs16xl1\",\"stripe_connected_account_id\":\"acct_1TH21CDxJyvjnpZV\",\"stripe_terminal_location_id\":\"tml_Gcd3NAuZFoLPnV\",\"stripe_terminal_reader_type\":\"stripe_s710\",\"intel_prefer_credit_buylists\":false,\"stripe_terminal_reader_label\":\"Terminal 001\",\"intel_buylist_cash_comfort_days\":14,\"intel_credit_liability_warn_percent\":50}"
+        },
+        {
+          "name": "onboarding-state-885ccb77-6cc4-4868-b667-6cbf06f61ca8",
+          "value": "{\"step\":0,\"completedSteps\":[],\"storeName\":\"Full Uproar Games & Café\",\"street\":\"\",\"city\":\"\",\"state\":\"\",\"zip\":\"\",\"taxRate\":\"7\",\"phone\":\"\",\"demoSeeded\":false,\"itemCount\":0,\"minimized\":false}"
+        },
+        {
+          "name": "afterroar-training-mode",
+          "value": "true"
+        }
+      ]
+    }
+  ]
 }

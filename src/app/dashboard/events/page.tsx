@@ -240,16 +240,16 @@ export default function EventsPage() {
               {isConnected && (
                 <button
                   onClick={() => { setShowForm(true); setCreateAsHQ(true); }}
-                  className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-medium transition-colors"
+                  className="hidden sm:block px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-medium transition-colors"
                 >
                   New Afterroar Event
                 </button>
               )}
               <button
                 onClick={() => { setShowForm(!showForm); setCreateAsHQ(false); }}
-                className="px-4 py-2 bg-accent hover:opacity-90 text-white rounded-lg text-sm font-medium transition-colors"
+                className="px-3 sm:px-4 py-2 bg-accent hover:opacity-90 text-white rounded-lg text-sm font-medium transition-colors shrink-0"
               >
-                {showForm && !createAsHQ ? 'Cancel' : 'New Event'}
+                {showForm && !createAsHQ ? 'Cancel' : 'New'}
               </button>
             </div>
           }
