@@ -346,7 +346,7 @@ export default function SettingsPage() {
   // ── OVERVIEW: settings hub (when at /dashboard/settings root) ──
   if (isOverview) {
     return (
-      <div className="space-y-4">
+      <div className="flex flex-col h-full gap-4">
         <PageHeader title="Settings" backHref="/dashboard" />
         <p className="text-sm text-muted -mt-2">
           {store?.name} · Tap a section to configure
@@ -387,7 +387,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col h-full gap-4">
       <PageHeader title={TABS.find(t => t.key === activeTab)?.label || 'Settings'} backHref="/dashboard/settings" />
       <p className="text-sm text-muted -mt-2">
         {store?.name} &middot; Changes save automatically

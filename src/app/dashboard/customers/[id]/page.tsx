@@ -187,7 +187,7 @@ export default function CustomerDetailPage() {
   const hasLocalPoints = (customer.loyalty_points ?? 0) > 0;
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col h-full gap-4">
       <PageHeader title={customer.name} backHref="/dashboard/customers" />
       {/* Header */}
       <div className="bg-card border border-card-border rounded-xl p-6">

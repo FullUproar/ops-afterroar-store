@@ -123,7 +123,7 @@ export default function MarginsPage() {
 
   return (
     <FeatureGate module="advanced_reports">
-      <div className="space-y-6">
+      <div className="flex flex-col h-full gap-4">
         <PageHeader
           title="COGS & Margins"
           backHref="/dashboard/reports"

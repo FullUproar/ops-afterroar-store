@@ -88,7 +88,7 @@ export default function SubscriptionPage() {
 
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col h-full gap-4">
       <PageHeader title="Subscription" backHref="/dashboard/settings" />
 
       <div className="max-w-3xl space-y-6">

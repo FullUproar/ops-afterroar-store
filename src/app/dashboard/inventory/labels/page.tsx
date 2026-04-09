@@ -108,7 +108,7 @@ export default function LabelsPage() {
   const totalLabels = Array.from(selected.values()).reduce((s, i) => s + i.quantity, 0);
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col h-full gap-4">
       <PageHeader
         title="Print Labels"
         backHref="/dashboard/inventory"

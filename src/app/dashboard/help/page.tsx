@@ -190,7 +190,7 @@ export default function HelpPage() {
   const showPopular = !isSearching && !selectedCategory;
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4 pb-8 min-w-0">
+    <div className="mx-auto max-w-3xl flex flex-col h-full gap-4 pb-8 min-w-0">
       <PageHeader title="Help Center" backHref="/dashboard" />
 
       {/* Search */}

@@ -298,7 +298,7 @@ export default function DrawerPage() {
 
   // Drawer IS open
   return (
-    <div className="space-y-6 max-w-2xl mx-auto">
+    <div className="flex flex-col h-full gap-4 max-w-2xl mx-auto">
       <div className="flex items-center justify-between">
         <PageHeader title="Cash Drawer" />
         <span className="rounded-full bg-emerald-900/50 px-3 py-1 text-xs font-medium text-emerald-400">

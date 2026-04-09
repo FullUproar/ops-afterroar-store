@@ -43,7 +43,7 @@ export default function ImportPage() {
   }, []);
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col h-full gap-4">
       <PageHeader
         title="Data Import"
         action={

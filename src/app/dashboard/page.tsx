@@ -178,7 +178,7 @@ export default async function DashboardPage() {
   // ── STORE DASHBOARD (Owner/Manager View) ──
   return (
     <DashboardModeGuard>
-    <div className="space-y-6 md:space-y-8">
+    <div className="flex flex-col h-full gap-4 md:gap-6">
       {/* Store Health — submarine-style status dashboard */}
       <StoreHealth />
 

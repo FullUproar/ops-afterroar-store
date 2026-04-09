@@ -463,7 +463,7 @@ function DeckBuilderContent() {
     .reduce((s, m) => s + m.price_cents * Math.min(m.needed, m.in_stock), 0);
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col h-full gap-4">
       <PageHeader title="Deck Builder" />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
