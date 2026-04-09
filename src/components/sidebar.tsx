@@ -5,103 +5,28 @@ import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { useStore } from "@/lib/store-context";
 import { useMode } from "@/lib/mode-context";
-import { NAV_ITEMS, type NavItem } from "@/lib/permissions";
+import { NAV_ITEMS, type NavItem, type Permission, type FeatureModule } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
-import { useState, useEffect, useCallback } from "react";
+import { useCallback } from "react";
 
-// Sidebar nav group definitions
-interface NavGroup {
-  label: string;
-  hrefs: string[];
-}
-
-const NAV_GROUPS: NavGroup[] = [
-  {
-    label: "POS",
-    hrefs: [
-      "/dashboard",
-      "/dashboard/register",
-      "/dashboard/cafe",
-      "/dashboard/drawer",
-      "/dashboard/orders",
-      "/dashboard/fulfillment",
-    ],
-  },
-  {
-    label: "Inventory",
-    hrefs: [
-      "/dashboard/inventory",
-      "/dashboard/singles",
-      "/dashboard/deck-builder",
-      "/dashboard/game-library",
-      "/dashboard/consignment",
-      "/dashboard/promotions",
-      "/dashboard/preorders",
-      // "/dashboard/purchase-orders", // Hidden until ready
-      "/dashboard/stock-counts",
-      "/dashboard/locations",
-      "/dashboard/transfers",
-    ],
-  },
-  {
-    label: "Customers",
-    hrefs: ["/dashboard/customers", "/dashboard/customers/insights", "/dashboard/gift-cards"],
-  },
-  {
-    label: "Events",
-    hrefs: ["/dashboard/events"],
-  },
-  {
-    label: "Trade & Returns",
-    hrefs: ["/dashboard/trade-ins", "/dashboard/returns"],
-  },
-  {
-    label: "Intelligence",
-    hrefs: ["/dashboard/cash-flow", "/dashboard/reports"],
-  },
-  {
-    label: "Afterroar Network",
-    hrefs: ["/dashboard/network"],
-  },
-  {
-    label: "Admin",
-    hrefs: [
-      "/dashboard/staff",
-      "/dashboard/timeclock",
-      "/dashboard/issues",
-      "/dashboard/ops-log",
-      "/dashboard/help",
-    ],
-  },
-  {
-    label: "Settings",
-    hrefs: [
-      "/dashboard/settings",
-      "/dashboard/billing",
-      "/dashboard/import",
-    ],
-  },
+/* ------------------------------------------------------------------ */
+/*  Flat sidebar — top-level destinations only.                         */
+/*  All depth is handled by drill-down within each page.                */
+/* ------------------------------------------------------------------ */
+const SIDEBAR_ITEMS: { href: string; label: string; icon: string; permission: Permission; feature?: FeatureModule }[] = [
+  { href: "/dashboard", label: "Dashboard", icon: "⌂", permission: "checkout" },
+  { href: "/dashboard/inventory", label: "Inventory", icon: "▦", permission: "inventory.view" },
+  { href: "/dashboard/customers", label: "Customers", icon: "♟", permission: "customers.view" },
+  { href: "/dashboard/trade-ins", label: "Trade-Ins", icon: "⇄", permission: "trade_ins" },
+  { href: "/dashboard/events", label: "Events", icon: "★", permission: "events.checkin" },
+  { href: "/dashboard/cash-flow", label: "Intelligence", icon: "◉", permission: "cash_flow" },
+  { href: "/dashboard/orders", label: "Orders", icon: "⊟", permission: "checkout" },
+  { href: "/dashboard/staff", label: "Staff", icon: "⊞", permission: "staff.manage" },
+  { href: "/dashboard/settings", label: "Settings", icon: "⚙", permission: "store.settings" },
+  { href: "/dashboard/help", label: "Help", icon: "?", permission: "checkout" },
 ];
 
-const STORAGE_KEY = "sidebar-expanded";
-
-function getStoredExpanded(): Record<string, boolean> {
-  if (typeof window === "undefined") return {};
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : {};
-  } catch {
-    return {};
-  }
-}
-
-function storeExpanded(state: Record<string, boolean>) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  } catch {
-    // ignore
-  }
-}
+/* (accordion state removed — sidebar is now flat) */
 
 export function Sidebar() {
   const pathname = usePathname();
@@ -111,70 +36,14 @@ export function Sidebar() {
   // Build visible items per group — filter by permission, feature module, and hidden items
   const rawHidden = (store?.settings as Record<string, unknown>)?.hidden_nav_items;
   const hiddenItems = Array.isArray(rawHidden) ? rawHidden as string[] : [];
-  const visibleNav = NAV_ITEMS.filter(
-    (item) => can(item.permission) && (!item.feature || hasModule(item.feature)) && !hiddenItems.includes(item.href)
-  );
 
-  // Map href -> NavItem for quick lookup
-  const itemByHref = new Map<string, NavItem>();
-  for (const item of visibleNav) {
-    itemByHref.set(item.href, item);
-  }
-
-  // Determine which group the current pathname belongs to
   const isActive = useCallback(
     (href: string) => {
       if (href === "/dashboard") return pathname === "/dashboard";
-      // Exact match OR pathname continues with / (prevents /reports matching /reports/sales)
       return pathname === href || pathname.startsWith(href + "/");
     },
     [pathname]
   );
-
-  const activeGroup = NAV_GROUPS.find((g) =>
-    g.hrefs.some((href) => isActive(href))
-  );
-
-  // Expanded state: true = expanded. Active group is always expanded.
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
-  const [hydrated, setHydrated] = useState(false);
-
-  useEffect(() => {
-    setExpanded(getStoredExpanded());
-    setHydrated(true);
-  }, []);
-
-  function toggleGroup(label: string) {
-    setExpanded((prev) => {
-      const currentlyOpen = label in prev
-        ? !!prev[label]
-        : activeGroup?.label === label;
-
-      if (currentlyOpen) {
-        // Closing this group
-        const next = { ...prev, [label]: false };
-        storeExpanded(next);
-        return next;
-      }
-
-      // Opening this group — close all others (accordion behavior)
-      const next: Record<string, boolean> = {};
-      for (const g of visibleGroups) {
-        next[g.label] = g.label === label;
-      }
-      storeExpanded(next);
-      return next;
-    });
-  }
-
-  function isGroupExpanded(group: NavGroup): boolean {
-    // Explicit state takes priority
-    if (group.label in expanded) {
-      return !!expanded[group.label];
-    }
-    // Default: active group is open, others are closed
-    return activeGroup?.label === group.label;
-  }
 
   function handleSignOut() {
     signOut({ callbackUrl: "/login" });
@@ -182,18 +51,6 @@ export function Sidebar() {
 
   // Hide sidebar in register mode
   if (mode === "register") return null;
-
-  // Filter groups to only those with visible items
-  const visibleGroups = NAV_GROUPS.map((group) => ({
-    ...group,
-    items: group.hrefs
-      .map((href) => itemByHref.get(href))
-      .filter((item): item is NavItem => !!item),
-  })).filter((g) => g.items.length > 0);
-
-  // Catch any visible items not in any group (safety net)
-  const groupedHrefs = new Set(NAV_GROUPS.flatMap((g) => g.hrefs));
-  const ungroupedItems = visibleNav.filter((item) => !groupedHrefs.has(item.href));
 
   return (
     <aside className="hidden lg:flex h-full w-56 flex-col border-r border-card-border bg-card transition-all duration-200">
@@ -216,65 +73,28 @@ export function Sidebar() {
         </Link>
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-2 py-2 scroll-visible">
-        {visibleGroups.map((group) => {
-          const expanded = hydrated ? isGroupExpanded(group) : (activeGroup?.label === group.label);
-          return (
-            <div key={group.label} className="mb-1">
-              <button
-                type="button"
-                onClick={() => toggleGroup(group.label)}
-                className="flex w-full items-center justify-between px-2 lg:px-3 py-2 text-xs font-semibold uppercase tracking-wider text-muted hover:text-foreground transition-colors"
+      <nav className="flex-1 px-2 py-2 space-y-0.5">
+        {SIDEBAR_ITEMS
+          .filter((item) => can(item.permission) && (!item.feature || hasModule(item.feature)) && !hiddenItems.includes(item.href))
+          .map((item) => {
+            const active = isActive(item.href);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                title={item.label}
+                className={cn(
+                  "flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm transition-colors justify-center lg:justify-start",
+                  active
+                    ? "bg-card-hover text-foreground font-medium"
+                    : "text-muted hover:bg-card-hover hover:text-foreground"
+                )}
               >
-                <span className="hidden lg:inline">{group.label}</span>
-                <span className="lg:hidden text-center w-full text-[10px]">···</span>
-                <span className="text-[10px] hidden lg:inline">{expanded ? "\u25BE" : "\u25B8"}</span>
-              </button>
-              {expanded && (
-                <div>
-                  {group.items.map((item) => {
-                    const active = isActive(item.href);
-                    return (
-                      <Link
-                        key={item.href}
-                        href={item.href}
-                        title={item.label}
-                        className={cn(
-                          "flex items-center gap-2 rounded-md px-2 lg:pl-6 lg:pr-3 py-2 text-sm transition-colors justify-center lg:justify-start",
-                          active
-                            ? "bg-card-hover text-foreground font-medium lg:border-l-2 lg:border-accent"
-                            : "text-muted hover:bg-card-hover hover:text-foreground lg:border-l-2 lg:border-transparent"
-                        )}
-                      >
-                        <span className="w-5 text-center opacity-60" style={{ fontFamily: 'inherit' }}>{item.icon}</span>
-                        <span className="hidden lg:inline">{item.label}</span>
-                      </Link>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          );
-        })}
-
-        {ungroupedItems.map((item) => {
-          const active = isActive(item.href);
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                "flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors",
-                active
-                  ? "bg-card-hover text-foreground font-medium border-l-2 border-accent"
-                  : "text-muted hover:bg-card-hover hover:text-foreground border-l-2 border-transparent"
-              )}
-            >
-              <span className="w-5 text-center opacity-60" style={{ fontFamily: 'inherit' }}>{item.icon}</span>
-              {item.label}
-            </Link>
-          );
-        })}
+                <span className="w-5 text-center opacity-60 shrink-0" style={{ fontFamily: 'inherit' }}>{item.icon}</span>
+                <span className="hidden lg:inline">{item.label}</span>
+              </Link>
+            );
+          })}
       </nav>
 
       <div className="border-t border-card-border px-2 lg:px-4 py-3">
