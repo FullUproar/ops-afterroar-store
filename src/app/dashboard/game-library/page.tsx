@@ -349,7 +349,7 @@ export default function GameLibraryPage() {
               <p className="text-muted">No checkouts recorded yet.</p>
             </div>
           ) : (
-            <div className="overflow-x-auto rounded-xl border border-card-border">
+            <div className="overflow-x-auto rounded-xl border border-card-border scroll-visible">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-card-border bg-card text-left text-muted">
@@ -511,7 +511,7 @@ export default function GameLibraryPage() {
                     </span>
                   )}
                   {customerResults.length > 0 && (
-                    <div className="absolute left-0 right-0 top-full mt-1 max-h-40 overflow-y-auto rounded-xl border border-input-border bg-card shadow-lg z-10">
+                    <div className="absolute left-0 right-0 top-full mt-1 max-h-40 overflow-y-auto rounded-xl border border-input-border bg-card shadow-lg z-10 scroll-visible">
                       {customerResults.map((c) => (
                         <button
                           key={c.id}

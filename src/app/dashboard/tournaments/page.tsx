@@ -328,7 +328,7 @@ export default function TournamentsPage() {
         {(activeTournament.status === 'active' || activeTournament.status === 'completed') && roundNumbers.length > 0 && (
           <div className="bg-card border border-card-border rounded-xl p-4">
             <h2 className="text-sm font-semibold text-foreground mb-4">Bracket</h2>
-            <div className="flex gap-8 overflow-x-auto pb-4">
+            <div className="flex gap-8 overflow-x-auto pb-4 scroll-visible">
               {roundNumbers.map((round) => (
                 <div key={round} className="min-w-55">
                   <h3 className="text-xs text-muted uppercase tracking-wide mb-3">

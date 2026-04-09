@@ -437,7 +437,7 @@ export default function NewImportPage() {
           </div>
 
           {dryRunResult.errors.length > 0 && (
-            <div className="max-h-40 overflow-y-auto rounded-xl border border-red-500/20 bg-red-500/5 p-4">
+            <div className="max-h-40 overflow-y-auto rounded-xl border border-red-500/20 bg-red-500/5 p-4 scroll-visible">
               <h3 className="text-sm font-medium text-red-400">Errors</h3>
               <ul className="mt-2 space-y-1 text-xs text-red-300">
                 {dryRunResult.errors.slice(0, 20).map((err, i) => (

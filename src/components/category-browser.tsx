@@ -268,7 +268,7 @@ export function CategoryBrowser({ onAddToCart }: CategoryBrowserProps) {
               No in-stock items in this category.
             </div>
           ) : (
-            <div className="space-y-1 max-h-[60vh] md:max-h-[50vh] overflow-y-auto">
+            <div className="space-y-1 max-h-[60vh] md:max-h-[50vh] overflow-y-auto scroll-visible">
               {products.map((item) => (
                 <div
                   key={item.id}

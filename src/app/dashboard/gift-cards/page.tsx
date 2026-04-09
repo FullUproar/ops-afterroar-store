@@ -182,7 +182,7 @@ export default function GiftCardsPage() {
           </div>
 
           {/* Desktop table */}
-          <div className="hidden md:block overflow-x-auto rounded-xl border border-card-border">
+          <div className="hidden md:block overflow-x-auto rounded-xl border border-card-border scroll-visible">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-zinc-800 bg-card text-left text-muted">
@@ -306,7 +306,7 @@ export default function GiftCardsPage() {
           onKeyDown={(e) => e.key === "Escape" && setDetail(null)}
         >
           <div
-            className="w-full max-w-lg max-h-[80vh] overflow-y-auto rounded-xl border border-card-border bg-card p-6 shadow-2xl mx-4"
+            className="w-full max-w-lg max-h-[80vh] overflow-y-auto rounded-xl border border-card-border bg-card p-6 shadow-2xl mx-4 scroll-visible"
             onClick={(e) => e.stopPropagation()}
           >
             {detailLoading && !detail ? (

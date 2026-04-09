@@ -226,7 +226,7 @@ export default function CardEvaluatorPage() {
         )}
 
         {searchResults.length > 0 && (
-          <div className="absolute z-20 mt-1 w-full max-h-80 overflow-y-auto rounded-xl border border-input-border bg-card shadow-xl">
+          <div className="absolute z-20 mt-1 w-full max-h-80 overflow-y-auto rounded-xl border border-input-border bg-card shadow-xl scroll-visible">
             {searchResults.map((card) => {
               const priceUsd = card.price_usd ? `$${card.price_usd}` : null;
               const priceFoil = card.price_usd_foil

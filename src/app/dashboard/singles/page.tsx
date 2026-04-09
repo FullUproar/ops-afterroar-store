@@ -341,7 +341,7 @@ function InventoryTab({
 
       {/* Game Filter Tabs */}
       <div className="overflow-hidden w-full">
-      <div className="flex gap-1.5 overflow-x-auto pb-1">
+      <div className="flex gap-1.5 overflow-x-auto pb-1 scroll-visible">
         {GAME_TABS.map((tab) => (
           <button
             key={tab}
@@ -390,7 +390,7 @@ function InventoryTab({
         <>
           {/* Responsive table */}
           <div className="rounded-xl border border-card-border bg-card overflow-hidden">
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto scroll-visible">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-card-border bg-card-hover/50">

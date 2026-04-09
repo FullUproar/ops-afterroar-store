@@ -323,7 +323,7 @@ export function BarcodeLearnModal({
       {/* Modal */}
       <div
         ref={modalRef}
-        className="relative w-full sm:max-w-lg max-h-[90vh] overflow-y-auto bg-card border border-card-border rounded-t-2xl sm:rounded-2xl shadow-xl"
+        className="relative w-full sm:max-w-lg max-h-[90vh] overflow-y-auto bg-card border border-card-border rounded-t-2xl sm:rounded-2xl shadow-xl scroll-visible"
         style={{ scrollPaddingBottom: "50vh" }}
         onClick={(e) => e.stopPropagation()}
         onTouchStart={(e) => e.stopPropagation()}
@@ -448,7 +448,7 @@ export function BarcodeLearnModal({
                 <p className="text-sm text-muted">Searching...</p>
               )}
               {assignResults.length > 0 && (
-                <div className="max-h-48 overflow-y-auto border border-card-border rounded-xl divide-y divide-card-border">
+                <div className="max-h-48 overflow-y-auto border border-card-border rounded-xl divide-y divide-card-border scroll-visible">
                   {assignResults.map((item) => (
                     <button
                       key={item.id}

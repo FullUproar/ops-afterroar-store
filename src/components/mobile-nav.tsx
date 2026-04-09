@@ -312,7 +312,7 @@ export function MobileNav() {
           )}
 
           {/* Scrollable groups */}
-          <div className="flex-1 overflow-y-auto px-4 py-4 space-y-6">
+          <div className="flex-1 overflow-y-auto px-4 py-4 space-y-6 scroll-visible">
             {MORE_GROUPS.map((group) => {
               const visibleItems = group.items.filter((item) =>
                 can(item.permission as Parameters<typeof can>[0])

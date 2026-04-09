@@ -333,7 +333,7 @@ export default function PurchaseOrdersPage() {
                           className="w-full mt-1 bg-background border border-input-border rounded px-3 py-1 text-foreground text-xs"
                         />
                         {searchResults.length > 0 && (
-                          <div className="absolute z-10 w-full bg-card-hover border border-input-border rounded mt-1 max-h-32 overflow-y-auto">
+                          <div className="absolute z-10 w-full bg-card-hover border border-input-border rounded mt-1 max-h-32 overflow-y-auto scroll-visible">
                             {searchResults.map((r) => (
                               <button
                                 key={r.id}

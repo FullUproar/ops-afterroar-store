@@ -495,7 +495,7 @@ export default function BulkTradeInPage() {
               <div className="text-xs text-muted">Searching...</div>
             )}
             {customerResults.length > 0 && (
-              <div className="space-y-1 rounded-xl border border-input-border bg-card-hover p-2 max-h-40 overflow-y-auto">
+              <div className="space-y-1 rounded-xl border border-input-border bg-card-hover p-2 max-h-40 overflow-y-auto scroll-visible">
                 {customerResults.map((c) => (
                   <button
                     key={c.id}
@@ -573,7 +573,7 @@ export default function BulkTradeInPage() {
 
         {/* Search dropdown */}
         {searchResults.length > 0 && (
-          <div className="absolute z-20 mt-1 w-full max-h-80 overflow-y-auto rounded-xl border border-input-border bg-card shadow-xl">
+          <div className="absolute z-20 mt-1 w-full max-h-80 overflow-y-auto rounded-xl border border-input-border bg-card shadow-xl scroll-visible">
             {searchResults.map((card) => {
               const priceUsd = card.price_usd
                 ? `$${card.price_usd}`

@@ -783,7 +783,7 @@ export default function CheckoutPage() {
 
               {/* Search results dropdown */}
               {showResults && searchResults.length > 0 && (
-                <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-[60vh] md:max-h-80 overflow-y-auto rounded-xl border border-card-border bg-card shadow-xl">
+                <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-[60vh] md:max-h-80 overflow-y-auto rounded-xl border border-card-border bg-card shadow-xl scroll-visible">
                   {searchResults.map((item, idx) => (
                     <button
                       key={item.id}
@@ -891,7 +891,7 @@ export default function CheckoutPage() {
             {favorites.length > 0 && cart.length === 0 && !browseMode && !showUnlisted && (
               <div>
                 <div className="text-xs text-muted mb-1.5">Quick Add</div>
-                <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+                <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scroll-visible">
                   {favorites.map((fav) => (
                     <button
                       key={fav.id}
@@ -1242,11 +1242,11 @@ export default function CheckoutPage() {
               </div>
 
               {/* Scrollable content */}
-              <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+              <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4 scroll-visible">
                 {/* Order summary */}
                 <div className="rounded-xl border border-card-border bg-card p-4">
                   <div className="text-sm font-medium text-muted mb-2">Order Summary</div>
-                  <div className="space-y-1 max-h-40 overflow-y-auto">
+                  <div className="space-y-1 max-h-40 overflow-y-auto scroll-visible">
                     {cart.map((item) => (
                       <div
                         key={item.inventory_item_id}
@@ -1583,7 +1583,7 @@ export default function CheckoutPage() {
                 placeholder="Search customers by name..."
                 className="mb-3 w-full rounded-md border border-card-border bg-background px-3 py-2 text-foreground placeholder:text-muted focus:border-accent focus:outline-none"
               />
-              <div className="max-h-64 space-y-1 overflow-y-auto">
+              <div className="max-h-64 space-y-1 overflow-y-auto scroll-visible">
                 {customerResults.map((c) => (
                   <button
                     key={c.id}
@@ -1690,7 +1690,7 @@ export default function CheckoutPage() {
           <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-overlay-bg">
             <div
               id="receipt-printable"
-              className="w-full md:max-w-md rounded-t-2xl md:rounded-xl border-0 md:border border-card-border bg-card p-5 md:p-6 shadow-2xl max-h-[90vh] overflow-y-auto"
+              className="w-full md:max-w-md rounded-t-2xl md:rounded-xl border-0 md:border border-card-border bg-card p-5 md:p-6 shadow-2xl max-h-[90vh] overflow-y-auto scroll-visible"
             >
               {/* Receipt header */}
               <div className="mb-4 text-center">
@@ -1874,7 +1874,7 @@ export default function CheckoutPage() {
             {cartItemCount}
           </span>
         </div>
-        <div className="max-h-[40vh] md:max-h-72 divide-y divide-zinc-800 overflow-y-auto">
+        <div className="max-h-[40vh] md:max-h-72 divide-y divide-zinc-800 overflow-y-auto scroll-visible">
           {cart.map((item) => (
             <div
               key={item.inventory_item_id}

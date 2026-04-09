@@ -40,7 +40,7 @@ export function Recommendations({
       </h3>
 
       {/* Horizontal scroll on mobile, grid on desktop */}
-      <div className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory sm:grid sm:grid-cols-2 lg:grid-cols-3 sm:overflow-visible">
+      <div className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory sm:grid sm:grid-cols-2 lg:grid-cols-3 sm:overflow-visible scroll-visible">
         {items.map((rec, i) => {
           const config = TYPE_CONFIG[rec.type] || TYPE_CONFIG.also_bought;
 

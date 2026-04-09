@@ -76,7 +76,7 @@ export default async function ReportsPage() {
           </div>
 
           {/* Desktop table */}
-          <div className="hidden md:block overflow-x-auto rounded-xl border border-card-border">
+          <div className="hidden md:block overflow-x-auto rounded-xl border border-card-border scroll-visible">
             <table className="w-full text-left text-sm">
               <thead className="border-b border-card-border bg-card">
                 <tr>

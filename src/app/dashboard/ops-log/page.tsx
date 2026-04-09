@@ -305,7 +305,7 @@ export default function OpsLogPage() {
                       {/* Expanded metadata */}
                       {isExpanded && hasMeta && (
                         <div className="mx-3 md:ml-[5.75rem] mb-2 rounded-md bg-card border border-card-border p-3">
-                          <pre className="text-xs text-muted overflow-x-auto whitespace-pre-wrap break-all">
+                          <pre className="text-xs text-muted overflow-x-auto whitespace-pre-wrap break-all scroll-visible">
                             {JSON.stringify(log.metadata, null, 2)}
                           </pre>
                           {log.staff_name && (

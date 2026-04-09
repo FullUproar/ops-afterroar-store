@@ -232,7 +232,7 @@ export default function TransfersPage() {
           </div>
 
           {/* Desktop table */}
-          <div className="hidden md:block overflow-x-auto rounded-xl border border-card-border">
+          <div className="hidden md:block overflow-x-auto rounded-xl border border-card-border scroll-visible">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-card-border bg-card text-left text-muted">
@@ -281,7 +281,7 @@ export default function TransfersPage() {
           onKeyDown={(e) => e.key === "Escape" && setShowNew(false)}
         >
           <div
-            className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-xl border border-card-border bg-card p-6 shadow-2xl mx-4"
+            className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-xl border border-card-border bg-card p-6 shadow-2xl mx-4 scroll-visible"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-4">
@@ -349,7 +349,7 @@ export default function TransfersPage() {
                   className="w-full rounded-xl border border-card-border bg-background px-3 py-2 text-foreground placeholder:text-muted focus:border-accent focus:outline-none"
                 />
                 {itemResults.length > 0 && (
-                  <div className="absolute left-0 right-0 top-full z-10 mt-1 max-h-40 overflow-y-auto rounded-xl border border-card-border bg-card shadow-xl">
+                  <div className="absolute left-0 right-0 top-full z-10 mt-1 max-h-40 overflow-y-auto rounded-xl border border-card-border bg-card shadow-xl scroll-visible">
                     {itemResults.map((item) => (
                       <button
                         key={item.id}

@@ -681,7 +681,7 @@ export default function CashFlowPage() {
         {data.margin_analysis.length > 0 && (
           <div className="mt-6">
             <h3 className="mb-3 text-sm font-semibold text-foreground">Margin Analysis by Category</h3>
-            <div className="overflow-x-auto rounded-xl">
+            <div className="overflow-x-auto rounded-xl scroll-visible">
               <table className="w-full text-left text-sm">
                 <thead className="border-b border-card-border text-muted">
                   <tr>

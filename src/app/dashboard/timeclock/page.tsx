@@ -246,7 +246,7 @@ export default function TimeclockPage() {
                 </div>
 
                 {/* Desktop table */}
-                <div className="hidden md:block overflow-x-auto">
+                <div className="hidden md:block overflow-x-auto scroll-visible">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-card-border text-muted text-left">

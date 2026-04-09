@@ -272,7 +272,7 @@ export function OnboardingPanel() {
       </div>
 
       {/* Content — scrollable */}
-      <div className="flex-1 overflow-y-auto px-5 py-4">
+      <div className="flex-1 overflow-y-auto px-5 py-4 scroll-visible">
         {/* Step 1: Store Details */}
         {state.step === 0 && (
           <div className="space-y-4">

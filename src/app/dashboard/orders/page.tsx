@@ -179,7 +179,7 @@ export default function OrdersPage() {
       <PageHeader title="Orders" />
 
       {/* Status filter tabs */}
-      <div className="flex gap-2 overflow-x-auto pb-1">
+      <div className="flex gap-2 overflow-x-auto pb-1 scroll-visible">
         {(["", "pending", "processing", "shipped", "delivered", "cancelled"] as StatusFilter[]).map(
           (s) => (
             <button
@@ -271,7 +271,7 @@ export default function OrdersPage() {
             </div>
 
             {/* Content */}
-            <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+            <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4 scroll-visible">
               {/* Customer */}
               {selectedOrder.customer && (
                 <div className="rounded-xl border border-card-border bg-card p-4">

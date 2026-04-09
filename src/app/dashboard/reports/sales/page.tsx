@@ -245,7 +245,7 @@ export default function SalesPage() {
           {data.daily_revenue.length > 0 && (
             <section className="space-y-3">
               <SectionHeader>Revenue by Day</SectionHeader>
-              <div className="rounded-xl border border-card-border bg-card p-4 overflow-x-auto">
+              <div className="rounded-xl border border-card-border bg-card p-4 overflow-x-auto scroll-visible">
                 <div className="flex items-end gap-1 min-w-fit" style={{ height: 120 }}>
                   {(() => {
                     const maxRev = Math.max(...data.daily_revenue.map((d) => d.revenue_cents), 1);

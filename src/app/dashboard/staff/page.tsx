@@ -161,7 +161,7 @@ export default function StaffPage() {
           action={{ label: "Invite Staff", onClick: () => setShowInvite(true) }}
         />
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-card-border">
+        <div className="overflow-x-auto rounded-xl border border-card-border scroll-visible">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-card-border bg-card text-left text-muted">

@@ -365,7 +365,7 @@ export default function DrawerPage() {
           onKeyDown={(e) => e.key === "Escape" && setShowCloseModal(false)}
         >
           <div
-            className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-xl border border-card-border bg-card p-6 shadow-2xl mx-4"
+            className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-xl border border-card-border bg-card p-6 shadow-2xl mx-4 scroll-visible"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-4">

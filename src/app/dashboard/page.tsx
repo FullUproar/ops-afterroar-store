@@ -250,7 +250,7 @@ export default async function DashboardPage() {
               </div>
 
               {/* Desktop: compact table */}
-              <div className="hidden lg:block overflow-x-auto rounded-xl border border-card-border shadow-sm dark:shadow-none">
+              <div className="hidden lg:block overflow-x-auto rounded-xl border border-card-border shadow-sm dark:shadow-none scroll-visible">
                 <table className="w-full text-left text-sm">
                   <thead className="border-b border-card-border bg-card">
                     <tr>

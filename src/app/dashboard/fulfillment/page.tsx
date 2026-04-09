@@ -588,7 +588,7 @@ ${sections.map((s: typeof sections[number]) => `
                         </div>
                       ) : (
                         <>
-                          <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                          <div className="space-y-1.5 max-h-48 overflow-y-auto scroll-visible">
                             {rates.map((rate, i) => (
                               <button
                                 key={`${rate.carrier}-${rate.code}`}

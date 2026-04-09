@@ -35,7 +35,7 @@ export function ActionBar({
   onShowLastReceipt,
 }: ActionBarProps) {
   return (
-    <div className="shrink-0 flex items-center gap-0.5 sm:gap-1 px-1 sm:px-2 h-11 sm:h-14 border-b border-card-border bg-card overflow-x-auto">
+    <div className="shrink-0 flex items-center gap-0.5 sm:gap-1 px-1 sm:px-2 h-11 sm:h-14 border-b border-card-border bg-card overflow-x-auto scroll-visible">
       <div className="flex items-center gap-1 shrink-0">
         {/* Search */}
         <button

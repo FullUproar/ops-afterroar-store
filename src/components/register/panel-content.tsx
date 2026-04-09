@@ -268,7 +268,7 @@ export function PanelContent(props: PanelContentProps) {
                   ))}
                 </div>
               )}
-              <div className="space-y-1 max-h-64 overflow-y-auto">
+              <div className="space-y-1 max-h-64 overflow-y-auto scroll-visible">
                 {customerResults.map((c) => (
                   <button key={c.id} onClick={() => { setCustomer(c); setActivePanel(null); (document.activeElement as HTMLElement)?.blur(); }} className="w-full flex items-center justify-between rounded-xl px-4 py-3 text-left bg-card-hover hover:bg-accent-light active:bg-accent-light transition-colors" style={{ minHeight: 52 }}>
                     <div>

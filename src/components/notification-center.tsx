@@ -180,7 +180,7 @@ export function NotificationCenter() {
             </div>
           </div>
 
-          <div className="overflow-y-auto max-h-80">
+          <div className="overflow-y-auto max-h-80 scroll-visible">
             {loading && !fetched && (
               <div className="px-4 py-6 text-center text-sm text-muted">Loading...</div>
             )}

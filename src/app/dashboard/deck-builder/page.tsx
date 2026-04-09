@@ -501,7 +501,7 @@ function DeckBuilderContent() {
 
               {/* Commander search results */}
               {commanderResults.length > 0 && (
-                <div className="max-h-72 overflow-y-auto space-y-1.5 rounded-xl border border-card-border bg-card p-2">
+                <div className="max-h-72 overflow-y-auto space-y-1.5 rounded-xl border border-card-border bg-card p-2 scroll-visible">
                   {commanderResults.map((cmdr) => (
                     <button
                       key={cmdr.name}
@@ -553,7 +553,7 @@ function DeckBuilderContent() {
                   <label className="block text-sm font-semibold text-muted uppercase tracking-wider">
                     Top Synergy Cards ({commanderData.synergy_cards.length})
                   </label>
-                  <div className="max-h-80 overflow-y-auto space-y-1 rounded-xl border border-card-border bg-card p-2">
+                  <div className="max-h-80 overflow-y-auto space-y-1 rounded-xl border border-card-border bg-card p-2 scroll-visible">
                     {commanderData.synergy_cards.slice(0, 30).map((card, i) => (
                       <div
                         key={`${card.name}-${i}`}
@@ -625,7 +625,7 @@ function DeckBuilderContent() {
                 </div>
               )}
               {pokemonDecks.length > 0 && (
-                <div className="space-y-2 max-h-[28rem] overflow-y-auto">
+                <div className="space-y-2 max-h-[28rem] overflow-y-auto scroll-visible">
                   {pokemonDecks.map((deck, i) => (
                     <div
                       key={i}
@@ -776,7 +776,7 @@ function DeckBuilderContent() {
                           {matchLoading ? "Checking..." : "Check Inventory"}
                         </button>
                       </div>
-                      <div className="max-h-96 overflow-y-auto space-y-1.5 rounded-xl border border-card-border bg-card p-2">
+                      <div className="max-h-96 overflow-y-auto space-y-1.5 rounded-xl border border-card-border bg-card p-2 scroll-visible">
                         {searchResults.map((card, i) => (
                           <div
                             key={`${card.name}-${i}`}
@@ -832,7 +832,7 @@ function DeckBuilderContent() {
                         Parsed: {parsedCards.length} unique cards,{" "}
                         {parsedCards.reduce((s, c) => s + c.quantity, 0)} total
                       </div>
-                      <div className="space-y-1 max-h-48 overflow-y-auto">
+                      <div className="space-y-1 max-h-48 overflow-y-auto scroll-visible">
                         {parsedCards.map((c, i) => (
                           <div
                             key={i}
@@ -867,7 +867,7 @@ function DeckBuilderContent() {
                 Inventory Match
               </div>
 
-              <div className="space-y-3 max-h-[32rem] overflow-y-auto pr-1">
+              <div className="space-y-3 max-h-[32rem] overflow-y-auto pr-1 scroll-visible">
                 {inventoryResults.map((match, i) => (
                   <InventoryCard
                     key={`${match.name}-${i}`}

@@ -148,7 +148,7 @@ export function PrintLabelsModal({ onClose, preselected }: PrintLabelsModalProps
           el.addEventListener("focusin", handler);
           return () => el.removeEventListener("focusin", handler);
         }}
-        className="w-full max-w-lg rounded-xl border border-card-border bg-card p-6 shadow-2xl mx-4 max-h-[90vh] overflow-y-auto"
+        className="w-full max-w-lg rounded-xl border border-card-border bg-card p-6 shadow-2xl mx-4 max-h-[90vh] overflow-y-auto scroll-visible"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -203,7 +203,7 @@ export function PrintLabelsModal({ onClose, preselected }: PrintLabelsModalProps
             <h3 className="text-xs font-semibold text-muted uppercase tracking-wider mb-2">
               Selected ({selected.size} items, {totalLabels} labels)
             </h3>
-            <div className="space-y-1.5 max-h-40 overflow-y-auto">
+            <div className="space-y-1.5 max-h-40 overflow-y-auto scroll-visible">
               {Array.from(selected.values()).map(({ item, quantity }) => (
                 <div
                   key={item.id}
@@ -255,7 +255,7 @@ export function PrintLabelsModal({ onClose, preselected }: PrintLabelsModalProps
 
         {/* Search results */}
         {searchQuery.trim() && (
-          <div className="mb-4 max-h-48 overflow-y-auto rounded-lg border border-card-border">
+          <div className="mb-4 max-h-48 overflow-y-auto rounded-lg border border-card-border scroll-visible">
             {searching ? (
               <p className="text-xs text-muted p-3">Searching...</p>
             ) : searchResults.length === 0 ? (

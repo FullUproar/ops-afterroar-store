@@ -153,7 +153,7 @@ export default function ConsignmentPage() {
               <label className="block text-xs text-muted mb-1">Consignor (customer)</label>
               <input type="text" value={customerQuery} onChange={(e) => setCustomerQuery(e.target.value)} placeholder="Search customers..." className="w-full rounded-lg border border-input-border bg-input-bg px-3 py-2 text-sm text-foreground placeholder:text-muted focus:border-accent focus:outline-none" autoFocus />
               {customerResults.length > 0 && (
-                <div className="mt-1 rounded-lg border border-card-border bg-card max-h-40 overflow-y-auto">
+                <div className="mt-1 rounded-lg border border-card-border bg-card max-h-40 overflow-y-auto scroll-visible">
                   {customerResults.map((c) => (
                     <button key={c.id} onClick={() => { setSelectedConsignor(c); setCustomerQuery(""); }} className="w-full text-left px-3 py-2 text-sm text-foreground hover:bg-card-hover">{c.name}</button>
                   ))}
@@ -203,7 +203,7 @@ export default function ConsignmentPage() {
           <p className="text-muted">No consignment items{filter !== "all" ? ` with status "${filter}"` : ""}.</p>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-card-border">
+        <div className="overflow-x-auto rounded-xl border border-card-border scroll-visible">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-card-border bg-card text-muted text-left">

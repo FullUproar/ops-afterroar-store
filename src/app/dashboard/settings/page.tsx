@@ -544,7 +544,7 @@ export default function SettingsPage() {
                       />
                       {searchingVenues && <p className="mt-1 text-xs text-muted">Searching...</p>}
                       {venueResults.length > 0 && (
-                        <div className="absolute z-10 mt-1 w-full bg-zinc-800 border border-zinc-700 rounded-xl shadow-lg max-h-48 overflow-y-auto">
+                        <div className="absolute z-10 mt-1 w-full bg-zinc-800 border border-zinc-700 rounded-xl shadow-lg max-h-48 overflow-y-auto scroll-visible">
                           {venueResults.map((v) => (
                             <button
                               key={v.id}

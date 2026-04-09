@@ -222,7 +222,7 @@ export function Sidebar() {
         </Link>
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-2 py-2">
+      <nav className="flex-1 overflow-y-auto px-2 py-2 scroll-visible">
         {visibleGroups.map((group) => {
           const expanded = hydrated ? isGroupExpanded(group) : (activeGroup?.label === group.label);
           return (

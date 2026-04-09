@@ -1702,7 +1702,7 @@ export default function RegisterPage() {
 
         {/* Right panel (desktop): active panel content */}
         {activePanel && activePanel !== "scan" && (
-          <div className="hidden lg:block lg:w-[40%] xl:w-[38%] border-l border-card-border bg-card overflow-y-auto">
+          <div className="hidden lg:block lg:w-[40%] xl:w-[38%] border-l border-card-border bg-card overflow-y-auto scroll-visible">
             <PanelContent {...panelProps} />
           </div>
         )}
@@ -1908,7 +1908,7 @@ export default function RegisterPage() {
       {showLastReceipt && lastReceipt && (
         <div className="absolute inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/60 no-print" onClick={() => setShowLastReceipt(false)} />
-          <div className="relative bg-card rounded-2xl border border-card-border w-full max-w-sm mx-4 max-h-[80vh] overflow-y-auto no-print">
+          <div className="relative bg-card rounded-2xl border border-card-border w-full max-w-sm mx-4 max-h-[80vh] overflow-y-auto no-print scroll-visible">
             <div className="p-5 space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-base font-bold text-foreground">Last Receipt</span>
@@ -2055,7 +2055,7 @@ export default function RegisterPage() {
               {parkedCarts.length === 0 ? (
                 <div className="flex items-center justify-center h-24 text-muted text-sm">No parked carts</div>
               ) : (
-                <div className="space-y-2 max-h-[50vh] overflow-y-auto">
+                <div className="space-y-2 max-h-[50vh] overflow-y-auto scroll-visible">
                   {parkedCarts.map((pc) => {
                     const ago = getTimeAgo(pc.parkedAt);
                     return (

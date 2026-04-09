@@ -838,7 +838,7 @@ export function MoreMenu({
                 className="w-full rounded-xl border border-input-border bg-input-bg px-4 py-3 text-foreground placeholder:text-muted focus:border-accent focus:outline-none"
                 style={{ fontSize: 16 }}
               />
-              <div className="space-y-1 max-h-48 overflow-y-auto">
+              <div className="space-y-1 max-h-48 overflow-y-auto scroll-visible">
                 {creditCustomerResults.map((c) => (
                   <button
                     key={c.id}
@@ -956,7 +956,7 @@ export function MoreMenu({
                 style={{ fontSize: 16 }}
               />
               {returnSalesLoading && <div className="text-sm text-muted">Searching...</div>}
-              <div className="space-y-1 max-h-64 overflow-y-auto">
+              <div className="space-y-1 max-h-64 overflow-y-auto scroll-visible">
                 {returnSales.map((sale) => {
                   const hasReturnable = sale.items.some(i => i.max_returnable > 0);
                   return (
@@ -986,7 +986,7 @@ export function MoreMenu({
               <div className="text-base text-muted">
                 Sale to {returnSelectedSale.customer_name} on {new Date(returnSelectedSale.created_at).toLocaleDateString()} — {formatCents(returnSelectedSale.amount_cents)}
               </div>
-              <div className="space-y-1 max-h-48 overflow-y-auto">
+              <div className="space-y-1 max-h-48 overflow-y-auto scroll-visible">
                 {returnSelectedItems.map((item, idx) => (
                   <div
                     key={item.inventory_item_id}
@@ -1685,7 +1685,7 @@ export function MoreMenu({
                 className="w-full rounded-xl border border-input-border bg-input-bg px-4 text-foreground placeholder:text-muted focus:border-accent focus:outline-none"
                 style={{ height: 48, fontSize: 18 }}
               />
-              <div className="space-y-1 max-h-64 overflow-y-auto">
+              <div className="space-y-1 max-h-64 overflow-y-auto scroll-visible">
                 {tradeCustomerResults.map((c) => (
                   <button
                     key={c.id}
@@ -1706,7 +1706,7 @@ export function MoreMenu({
             </div>
           ) : tradeEvalSelected ? (
             /* ---- Step 2: Evaluate selected card ---- */
-            <div className="space-y-3 shrink-0 overflow-y-auto flex-1 min-h-0">
+            <div className="space-y-3 shrink-0 overflow-y-auto flex-1 min-h-0 scroll-visible">
               {/* Card image */}
               {tradeEvalSelected.image_url && (
                 <div className="flex justify-center">
@@ -1820,7 +1820,7 @@ export function MoreMenu({
             </div>
           ) : (
             /* ---- Step 1: Search for cards ---- */
-            <div className="space-y-2 flex-1 min-h-0 overflow-y-auto">
+            <div className="space-y-2 flex-1 min-h-0 overflow-y-auto scroll-visible">
               <div className="flex items-center gap-2 text-sm text-muted shrink-0">
                 <span>Buying from:</span>
                 <span className="font-medium text-foreground">{tradeTarget.name}</span>
@@ -1882,7 +1882,7 @@ export function MoreMenu({
               <div className="text-sm font-semibold text-muted uppercase tracking-wider">
                 Stack ({tradeStack.length} card{tradeStack.length !== 1 ? "s" : ""})
               </div>
-              <div className="space-y-1 max-h-32 overflow-y-auto">
+              <div className="space-y-1 max-h-32 overflow-y-auto scroll-visible">
                 {tradeStack.map((item) => (
                   <div key={item.id} className="flex items-center gap-2 rounded-lg px-2 py-1.5 bg-card-hover">
                     <div className="flex-1 min-w-0">

@@ -682,7 +682,7 @@ export default function InventoryDetailPage() {
             </div>
 
             {/* Desktop table */}
-            <div className="hidden md:block overflow-x-auto">
+            <div className="hidden md:block overflow-x-auto scroll-visible">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-zinc-800 text-left text-muted">
@@ -812,7 +812,7 @@ export default function InventoryDetailPage() {
               el.addEventListener("focusin", handler);
               return () => el.removeEventListener("focusin", handler);
             }}
-            className="w-full max-w-md rounded-xl border border-card-border bg-card p-6 shadow-2xl mx-4 max-h-[90vh] overflow-y-auto"
+            className="w-full max-w-md rounded-xl border border-card-border bg-card p-6 shadow-2xl mx-4 max-h-[90vh] overflow-y-auto scroll-visible"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-1">

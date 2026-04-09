@@ -1100,7 +1100,7 @@ function InlineTournamentPanel({ eventId }: { eventId: string }) {
           {(tournament.status === 'active' || tournament.status === 'completed') && roundNumbers.length > 0 && (
             <div>
               <h4 className="text-xs text-muted uppercase tracking-wide mb-2">Bracket</h4>
-              <div className="flex gap-6 overflow-x-auto pb-2">
+              <div className="flex gap-6 overflow-x-auto pb-2 scroll-visible">
                 {roundNumbers.map((round) => (
                   <div key={round} className="min-w-50">
                     <h5 className="text-xs text-muted uppercase tracking-wide mb-2">
