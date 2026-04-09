@@ -7,6 +7,7 @@ import { DashboardModeGuard } from "@/components/dashboard-mode-guard";
 import { IntelligenceFeed } from "@/components/intelligence-feed";
 import { StoreAdvisor } from "@/components/store-advisor";
 import { DailyClose } from "@/components/daily-close";
+import { StoreHealth } from "@/components/store-health";
 
 export default async function DashboardPage() {
   let session;
@@ -178,7 +179,10 @@ export default async function DashboardPage() {
   return (
     <DashboardModeGuard>
     <div className="space-y-6 md:space-y-8">
-      {/* Intelligence Feed — actionable store alerts (includes low stock, dead stock, etc.) */}
+      {/* Store Health — submarine-style status dashboard */}
+      <StoreHealth />
+
+      {/* Intelligence Feed — actionable store alerts */}
       <IntelligenceFeed compact />
 
       {/* Store Advisor — business co-pilot */}
