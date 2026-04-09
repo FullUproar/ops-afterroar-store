@@ -57,7 +57,7 @@ const NAV_GROUPS: NavGroup[] = [
   },
   {
     label: "Intelligence",
-    hrefs: ["/dashboard/cash-flow", "/dashboard/reports/sales", "/dashboard/reports/margins", "/dashboard/reports/inventory-health", "/dashboard/reports", "/dashboard/reports/staff", "/dashboard/reports/channels"],
+    hrefs: ["/dashboard/cash-flow", "/dashboard/reports"],
   },
   {
     label: "Afterroar Network",
@@ -76,13 +76,7 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: "Settings",
     hrefs: [
-      "/dashboard/settings/store",
-      "/dashboard/settings/payments",
-      "/dashboard/settings/staff",
-      "/dashboard/settings/integrations",
-      "/dashboard/settings/intelligence",
-      "/dashboard/settings/operations",
-      "/dashboard/settings/test-mode",
+      "/dashboard/settings",
       "/dashboard/billing",
       "/dashboard/import",
     ],

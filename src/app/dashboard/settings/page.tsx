@@ -468,7 +468,34 @@ export default function SettingsPage() {
         )}
 
         {/* ════════════════ PAYMENTS TAB ════════════════ */}
-        {activeTab === 'payments' && (
+        {activeTab === 'payments' && !activeSection && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <button onClick={() => setActiveSection('stripe')} className="rounded-xl border border-card-border bg-card p-4 text-left hover:border-accent/30 hover:bg-card-hover active:scale-[0.98] transition-all">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-sm font-semibold text-foreground">Stripe Connect</span>
+                <span className="text-xs text-muted">→</span>
+              </div>
+              <p className="text-xs text-muted">{stripeStatus?.connected ? (stripeStatus.charges_enabled ? 'Connected & active' : 'Connected, pending setup') : 'Not connected'}</p>
+            </button>
+            <button onClick={() => setActiveSection('terminal')} className="rounded-xl border border-card-border bg-card p-4 text-left hover:border-accent/30 hover:bg-card-hover active:scale-[0.98] transition-all">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-sm font-semibold text-foreground">Card Reader</span>
+                <span className="text-xs text-muted">→</span>
+              </div>
+              <p className="text-xs text-muted">Stripe Terminal S710 configuration</p>
+            </button>
+            {tabSections.map((section) => (
+              <button key={section.key} onClick={() => setActiveSection(section.key)} className="rounded-xl border border-card-border bg-card p-4 text-left hover:border-accent/30 hover:bg-card-hover active:scale-[0.98] transition-all">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-sm font-semibold text-foreground">{section.label}</span>
+                  <span className="text-xs text-muted">→</span>
+                </div>
+                <p className="text-xs text-muted">{section.description}</p>
+              </button>
+            ))}
+          </div>
+        )}
+        {activeTab === 'payments' && activeSection === 'stripe' && (
           <>
             {/* Stripe Connect */}
             <div className="rounded-xl border border-card-border bg-card p-6 shadow-sm dark:shadow-none">
@@ -542,11 +569,14 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            {/* Terminal Reader */}
-            <TerminalReaderSection />
-
-            {/* Payment Methods (dynamic section) */}
-            {tabSections.map((section) => (
+          </>
+        )}
+        {activeTab === 'payments' && activeSection === 'terminal' && (
+          <TerminalReaderSection />
+        )}
+        {activeTab === 'payments' && activeSection && activeSection !== 'stripe' && activeSection !== 'terminal' && (
+          <>
+            {tabSections.filter((s) => s.key === activeSection).map((section) => (
               <SettingsSection
                 key={section.key}
                 section={section}
@@ -562,21 +592,52 @@ export default function SettingsPage() {
         )}
 
         {/* ════════════════ STAFF TAB ════════════════ */}
-        {activeTab === 'staff' && (
-          <>
-            {/* Role Permissions */}
-            <div className="rounded-xl border border-card-border bg-card p-6 shadow-sm dark:shadow-none">
-              <h2 className="text-sm font-semibold text-foreground">Role Permissions</h2>
-              <p className="mt-0.5 text-xs text-muted mb-4">
-                Customize what each role can access. Owner always has full access. Changes apply immediately.
-              </p>
-              <PermissionsEditor />
-            </div>
-
-            {/* Employee Phone Links */}
-            {store?.slug && (
-              <div className="rounded-xl border border-card-border bg-card p-6 shadow-sm dark:shadow-none">
-                <h2 className="text-sm font-semibold text-foreground">Employee Phone Access</h2>
+        {activeTab === 'staff' && !activeSection && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <button onClick={() => setActiveSection('permissions')} className="rounded-xl border border-card-border bg-card p-4 text-left hover:border-accent/30 hover:bg-card-hover active:scale-[0.98] transition-all">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-sm font-semibold text-foreground">Role Permissions</span>
+                <span className="text-xs text-muted">→</span>
+              </div>
+              <p className="text-xs text-muted">Customize what each role can access</p>
+            </button>
+            <button onClick={() => setActiveSection('phone_access')} className="rounded-xl border border-card-border bg-card p-4 text-left hover:border-accent/30 hover:bg-card-hover active:scale-[0.98] transition-all">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-sm font-semibold text-foreground">Employee Phone Access</span>
+                <span className="text-xs text-muted">→</span>
+              </div>
+              <p className="text-xs text-muted">Clock in/out and mobile register links</p>
+            </button>
+            {tabSections.map((section) => (
+              <button key={section.key} onClick={() => setActiveSection(section.key)} className="rounded-xl border border-card-border bg-card p-4 text-left hover:border-accent/30 hover:bg-card-hover active:scale-[0.98] transition-all">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-sm font-semibold text-foreground">{section.label}</span>
+                  <span className="text-xs text-muted">→</span>
+                </div>
+                <p className="text-xs text-muted">{section.description}</p>
+              </button>
+            ))}
+            <button onClick={() => setActiveSection('geofence')} className="rounded-xl border border-card-border bg-card p-4 text-left hover:border-accent/30 hover:bg-card-hover active:scale-[0.98] transition-all">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-sm font-semibold text-foreground">Time Clock & Geofence</span>
+                <span className="text-xs text-muted">→</span>
+              </div>
+              <p className="text-xs text-muted">GPS tagging on clock-in</p>
+            </button>
+          </div>
+        )}
+        {activeTab === 'staff' && activeSection === 'permissions' && (
+          <div className="rounded-xl border border-card-border bg-card p-6 shadow-sm dark:shadow-none">
+            <h2 className="text-sm font-semibold text-foreground">Role Permissions</h2>
+            <p className="mt-0.5 text-xs text-muted mb-4">
+              Customize what each role can access. Owner always has full access. Changes apply immediately.
+            </p>
+            <PermissionsEditor />
+          </div>
+        )}
+        {activeTab === 'staff' && activeSection === 'phone_access' && store?.slug && (
+          <div className="rounded-xl border border-card-border bg-card p-6 shadow-sm dark:shadow-none">
+            <h2 className="text-sm font-semibold text-foreground">Employee Phone Access</h2>
                 <p className="mt-0.5 text-xs text-muted">
                   Share these links with your team. They work on any phone &mdash; no app download needed. Employees use their PIN to clock in and sell.
                 </p>
@@ -599,10 +660,19 @@ export default function SettingsPage() {
                   />
                 </div>
               </div>
-            )}
-
-            {/* Dynamic staff sections: staff_lock, mobile_register, timeclock */}
-            {tabSections.map((section) => (
+        )}
+        {activeTab === 'staff' && activeSection === 'geofence' && (
+          <GeofenceSection
+            settings={settings}
+            saving={saving}
+            saved={saved}
+            updateLocal={updateLocal}
+            saveField={saveField}
+          />
+        )}
+        {activeTab === 'staff' && activeSection && !['permissions', 'phone_access', 'geofence'].includes(activeSection) && (
+          <>
+            {tabSections.filter((s) => s.key === activeSection).map((section) => (
               <SettingsSection
                 key={section.key}
                 section={section}
@@ -614,23 +684,6 @@ export default function SettingsPage() {
                 resetSection={resetSection}
               />
             ))}
-
-            {/* Time Clock & Geofence — custom section with GPS button */}
-            <GeofenceSection
-              settings={settings}
-              saving={saving}
-              saved={saved}
-              updateLocal={updateLocal}
-              saveField={saveField}
-            />
-
-            {/* Staff management link */}
-            <div className="rounded-xl border border-dashed border-card-border bg-card-hover p-4 text-center">
-              <p className="text-sm text-muted">
-                Manage individual staff members, PINs, and roles on the{' '}
-                <Link href="/dashboard/staff" className="text-accent hover:underline">Staff page</Link>.
-              </p>
-            </div>
           </>
         )}
 
