@@ -232,7 +232,7 @@ export default function CustomersPage() {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col h-full gap-4">
       <PageHeader
         title="Customers"
         action={
@@ -361,10 +361,13 @@ export default function CustomersPage() {
         />
       ) : (
         <>
-          {/* Result count + pagination header */}
-          <div className="flex items-center justify-between text-xs text-muted">
+          {/* Result count */}
+          <div className="shrink-0 flex items-center justify-between text-xs text-muted">
             <span>{filtered.length} customer{filtered.length !== 1 ? 's' : ''}{totalPages > 1 ? ` — page ${page + 1} of ${totalPages}` : ''}</span>
           </div>
+
+          {/* Scrollable data area — this is the ONLY thing that scrolls */}
+          <div className="flex-1 min-h-0 overflow-y-auto scroll-visible -mx-2 px-2">
 
           {/* Mobile card view */}
           <div className="md:hidden space-y-3">
@@ -439,7 +442,9 @@ export default function CustomersPage() {
             </table>
           </div>
 
-          {/* Pagination */}
+          </div>{/* end scrollable data area */}
+
+          {/* Pagination — fixed at bottom */}
           {totalPages > 1 && (
             <div className="flex items-center justify-center gap-2 pt-2">
               <button

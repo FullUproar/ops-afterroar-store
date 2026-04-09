@@ -414,7 +414,7 @@ export default function InventoryPage() {
   });
 
   return (
-    <div className="space-y-6 min-w-0">
+    <div className="flex flex-col h-full gap-4 min-w-0">
       <PageHeader
         title={`Inventory${items.length > 0 ? ` (${items.length})` : ""}`}
         action={
