@@ -207,6 +207,9 @@ export async function matchDeckToInventory(
   const results: InventoryMatchResult[] = [];
   // Track names already in the deck to avoid suggesting them as substitutes
   const deckCardNames = new Set(cards.map((c) => c.name.toLowerCase()));
+  // Cap external API calls to prevent timeout on large decklists
+  let scryfallCallCount = 0;
+  const MAX_SCRYFALL_CALLS = 10; // Limit substitute lookups
 
   for (const card of cards) {
     // Fuzzy match: case-insensitive name contains
@@ -226,32 +229,40 @@ export async function matchDeckToInventory(
       if (options?.inStockOnly) continue;
 
       // Try Scryfall to get the image + card data for substitution
+      // (capped to prevent timeout on large decklists)
       let imageUrl: string | null = null;
       let scryfallData: { type_line?: string; cmc?: number; colors?: string[]; keywords?: string[] } | null = null;
-      try {
-        await delay(100);
-        const scryfallRes = await fetch(
-          `https://api.scryfall.com/cards/named?fuzzy=${encodeURIComponent(card.name)}`,
-          { headers: { Accept: "application/json" } },
-        );
-        if (scryfallRes.ok) {
-          const sc = await scryfallRes.json();
-          imageUrl = sc.image_uris?.small ?? sc.card_faces?.[0]?.image_uris?.small ?? null;
-          scryfallData = {
-            type_line: sc.type_line,
-            cmc: sc.cmc,
-            colors: sc.colors || sc.color_identity,
-            keywords: sc.keywords,
-          };
-        }
-      } catch {
-        // ignore
-      }
-
-      // Find a substitute from store inventory
       let substitute: InventoryMatchResult["substitute"] = undefined;
-      if (scryfallData) {
-        substitute = await findSubstitute(storeId, card.name, scryfallData, deckCardNames);
+
+      if (scryfallCallCount < MAX_SCRYFALL_CALLS) {
+        try {
+          scryfallCallCount++;
+          await delay(100);
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 5000);
+          const scryfallRes = await fetch(
+            `https://api.scryfall.com/cards/named?fuzzy=${encodeURIComponent(card.name)}`,
+            { headers: { Accept: "application/json" }, signal: controller.signal },
+          );
+          clearTimeout(timeout);
+          if (scryfallRes.ok) {
+            const sc = await scryfallRes.json();
+            imageUrl = sc.image_uris?.small ?? sc.card_faces?.[0]?.image_uris?.small ?? null;
+            scryfallData = {
+              type_line: sc.type_line,
+              cmc: sc.cmc,
+              colors: sc.colors || sc.color_identity,
+              keywords: sc.keywords,
+            };
+          }
+        } catch {
+          // Timeout or network error — skip substitute for this card
+        }
+
+        // Find a substitute from store inventory
+        if (scryfallData) {
+          substitute = await findSubstitute(storeId, card.name, scryfallData, deckCardNames);
+        }
       }
 
       results.push({
@@ -283,13 +294,17 @@ export async function matchDeckToInventory(
 
     // Find substitute if partial (not enough copies)
     let substitute: InventoryMatchResult["substitute"] = undefined;
-    if (status === "partial" && !options?.inStockOnly) {
+    if (status === "partial" && !options?.inStockOnly && scryfallCallCount < MAX_SCRYFALL_CALLS) {
       try {
+        scryfallCallCount++;
         await delay(100);
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 5000);
         const scryfallRes = await fetch(
           `https://api.scryfall.com/cards/named?fuzzy=${encodeURIComponent(card.name)}`,
-          { headers: { Accept: "application/json" } },
+          { headers: { Accept: "application/json" }, signal: controller.signal },
         );
+        clearTimeout(timeout);
         if (scryfallRes.ok) {
           const sc = await scryfallRes.json();
           substitute = await findSubstitute(storeId, card.name, {

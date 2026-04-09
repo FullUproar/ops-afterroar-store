@@ -131,11 +131,11 @@ function ColorPips({ colors }: { colors: string[] }) {
 /* ------------------------------------------------------------------ */
 
 const FORMATS = [
-  { key: "standard", label: "Standard", game: "mtg" },
-  { key: "modern", label: "Modern", game: "mtg" },
-  { key: "pioneer", label: "Pioneer", game: "mtg" },
-  { key: "commander", label: "Commander", game: "mtg" },
-  { key: "pokemon", label: "Pokemon", game: "pokemon" },
+  { key: "standard", label: "MTG — Standard", game: "mtg" },
+  { key: "modern", label: "MTG — Modern", game: "mtg" },
+  { key: "pioneer", label: "MTG — Pioneer", game: "mtg" },
+  { key: "commander", label: "MTG — Commander", game: "mtg" },
+  { key: "pokemon", label: "Pokemon TCG", game: "pokemon" },
   { key: "yugioh", label: "Yu-Gi-Oh!", game: "yugioh" },
 ] as const;
 
@@ -541,8 +541,12 @@ function DeckBuilderContent() {
               )}
 
               {commanderLoading && (
-                <div className="flex items-center justify-center h-24 text-muted">
-                  Loading EDHREC synergy data...
+                <div className="flex flex-col items-center justify-center h-24 text-muted gap-1">
+                  <div className="flex items-center gap-2">
+                    <span className="inline-block h-4 w-4 rounded-full border-2 border-accent border-t-transparent animate-spin" />
+                    Loading EDHREC synergy data...
+                  </div>
+                  <span className="text-xs opacity-60">This can take 5-10 seconds for popular commanders</span>
                 </div>
               )}
 

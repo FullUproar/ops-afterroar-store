@@ -74,9 +74,15 @@ async function scryfallFetch(url: string): Promise<Response> {
   }
   lastScryfallTime = Date.now();
 
-  return fetch(url, {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 5000); // 5s timeout
+
+  const res = await fetch(url, {
     headers: { Accept: "application/json" },
+    signal: controller.signal,
   });
+  clearTimeout(timeout);
+  return res;
 }
 
 /* ------------------------------------------------------------------ */
@@ -105,13 +111,18 @@ export async function fetchCommanderData(
 
   try {
     const url = `https://json.edhrec.com/pages/commanders/${sanitized}.json`;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000); // 8s timeout
+
     const res = await fetch(url, {
       headers: {
         Accept: "application/json",
         "User-Agent":
           "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
       },
+      signal: controller.signal,
     });
+    clearTimeout(timeout);
 
     if (!res.ok) return null;
 
