@@ -91,6 +91,11 @@ export default function SettingsPage() {
   const activeTab: TabKey = (TABS.some(t => t.key === pathTab) ? pathTab : 'store') as TabKey;
   const setActiveTab = (tab: TabKey) => router.push(`/dashboard/settings/${tab}`);
 
+  // Drill-down: which section within a tab is expanded (null = show section cards)
+  const [activeSection, setActiveSection] = useState<string | null>(null);
+  // Reset section when tab changes
+  useEffect(() => { setActiveSection(null); }, [activeTab]);
+
   // Afterroar integration state
   const [venueSearch, setVenueSearch] = useState('');
   const [venueResults, setVenueResults] = useState<VenueResult[]>([]);
@@ -394,18 +399,60 @@ export default function SettingsPage() {
         </div>
       )}
 
-      {/* Tab description */}
-      <p className="text-xs text-muted">
-        {TABS.find((t) => t.key === activeTab)?.description}
-      </p>
+      {/* Breadcrumb */}
+      <div className="flex items-center gap-2 text-sm -mt-2">
+        <button onClick={() => router.push('/dashboard/settings')} className="text-accent hover:underline">Settings</button>
+        <span className="text-muted">/</span>
+        {activeSection ? (
+          <>
+            <button onClick={() => setActiveSection(null)} className="text-accent hover:underline">
+              {TABS.find((t) => t.key === activeTab)?.label}
+            </button>
+            <span className="text-muted">/</span>
+            <span className="text-foreground font-medium">
+              {tabSections.find((s) => s.key === activeSection)?.label ?? activeSection}
+            </span>
+          </>
+        ) : (
+          <span className="text-foreground font-medium">{TABS.find((t) => t.key === activeTab)?.label}</span>
+        )}
+      </div>
 
       {/* ── Tab Content ── */}
       <div className="max-w-2xl space-y-6 pb-8">
 
         {/* ════════════════ STORE TAB ════════════════ */}
-        {activeTab === 'store' && (
+        {activeTab === 'store' && !activeSection && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {tabSections.map((section) => {
+              // Generate a summary for each section card
+              const fieldSummary = section.fields.slice(0, 2).map((f) => {
+                const val = settings[f.key as keyof StoreSettings];
+                if (f.type === 'toggle') return `${f.label}: ${val ? 'On' : 'Off'}`;
+                if (f.type === 'number' && val !== undefined) return `${f.label}: ${val}`;
+                if (f.type === 'text' && val) return String(val).slice(0, 30);
+                return null;
+              }).filter(Boolean).join(' · ') || section.description;
+
+              return (
+                <button
+                  key={section.key}
+                  onClick={() => setActiveSection(section.key)}
+                  className="rounded-xl border border-card-border bg-card p-4 text-left hover:border-accent/30 hover:bg-card-hover active:scale-[0.98] transition-all"
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm font-semibold text-foreground">{section.label}</span>
+                    <span className="text-xs text-muted">→</span>
+                  </div>
+                  <p className="text-xs text-muted line-clamp-2">{fieldSummary}</p>
+                </button>
+              );
+            })}
+          </div>
+        )}
+        {activeTab === 'store' && activeSection && (
           <>
-            {tabSections.map((section) => (
+            {tabSections.filter((s) => s.key === activeSection).map((section) => (
               <SettingsSection
                 key={section.key}
                 section={section}
