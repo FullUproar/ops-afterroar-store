@@ -93,15 +93,17 @@ export function DashboardLayoutInner({ children }: { children: React.ReactNode }
   return (
     <div className="flex h-full bg-background overflow-hidden max-w-[100vw]">
       <Sidebar />
-      <main className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden lg:pb-0" style={{ paddingBottom: "calc(5rem + env(safe-area-inset-bottom, 0px))" }}>
-        <div className="flex items-center gap-1 px-2 py-1 sm:px-3 sm:py-1.5 lg:px-6 lg:py-2">
+      <main className="flex-1 min-w-0 flex flex-col overflow-hidden lg:pb-0" style={{ paddingBottom: "calc(5rem + env(safe-area-inset-bottom, 0px))" }}>
+        {/* Fixed top nav bar — never scrolls */}
+        <div className="shrink-0 flex items-center gap-1 px-2 h-11 sm:h-12 sm:px-3 lg:px-6 border-b border-card-border/50 bg-background/95 backdrop-blur-sm">
           <div className="flex-1 min-w-0">
             <NetworkStatusBar />
           </div>
           <NotificationCenter />
           <HeaderActions />
         </div>
-        <div className="px-2 py-1 sm:px-3 sm:py-2 lg:px-6 lg:py-3">{children}</div>
+        {/* Page content — fills remaining height, pages control their own overflow */}
+        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-2 py-2 sm:px-3 sm:py-3 lg:px-6 lg:py-4">{children}</div>
       </main>
       <MobileNav />
     </div>
