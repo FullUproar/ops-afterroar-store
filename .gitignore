@@ -1,8 +1,9 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+# Afterroar monorepo (apps/ops, apps/me, packages/*)
+# Patterns without leading slashes match at any depth.
 
 # dependencies
-/node_modules
-/.pnp
+node_modules
+.pnp
 .pnp.*
 .yarn/*
 !.yarn/patches
@@ -11,14 +12,16 @@
 !.yarn/versions
 
 # testing
-/coverage
+coverage
+test-results
+playwright-report
 
 # next.js
-/.next/
-/out/
+.next
+out
 
 # production
-/build
+build
 
 # misc
 .DS_Store
@@ -30,8 +33,9 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
+# env files
 .env*
+.env*.local
 
 # vercel
 .vercel
@@ -40,9 +44,8 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-.vercel
+# prisma generated client
+src/generated/prisma
 
-/src/generated/prisma
-scripts/site-audit-output/
-scripts/scripts/
-.env*.local
+# script outputs
+scripts/*-output/
