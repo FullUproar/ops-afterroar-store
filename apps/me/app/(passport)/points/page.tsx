@@ -36,7 +36,7 @@ export default async function PointsPage() {
   return (
     <div>
       <h1 style={{ fontSize: '1.75rem', fontWeight: 900, color: '#FF8200', marginBottom: '0.5rem' }}>
-        Roar Points
+        Loyalty Points
       </h1>
       <p style={{ color: '#9ca3af', marginBottom: '2rem' }}>
         Points earned across all stores in the Afterroar network.

@@ -134,7 +134,7 @@ async function AuthorizeContent({ searchParams }: { searchParams: Promise<Search
             {requestedScopes.includes('profile') && <li>Your display name and avatar</li>}
             {requestedScopes.includes('email') && <li>Your email address</li>}
             {requestedScopes.includes('library:read') && <li>View your game library</li>}
-            {requestedScopes.includes('points:read') && <li>View your Roar Points balance</li>}
+            {requestedScopes.includes('points:read') && <li>View your Loyalty Points balance</li>}
             {requestedScopes.includes('checkins:read') && <li>View your store check-in history</li>}
           </ul>
         </div>
