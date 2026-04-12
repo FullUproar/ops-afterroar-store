@@ -102,7 +102,9 @@ function LoginContent() {
           color: '#6b7280',
           lineHeight: 1.5,
         }}>
-          By signing in, you create an Afterroar Passport.
+          By signing in, you create an Afterroar Passport and agree to our{' '}
+          <a href="/terms" style={{ color: '#FF8200' }}>Terms of Service</a> and{' '}
+          <a href="/privacy" style={{ color: '#FF8200' }}>Privacy Policy</a>.
           Your data is yours — see it, control it, delete it anytime
           at afterroar.me/settings.
         </div>
