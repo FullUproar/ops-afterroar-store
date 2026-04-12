@@ -58,7 +58,14 @@ export function validateRedirectUri(client: OAuthClient, redirectUri: string): b
 export function validateClientSecret(client: OAuthClient, secret: string): boolean {
   if (!client.secret || !secret) return false;
   const expected = client.secret.trim();
-  const received = secret.trim();
+  let received = secret.trim();
+
+  // Defensive: NextAuth may send URL-encoded secrets in form bodies
+  // that don't get fully decoded (double-encoding edge case)
+  if (expected !== received && received.includes('%')) {
+    try { received = decodeURIComponent(received); } catch {}
+  }
+
   if (expected !== received) {
     console.error('[oauth] secret mismatch debug:', {
       client: client.id,
