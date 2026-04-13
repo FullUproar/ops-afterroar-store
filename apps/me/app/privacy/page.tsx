@@ -129,11 +129,17 @@ export default function PrivacyPage() {
         </p>
       </section>
 
-      <div style={{ borderTop: '1px solid #1f2937', paddingTop: '1.5rem', marginTop: '2rem' }}>
-        <p style={{ color: '#4b5563', fontSize: '0.8rem', textAlign: 'center' }}>
+      <div style={{ borderTop: '1px solid #1f2937', paddingTop: '1.5rem', marginTop: '2rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
+        <p style={{ color: '#4b5563', fontSize: '0.8rem', textAlign: 'center', margin: 0 }}>
           Per the Afterroar Credo: your data belongs to you — not to us, not to any store,
           not to any advertiser. This policy is how we keep that promise.
         </p>
+        <div style={{ display: 'flex', gap: '1.5rem', fontSize: '0.85rem' }}>
+          <a href="/" style={{ color: '#FF8200', textDecoration: 'none' }}>← Home</a>
+          <a href="/credo" style={{ color: '#6b7280', textDecoration: 'none' }}>The Credo</a>
+          <a href="/terms" style={{ color: '#6b7280', textDecoration: 'none' }}>Terms</a>
+          <a href="/login" style={{ color: '#6b7280', textDecoration: 'none' }}>Sign in</a>
+        </div>
       </div>
     </main>
   );

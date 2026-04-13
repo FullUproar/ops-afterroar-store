@@ -102,18 +102,23 @@ export default function CredoPage() {
         borderTop: '1px solid #1f2937',
         paddingTop: '1.5rem',
         marginTop: '2rem',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: '1rem',
       }}>
-        <p style={{ color: '#4b5563', fontSize: '0.8rem', textAlign: 'center' }}>
-          The full Credo is open source:{' '}
-          <a
-            href="https://github.com/FullUproar/full-uproar-site/blob/main/docs/CREDO.md"
-            style={{ color: '#FF8200' }}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            view on GitHub
+        <p style={{ color: '#4b5563', fontSize: '0.8rem', textAlign: 'center', margin: 0 }}>
+          Questions about the Credo? Think something should change?{' '}
+          <a href="mailto:afterroar@fulluproar.com" style={{ color: '#FF8200' }}>
+            afterroar@fulluproar.com
           </a>
         </p>
+        <div style={{ display: 'flex', gap: '1.5rem', fontSize: '0.85rem' }}>
+          <a href="/" style={{ color: '#FF8200', textDecoration: 'none' }}>← Home</a>
+          <a href="/privacy" style={{ color: '#6b7280', textDecoration: 'none' }}>Privacy</a>
+          <a href="/terms" style={{ color: '#6b7280', textDecoration: 'none' }}>Terms</a>
+          <a href="/login" style={{ color: '#6b7280', textDecoration: 'none' }}>Sign in</a>
+        </div>
       </div>
     </main>
   );

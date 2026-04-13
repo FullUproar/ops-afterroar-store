@@ -137,11 +137,17 @@ export default function TermsPage() {
         </p>
       </section>
 
-      <div style={{ borderTop: '1px solid #1f2937', paddingTop: '1.5rem', marginTop: '2rem' }}>
-        <p style={{ color: '#4b5563', fontSize: '0.8rem', textAlign: 'center' }}>
+      <div style={{ borderTop: '1px solid #1f2937', paddingTop: '1.5rem', marginTop: '2rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
+        <p style={{ color: '#4b5563', fontSize: '0.8rem', textAlign: 'center', margin: 0 }}>
           These terms exist to protect you and the community, not to protect us from you.
           If something in here feels wrong, tell us — afterroar@fulluproar.com.
         </p>
+        <div style={{ display: 'flex', gap: '1.5rem', fontSize: '0.85rem' }}>
+          <a href="/" style={{ color: '#FF8200', textDecoration: 'none' }}>← Home</a>
+          <a href="/credo" style={{ color: '#6b7280', textDecoration: 'none' }}>The Credo</a>
+          <a href="/privacy" style={{ color: '#6b7280', textDecoration: 'none' }}>Privacy</a>
+          <a href="/login" style={{ color: '#6b7280', textDecoration: 'none' }}>Sign in</a>
+        </div>
       </div>
     </main>
   );
