@@ -61,13 +61,13 @@ interface ResolvedGame {
   rawGuess: string;
 }
 
-async function searchBGGApi(query: string): Promise<Omit<ResolvedGame, 'confidence' | 'rawGuess'> | null> {
+async function searchBGGApi(query: string, exact = false): Promise<Omit<ResolvedGame, 'confidence' | 'rawGuess'> | null> {
   const bggToken = process.env.BGG_API_TOKEN;
   if (!bggToken) return null;
 
   try {
     const res = await fetch(
-      `https://boardgamegeek.com/xmlapi2/search?query=${encodeURIComponent(query)}&type=boardgame&exact=0`,
+      `https://boardgamegeek.com/xmlapi2/search?query=${encodeURIComponent(query)}&type=boardgame&exact=${exact ? 1 : 0}`,
       {
         headers: { Authorization: `Bearer ${bggToken}` },
         signal: AbortSignal.timeout(5000),
@@ -145,7 +145,14 @@ async function resolveAgainstBGG(games: VisionGame[]): Promise<ResolvedGame[]> {
   for (const game of games) {
     const searchTerms = game.title;
 
-    // Try exact match first, then fuzzy
+    // Step 1: BGG API exact match (most reliable — short titles like "Yogi" resolve correctly)
+    const bggExact = await searchBGGApi(searchTerms, true);
+    if (bggExact) {
+      results.push({ ...bggExact, confidence: 'high', rawGuess: game.title });
+      continue;
+    }
+
+    // Step 2: Local DB exact match
     let match = await prisma.$queryRawUnsafe<Array<{
       title: string;
       slug: string;
