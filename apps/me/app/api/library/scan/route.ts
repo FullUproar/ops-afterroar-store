@@ -152,14 +152,14 @@ async function resolveAgainstBGG(games: VisionGame[]): Promise<ResolvedGame[]> {
       bggId: number | null;
       minPlayers: number | null;
       maxPlayers: number | null;
-      playTimeText: string | null;
+      minPlayMinutes: number | null; maxPlayMinutes: number | null;
       complexity: number | null;
       bggRating: number | null;
       yearPublished: number | null;
       thumbnailUrl: string | null;
     }>>(
-      `SELECT title, slug, "bggId", "minPlayers", "maxPlayers", "playTimeText",
-              complexity, "bggRating", "yearPublished", "thumbnailUrl"
+      `SELECT title, slug, "bggId", "minPlayers", "maxPlayers", "minPlayMinutes", "maxPlayMinutes",
+              complexity, "bggRating", "yearPublished", NULL AS "thumbnailUrl"
        FROM "BoardGameMetadata"
        WHERE LOWER(title) = LOWER($1)
        LIMIT 1`,
@@ -176,14 +176,14 @@ async function resolveAgainstBGG(games: VisionGame[]): Promise<ResolvedGame[]> {
         bggId: number | null;
         minPlayers: number | null;
         maxPlayers: number | null;
-        playTimeText: string | null;
+        minPlayMinutes: number | null; maxPlayMinutes: number | null;
         complexity: number | null;
         bggRating: number | null;
         yearPublished: number | null;
         thumbnailUrl: string | null;
       }>>(
-        `SELECT title, slug, "bggId", "minPlayers", "maxPlayers", "playTimeText",
-                complexity, "bggRating", "yearPublished", "thumbnailUrl"
+        `SELECT title, slug, "bggId", "minPlayers", "maxPlayers", "minPlayMinutes", "maxPlayMinutes",
+                complexity, "bggRating", "yearPublished", NULL AS "thumbnailUrl"
          FROM "BoardGameMetadata"
          WHERE title ILIKE $1
          ORDER BY "bggRating" DESC NULLS LAST
@@ -201,14 +201,14 @@ async function resolveAgainstBGG(games: VisionGame[]): Promise<ResolvedGame[]> {
         bggId: number | null;
         minPlayers: number | null;
         maxPlayers: number | null;
-        playTimeText: string | null;
+        minPlayMinutes: number | null; maxPlayMinutes: number | null;
         complexity: number | null;
         bggRating: number | null;
         yearPublished: number | null;
         thumbnailUrl: string | null;
       }>>(
-        `SELECT title, slug, "bggId", "minPlayers", "maxPlayers", "playTimeText",
-                complexity, "bggRating", "yearPublished", "thumbnailUrl"
+        `SELECT title, slug, "bggId", "minPlayers", "maxPlayers", "minPlayMinutes", "maxPlayMinutes",
+                complexity, "bggRating", "yearPublished", NULL AS "thumbnailUrl"
          FROM "BoardGameMetadata"
          WHERE title ILIKE $1 OR title ILIKE $2
          ORDER BY "bggRating" DESC NULLS LAST
@@ -227,7 +227,7 @@ async function resolveAgainstBGG(games: VisionGame[]): Promise<ResolvedGame[]> {
         slug: m.slug,
         minPlayers: m.minPlayers,
         maxPlayers: m.maxPlayers,
-        playTime: m.playTimeText,
+        playTime: m.minPlayMinutes ? (m.maxPlayMinutes && m.maxPlayMinutes !== m.minPlayMinutes ? `${m.minPlayMinutes}-${m.maxPlayMinutes} min` : `${m.minPlayMinutes} min`) : null,
         complexity: m.complexity ? Math.round(m.complexity * 10) / 10 : null,
         bggRating: m.bggRating ? Math.round(m.bggRating * 10) / 10 : null,
         yearPublished: m.yearPublished,
