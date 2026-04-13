@@ -130,7 +130,7 @@ export default function TermsPage() {
         </h2>
         <p style={{ color: '#9ca3af' }}>
           Questions about these terms:{' '}
-          <a href="mailto:ssp@fulluproar.com" style={{ color: '#FF8200' }}>ssp@fulluproar.com</a>
+          <a href="mailto:afterroar@fulluproar.com" style={{ color: '#FF8200' }}>afterroar@fulluproar.com</a>
         </p>
         <p style={{ color: '#9ca3af' }}>
           Full Uproar Games, Inc., South Bend, Indiana, USA.
@@ -140,7 +140,7 @@ export default function TermsPage() {
       <div style={{ borderTop: '1px solid #1f2937', paddingTop: '1.5rem', marginTop: '2rem' }}>
         <p style={{ color: '#4b5563', fontSize: '0.8rem', textAlign: 'center' }}>
           These terms exist to protect you and the community, not to protect us from you.
-          If something in here feels wrong, tell us — ssp@fulluproar.com.
+          If something in here feels wrong, tell us — afterroar@fulluproar.com.
         </p>
       </div>
     </main>

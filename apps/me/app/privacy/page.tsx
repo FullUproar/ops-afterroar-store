@@ -99,7 +99,7 @@ export default function PrivacyPage() {
           <li><strong>Export your data:</strong> <a href="/api/export-data" style={{ color: '#FF8200' }}>Download as JSON</a> anytime.</li>
           <li><strong>Control your consent:</strong> Toggle each communication category on or off at <a href="/settings" style={{ color: '#FF8200' }}>settings</a>. Changes take effect immediately.</li>
           <li><strong>Delete your data:</strong> Available at <a href="/settings" style={{ color: '#FF8200' }}>settings</a>. For stores running our POS software, deletion is automatic and verified. For other stores, we revoke their access and send a deletion request, but we cannot force external systems to purge their records — we provide their contact info so you can follow up directly.</li>
-          <li><strong>CCPA / GDPR:</strong> If you're a California or EU resident, you have additional rights under local privacy law. Contact <a href="mailto:ssp@fulluproar.com" style={{ color: '#FF8200' }}>ssp@fulluproar.com</a> with any privacy-related requests.</li>
+          <li><strong>CCPA / GDPR:</strong> If you're a California or EU resident, you have additional rights under local privacy law. Contact <a href="mailto:afterroar@fulluproar.com" style={{ color: '#FF8200' }}>afterroar@fulluproar.com</a> with any privacy-related requests.</li>
         </ul>
       </section>
 
@@ -122,7 +122,7 @@ export default function PrivacyPage() {
         </h2>
         <p style={{ color: '#9ca3af' }}>
           For privacy questions or data requests:{' '}
-          <a href="mailto:ssp@fulluproar.com" style={{ color: '#FF8200' }}>ssp@fulluproar.com</a>
+          <a href="mailto:afterroar@fulluproar.com" style={{ color: '#FF8200' }}>afterroar@fulluproar.com</a>
         </p>
         <p style={{ color: '#9ca3af' }}>
           Afterroar is operated by Full Uproar Games, Inc., South Bend, Indiana, USA.
