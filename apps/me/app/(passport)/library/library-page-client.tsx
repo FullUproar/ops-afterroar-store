@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { LibraryEditor } from './library-editor';
 import { ShelfScanner } from './shelf-scanner';
+import { BGGImport } from './bgg-import';
 
 interface GameEntry {
   title: string;
@@ -13,7 +14,7 @@ interface GameEntry {
 export function LibraryPageClient({ initialGames }: { initialGames: GameEntry[] }) {
   const [games, setGames] = useState<GameEntry[]>(initialGames);
 
-  const handleScanAdd = async (newGames: Array<{ title: string; slug?: string; bggId?: number }>) => {
+  const handleBulkAdd = async (newGames: Array<{ title: string; slug?: string; bggId?: number }>) => {
     const deduped = newGames.filter(
       (ng) => !games.some((g) => g.title.toLowerCase() === ng.title.toLowerCase())
     );
@@ -31,10 +32,8 @@ export function LibraryPageClient({ initialGames }: { initialGames: GameEntry[] 
 
   return (
     <>
-      <ShelfScanner
-        existingGames={games.map((g) => g.title)}
-        onAdd={handleScanAdd}
-      />
+      <ShelfScanner existingGames={games.map((g) => g.title)} onAdd={handleBulkAdd} />
+      <BGGImport existingGames={games.map((g) => g.title)} onImport={handleBulkAdd} />
       <LibraryEditor key={games.length} initialGames={games} />
     </>
   );

@@ -33,8 +33,50 @@ model User {
   consents     UserConsent[]
   pointsLedger PointsLedger[]
   activities   UserActivity[]
+  gameLoans    GameLoan[]
+  wishlistItems WishlistItem[]
 
   @@map("User")
+}
+
+// ============================================================
+// GAME LOAN — Track games lent to friends. User-owned data.
+// "Who has my copy of Terraforming Mars?"
+// ============================================================
+model GameLoan {
+  id           String    @id @default(cuid())
+  userId       String
+  gameTitle    String
+  bggId        Int?
+  borrowerName String
+  borrowerContact String?
+  lentAt       DateTime  @default(now())
+  dueDate      DateTime?
+  returnedAt   DateTime?
+  condition    String?
+  notes        String?
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([userId, returnedAt])
+}
+
+// ============================================================
+// WISHLIST ITEM — Games the user wants. Portable across stores.
+// Shareable with non-gaming family for gift-giving.
+// ============================================================
+model WishlistItem {
+  id        String   @id @default(cuid())
+  userId    String
+  gameTitle String
+  bggId     Int?
+  priority  Int      @default(3)
+  notes     String?
+  addedAt   DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, gameTitle])
+  @@index([userId])
 }
 
 // ============================================================

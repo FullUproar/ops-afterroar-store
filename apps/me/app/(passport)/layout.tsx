@@ -56,6 +56,8 @@ export default async function PassportLayout({ children }: { children: React.Rea
         }}>
           {[
             { href: '/library', label: 'Library' },
+            { href: '/loans', label: 'Loans' },
+            { href: '/wishlist', label: 'Wishlist' },
             { href: '/points', label: 'Points' },
             { href: '/history', label: 'History' },
             { href: '/stores', label: 'Stores' },
