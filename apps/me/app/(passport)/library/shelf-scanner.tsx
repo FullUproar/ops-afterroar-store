@@ -35,6 +35,7 @@ export function ShelfScanner({ existingGames, onAdd }: ShelfScannerProps) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [error, setError] = useState('');
   const [scansRemaining, setScansRemaining] = useState<number | null>(null);
+  const [scanStats, setScanStats] = useState<{ totalVisible: number; identified: number; unidentified: number } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const resizeImage = (file: File): Promise<string> => {
@@ -90,6 +91,7 @@ export function ShelfScanner({ existingGames, onAdd }: ShelfScannerProps) {
       setResults(newGames);
       setSelected(new Set(newGames.map((g) => g.title)));
       if (data.scansRemaining !== undefined) setScansRemaining(data.scansRemaining);
+      setScanStats({ totalVisible: data.totalVisible || 0, identified: data.identified || 0, unidentified: data.unidentified || 0 });
     } catch {
       setError('Something went wrong. Please try again.');
     } finally {
@@ -155,15 +157,26 @@ export function ShelfScanner({ existingGames, onAdd }: ShelfScannerProps) {
           background: '#1f2937', borderRadius: '12px',
           border: '2px solid #FF8200', padding: '1.25rem',
         }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
             <h3 style={{ margin: 0, color: '#FF8200', fontWeight: 700, fontSize: '1rem' }}>
               {results.length > 0 ? `Found ${results.length} new game${results.length !== 1 ? 's' : ''}` : 'No new games found'}
             </h3>
-            <button onClick={() => { setResults(null); setSelected(new Set()); }}
+            <button onClick={() => { setResults(null); setSelected(new Set()); setScanStats(null); }}
               style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }}>
               <X size={16} />
             </button>
           </div>
+
+          {scanStats && scanStats.totalVisible > 0 && (
+            <p style={{ color: '#6b7280', fontSize: '0.8rem', margin: '0 0 0.75rem' }}>
+              {scanStats.identified} of {scanStats.totalVisible} visible game{scanStats.totalVisible !== 1 ? 's' : ''} identified
+              {scanStats.unidentified > 0 && ` · ${scanStats.unidentified} could not be read`}
+            </p>
+          )}
+
+          <p style={{ color: '#4b5563', fontSize: '0.7rem', margin: '0 0 1rem', fontStyle: 'italic' }}>
+            Results are AI-generated and may contain errors. Please verify each title before adding.
+          </p>
 
           {results.length > 0 ? (
             <>

@@ -322,23 +322,30 @@ export async function POST(request: NextRequest) {
               type: 'text',
               text: `You are identifying board games, card games, and tabletop games visible in this photo of a game shelf or collection.
 
-For each game you can identify, return a JSON object with:
+Return a JSON object with two fields:
+- "totalVisible": The total number of game boxes/items you can see in the photo, including ones you cannot identify
+- "games": An array of identified games
+
+For each game you CAN identify, include:
 - "title": Your best guess at the full, official game title (e.g., "Star Wars: Armada" not just "Armada")
 - "publisher": The publisher if you can determine it (e.g., "Fantasy Flight Games", "Stonemaier Games")
 - "description": A brief physical description to help verify — box color, distinctive art, size (e.g., "large blue box with spaceship art")
 
-Return a JSON array of these objects. Be specific with titles — include franchise names, subtitles, and edition markers. If you see "Armada" with Star Wars imagery, return "Star Wars: Armada". If you see "Catan" in an older box, return "The Settlers of Catan".
+Be specific with titles — include franchise names, subtitles, and edition markers. If you see "Armada" with Star Wars imagery, return "Star Wars: Armada". If you see "Catan" in an older box, return "The Settlers of Catan".
 
-If you cannot confidently identify a game, skip it entirely. Quality over quantity.
+Only include games you can identify with reasonable confidence. It is OK to have totalVisible > games.length.
 
 Example output:
-[
-  {"title": "Star Wars: Armada", "publisher": "Fantasy Flight Games", "description": "large rectangular box with Star Destroyer art"},
-  {"title": "Wingspan", "publisher": "Stonemaier Games", "description": "medium box with bird illustration, teal/nature colors"},
-  {"title": "Carcassonne", "publisher": "Z-Man Games", "description": "square box with medieval landscape"}
-]
+{
+  "totalVisible": 12,
+  "games": [
+    {"title": "Star Wars: Armada", "publisher": "Fantasy Flight Games", "description": "large rectangular box with Star Destroyer art"},
+    {"title": "Wingspan", "publisher": "Stonemaier Games", "description": "medium box with bird illustration, teal/nature colors"},
+    {"title": "Carcassonne", "publisher": "Z-Man Games", "description": "square box with medieval landscape"}
+  ]
+}
 
-If no games are visible, return: []`,
+If no games are visible, return: {"totalVisible": 0, "games": []}`,
             },
           ],
         }],
@@ -355,24 +362,37 @@ If no games are visible, return: []`,
     const text = result.content?.[0]?.text || '[]';
 
     let visionGames: VisionGame[] = [];
+    let totalVisible = 0;
     try {
-      const jsonMatch = text.match(/\[[\s\S]*\]/);
+      // Try parsing as object first (new format), fall back to array
+      const jsonMatch = text.match(/\{[\s\S]*\}/) || text.match(/\[[\s\S]*\]/);
       if (jsonMatch) {
-        visionGames = JSON.parse(jsonMatch[0]);
+        const parsed = JSON.parse(jsonMatch[0]);
+        if (Array.isArray(parsed)) {
+          visionGames = parsed;
+          totalVisible = parsed.length;
+        } else {
+          visionGames = parsed.games || [];
+          totalVisible = parsed.totalVisible || visionGames.length;
+        }
       }
     } catch {
       console.error('[library/scan] Failed to parse vision response:', text);
     }
 
-    // Resolve each game against our BGG database
     const resolved = await resolveAgainstBGG(
       visionGames.filter((g): g is VisionGame => !!g?.title)
     );
 
     recordScan(session.user.id);
 
+    const unidentified = Math.max(0, totalVisible - visionGames.length);
+
     return NextResponse.json({
       games: resolved,
+      totalVisible,
+      identified: visionGames.length,
+      unidentified,
       scansRemaining: rateCheck.remaining - 1,
     });
   } catch (err) {
