@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
   }
 
-  let body: { games: Array<{ title: string; slug?: string }> };
+  let body: { games: Array<{ title: string; slug?: string; bggId?: number }> };
   try {
     body = await request.json();
   } catch {
@@ -29,6 +29,7 @@ export async function POST(request: NextRequest) {
     name: g.title,
     title: g.title,
     slug: g.slug || undefined,
+    bggId: g.bggId || undefined,
     addedAt: new Date().toISOString(),
   }));
 

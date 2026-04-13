@@ -7,19 +7,19 @@ import { ShelfScanner } from './shelf-scanner';
 interface GameEntry {
   title: string;
   slug?: string;
+  bggId?: number;
 }
 
 export function LibraryPageClient({ initialGames }: { initialGames: GameEntry[] }) {
   const [games, setGames] = useState<GameEntry[]>(initialGames);
 
-  const handleScanAdd = async (titles: string[]) => {
-    const newGames = titles
-      .filter((t) => !games.some((g) => g.title.toLowerCase() === t.toLowerCase()))
-      .map((t) => ({ title: t }));
+  const handleScanAdd = async (newGames: Array<{ title: string; slug?: string; bggId?: number }>) => {
+    const deduped = newGames.filter(
+      (ng) => !games.some((g) => g.title.toLowerCase() === ng.title.toLowerCase())
+    );
+    if (deduped.length === 0) return;
 
-    if (newGames.length === 0) return;
-
-    const updated = [...games, ...newGames];
+    const updated = [...games, ...deduped];
     setGames(updated);
 
     await fetch('/api/library/update', {
@@ -35,10 +35,7 @@ export function LibraryPageClient({ initialGames }: { initialGames: GameEntry[] 
         existingGames={games.map((g) => g.title)}
         onAdd={handleScanAdd}
       />
-      <LibraryEditor
-        key={games.length}
-        initialGames={games}
-      />
+      <LibraryEditor key={games.length} initialGames={games} />
     </>
   );
 }

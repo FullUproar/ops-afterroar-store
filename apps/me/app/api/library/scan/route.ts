@@ -1,51 +1,261 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth-config';
+import { prisma } from '@/lib/prisma';
 
 /**
  * POST /api/library/scan — Identify board games from a shelf photo.
  *
- * Uses Claude Haiku vision (cheapest model) to identify games from
- * box spines/covers in a photo. Returns a list of identified titles.
+ * Pipeline:
+ * 1. Claude Haiku vision extracts game descriptions from the photo
+ * 2. Each description is fuzzy-matched against BoardGameMetadata (BGG data)
+ * 3. Returns matched games with full BGG metadata for user confirmation
  *
- * Rate limited: 3 scans per user per day.
- * Image must be base64, max 1MB after client-side resize.
- *
+ * Rate limited: 3 scans per user per day (admin accounts unlimited).
  * Body: { image: string (base64 data URL) }
- * Returns: { games: string[], scansRemaining: number }
  */
 
-// In-memory rate limit tracker (per Vercel function instance)
-// For production scale, move to Redis/KV
 const scanCounts = new Map<string, { count: number; resetAt: number }>();
-
 const MAX_SCANS_PER_DAY = 3;
-const MAX_IMAGE_BYTES = 1_500_000; // ~1.5MB base64
-
+const MAX_IMAGE_BYTES = 1_500_000;
 const UNLIMITED_EMAILS = ['info@fulluproar.com', 'shawnoah.pollock@gmail.com'];
 
 function checkRateLimit(userId: string, email?: string | null): { allowed: boolean; remaining: number } {
   if (email && UNLIMITED_EMAILS.includes(email)) {
     return { allowed: true, remaining: 999 };
   }
-
   const now = Date.now();
   const record = scanCounts.get(userId);
-
   if (!record || record.resetAt < now) {
     scanCounts.set(userId, { count: 0, resetAt: now + 24 * 60 * 60 * 1000 });
     return { allowed: true, remaining: MAX_SCANS_PER_DAY };
   }
-
   if (record.count >= MAX_SCANS_PER_DAY) {
     return { allowed: false, remaining: 0 };
   }
-
   return { allowed: true, remaining: MAX_SCANS_PER_DAY - record.count };
 }
 
 function recordScan(userId: string) {
   const record = scanCounts.get(userId);
   if (record) record.count++;
+}
+
+interface VisionGame {
+  title: string;
+  publisher?: string;
+  description?: string;
+}
+
+interface ResolvedGame {
+  title: string;
+  bggId: number | null;
+  slug: string | null;
+  minPlayers: number | null;
+  maxPlayers: number | null;
+  playTime: string | null;
+  complexity: number | null;
+  bggRating: number | null;
+  yearPublished: number | null;
+  thumbnail: string | null;
+  confidence: 'high' | 'medium' | 'low';
+  rawGuess: string;
+}
+
+async function searchBGGApi(query: string): Promise<Omit<ResolvedGame, 'confidence' | 'rawGuess'> | null> {
+  const bggToken = process.env.BGG_API_TOKEN;
+  if (!bggToken) return null;
+
+  try {
+    const res = await fetch(
+      `https://boardgamegeek.com/xmlapi2/search?query=${encodeURIComponent(query)}&type=boardgame&exact=0`,
+      {
+        headers: { Authorization: `Bearer ${bggToken}` },
+        signal: AbortSignal.timeout(5000),
+      },
+    );
+    if (!res.ok) return null;
+
+    const xml = await res.text();
+
+    // Parse first result's ID and name from XML
+    const itemMatch = xml.match(/<item type="boardgame" id="(\d+)"[\s\S]*?<name type="primary" value="([^"]+)"[\s\S]*?(?:<yearpublished value="(\d+)")?/);
+    if (!itemMatch) return null;
+
+    const bggId = parseInt(itemMatch[1]);
+    const title = itemMatch[2];
+    const yearPublished = itemMatch[3] ? parseInt(itemMatch[3]) : null;
+
+    // Fetch details for the first result
+    const detailRes = await fetch(
+      `https://boardgamegeek.com/xmlapi2/thing?id=${bggId}&stats=1`,
+      {
+        headers: { Authorization: `Bearer ${bggToken}` },
+        signal: AbortSignal.timeout(5000),
+      },
+    );
+
+    let minPlayers: number | null = null;
+    let maxPlayers: number | null = null;
+    let playTime: string | null = null;
+    let complexity: number | null = null;
+    let bggRating: number | null = null;
+    let thumbnail: string | null = null;
+
+    if (detailRes.ok) {
+      const detailXml = await detailRes.text();
+
+      const minP = detailXml.match(/minplayers value="(\d+)"/);
+      const maxP = detailXml.match(/maxplayers value="(\d+)"/);
+      const minTime = detailXml.match(/minplaytime value="(\d+)"/);
+      const maxTime = detailXml.match(/maxplaytime value="(\d+)"/);
+      const avgWeight = detailXml.match(/averageweight value="([\d.]+)"/);
+      const avgRating = detailXml.match(/average value="([\d.]+)"/);
+      const thumb = detailXml.match(/<thumbnail>([^<]+)<\/thumbnail>/);
+
+      minPlayers = minP ? parseInt(minP[1]) : null;
+      maxPlayers = maxP ? parseInt(maxP[1]) : null;
+      if (minTime && maxTime) {
+        playTime = minTime[1] === maxTime[1] ? `${minTime[1]} min` : `${minTime[1]}-${maxTime[1]} min`;
+      }
+      complexity = avgWeight ? Math.round(parseFloat(avgWeight[1]) * 10) / 10 : null;
+      bggRating = avgRating ? Math.round(parseFloat(avgRating[1]) * 10) / 10 : null;
+      thumbnail = thumb ? thumb[1] : null;
+    }
+
+    return {
+      title,
+      bggId,
+      slug: null,
+      minPlayers,
+      maxPlayers,
+      playTime,
+      complexity,
+      bggRating,
+      yearPublished,
+      thumbnail,
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function resolveAgainstBGG(games: VisionGame[]): Promise<ResolvedGame[]> {
+  const results: ResolvedGame[] = [];
+
+  for (const game of games) {
+    const searchTerms = game.title;
+
+    // Try exact match first, then fuzzy
+    let match = await prisma.$queryRawUnsafe<Array<{
+      title: string;
+      slug: string;
+      bggId: number | null;
+      minPlayers: number | null;
+      maxPlayers: number | null;
+      playTimeText: string | null;
+      complexity: number | null;
+      bggRating: number | null;
+      yearPublished: number | null;
+      thumbnailUrl: string | null;
+    }>>(
+      `SELECT title, slug, "bggId", "minPlayers", "maxPlayers", "playTimeText",
+              complexity, "bggRating", "yearPublished", "thumbnailUrl"
+       FROM "BoardGameMetadata"
+       WHERE LOWER(title) = LOWER($1)
+       LIMIT 1`,
+      searchTerms,
+    );
+
+    let confidence: 'high' | 'medium' | 'low' = 'high';
+
+    if (match.length === 0) {
+      // Fuzzy: trigram similarity search
+      match = await prisma.$queryRawUnsafe<Array<{
+        title: string;
+        slug: string;
+        bggId: number | null;
+        minPlayers: number | null;
+        maxPlayers: number | null;
+        playTimeText: string | null;
+        complexity: number | null;
+        bggRating: number | null;
+        yearPublished: number | null;
+        thumbnailUrl: string | null;
+      }>>(
+        `SELECT title, slug, "bggId", "minPlayers", "maxPlayers", "playTimeText",
+                complexity, "bggRating", "yearPublished", "thumbnailUrl"
+         FROM "BoardGameMetadata"
+         WHERE title ILIKE $1
+         ORDER BY "bggRating" DESC NULLS LAST
+         LIMIT 1`,
+        `%${searchTerms}%`,
+      );
+      confidence = match.length > 0 ? 'medium' : 'low';
+    }
+
+    if (match.length === 0 && game.publisher) {
+      // Try with publisher context
+      match = await prisma.$queryRawUnsafe<Array<{
+        title: string;
+        slug: string;
+        bggId: number | null;
+        minPlayers: number | null;
+        maxPlayers: number | null;
+        playTimeText: string | null;
+        complexity: number | null;
+        bggRating: number | null;
+        yearPublished: number | null;
+        thumbnailUrl: string | null;
+      }>>(
+        `SELECT title, slug, "bggId", "minPlayers", "maxPlayers", "playTimeText",
+                complexity, "bggRating", "yearPublished", "thumbnailUrl"
+         FROM "BoardGameMetadata"
+         WHERE title ILIKE $1 OR title ILIKE $2
+         ORDER BY "bggRating" DESC NULLS LAST
+         LIMIT 1`,
+        `%${game.publisher}%${searchTerms}%`,
+        `%${searchTerms}%${game.publisher}%`,
+      );
+      confidence = match.length > 0 ? 'medium' : 'low';
+    }
+
+    if (match.length > 0) {
+      const m = match[0];
+      results.push({
+        title: m.title,
+        bggId: m.bggId,
+        slug: m.slug,
+        minPlayers: m.minPlayers,
+        maxPlayers: m.maxPlayers,
+        playTime: m.playTimeText,
+        complexity: m.complexity ? Math.round(m.complexity * 10) / 10 : null,
+        bggRating: m.bggRating ? Math.round(m.bggRating * 10) / 10 : null,
+        yearPublished: m.yearPublished,
+        thumbnail: m.thumbnailUrl,
+        confidence,
+        rawGuess: game.title,
+      });
+    } else {
+      // Fallback: search BGG API directly
+      const bggResult = await searchBGGApi(game.title);
+      if (bggResult) {
+        results.push({ ...bggResult, confidence: 'medium', rawGuess: game.title });
+      } else {
+        results.push({
+          title: game.title,
+          bggId: null, slug: null,
+          minPlayers: null, maxPlayers: null,
+          playTime: null, complexity: null,
+          bggRating: null, yearPublished: null,
+          thumbnail: null,
+          confidence: 'low',
+          rawGuess: game.title,
+        });
+      }
+    }
+  }
+
+  return results;
 }
 
 export async function POST(request: NextRequest) {
@@ -59,7 +269,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Vision service not configured' }, { status: 503 });
   }
 
-  // Rate limit check
   const rateCheck = checkRateLimit(session.user.id, session.user.email);
   if (!rateCheck.allowed) {
     return NextResponse.json({
@@ -79,12 +288,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Image must be a base64 data URL' }, { status: 400 });
   }
 
-  // Size check
   if (body.image.length > MAX_IMAGE_BYTES) {
     return NextResponse.json({ error: 'Image too large. Please resize to under 1MB.' }, { status: 400 });
   }
 
-  // Extract base64 data and media type
   const match = body.image.match(/^data:(image\/\w+);base64,(.+)$/);
   if (!match) {
     return NextResponse.json({ error: 'Invalid image format' }, { status: 400 });
@@ -103,25 +310,33 @@ export async function POST(request: NextRequest) {
       },
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
-        max_tokens: 1024,
+        max_tokens: 2048,
         messages: [{
           role: 'user',
           content: [
             {
               type: 'image',
-              source: {
-                type: 'base64',
-                media_type: mediaType,
-                data: imageData,
-              },
+              source: { type: 'base64', media_type: mediaType, data: imageData },
             },
             {
               type: 'text',
-              text: `Identify every board game, card game, or tabletop game visible in this photo. Look at box spines, covers, and any visible game titles.
+              text: `You are identifying board games, card games, and tabletop games visible in this photo of a game shelf or collection.
 
-Return ONLY a JSON array of game title strings. Be precise with titles. If you can't identify a game with confidence, skip it. Do not guess.
+For each game you can identify, return a JSON object with:
+- "title": Your best guess at the full, official game title (e.g., "Star Wars: Armada" not just "Armada")
+- "publisher": The publisher if you can determine it (e.g., "Fantasy Flight Games", "Stonemaier Games")
+- "description": A brief physical description to help verify — box color, distinctive art, size (e.g., "large blue box with spaceship art")
 
-Example output: ["Catan", "Ticket to Ride", "Pandemic", "Wingspan"]
+Return a JSON array of these objects. Be specific with titles — include franchise names, subtitles, and edition markers. If you see "Armada" with Star Wars imagery, return "Star Wars: Armada". If you see "Catan" in an older box, return "The Settlers of Catan".
+
+If you cannot confidently identify a game, skip it entirely. Quality over quantity.
+
+Example output:
+[
+  {"title": "Star Wars: Armada", "publisher": "Fantasy Flight Games", "description": "large rectangular box with Star Destroyer art"},
+  {"title": "Wingspan", "publisher": "Stonemaier Games", "description": "medium box with bird illustration, teal/nature colors"},
+  {"title": "Carcassonne", "publisher": "Z-Man Games", "description": "square box with medieval landscape"}
+]
 
 If no games are visible, return: []`,
             },
@@ -139,24 +354,25 @@ If no games are visible, return: []`,
     const result = await response.json();
     const text = result.content?.[0]?.text || '[]';
 
-    // Parse the JSON array from the response
-    let games: string[] = [];
+    let visionGames: VisionGame[] = [];
     try {
-      // Extract JSON array from response (might be wrapped in markdown code blocks)
       const jsonMatch = text.match(/\[[\s\S]*\]/);
       if (jsonMatch) {
-        games = JSON.parse(jsonMatch[0]);
+        visionGames = JSON.parse(jsonMatch[0]);
       }
     } catch {
       console.error('[library/scan] Failed to parse vision response:', text);
-      games = [];
     }
 
-    // Record the scan against rate limit
+    // Resolve each game against our BGG database
+    const resolved = await resolveAgainstBGG(
+      visionGames.filter((g): g is VisionGame => !!g?.title)
+    );
+
     recordScan(session.user.id);
 
     return NextResponse.json({
-      games: games.filter((g: unknown) => typeof g === 'string' && g.length > 0),
+      games: resolved,
       scansRemaining: rateCheck.remaining - 1,
     });
   } catch (err) {
