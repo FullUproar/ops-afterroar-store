@@ -1,37 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyAccessToken } from '@/lib/oauth/tokens';
+import { authenticateApiRequest } from '@/lib/oauth/api-auth';
 import { prisma } from '@/lib/prisma';
 
 /**
  * GET /api/userinfo — OAuth userinfo endpoint.
  *
- * Returns user profile data for a valid access token.
- * Called by consuming apps (fulluproar.com, Store Ops, HQ) after
- * exchanging an auth code for an access token.
- *
- * Only returns fields the token's scopes authorize.
- * No PII beyond what was explicitly consented to.
- *
- * Security:
- * - Validates Bearer token signature + expiry via jose
- * - Only returns fields matching the token's granted scopes
- * - Never returns passwordHash or other sensitive fields
+ * Auth: Bearer token OR ServerKey + X-User-Id.
+ * Returns user profile data scoped by granted permissions.
  */
 export async function GET(request: NextRequest) {
-  const authHeader = request.headers.get('authorization');
-  if (!authHeader?.startsWith('Bearer ')) {
-    return NextResponse.json({ error: 'Missing or invalid Authorization header' }, { status: 401 });
-  }
-
-  const token = authHeader.slice(7);
-  const payload = await verifyAccessToken(token);
-
-  if (!payload) {
-    return NextResponse.json({ error: 'Invalid or expired access token' }, { status: 401 });
+  const auth = await authenticateApiRequest(request);
+  if (!auth) {
+    return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
   }
 
   const user = await prisma.user.findUnique({
-    where: { id: payload.userId },
+    where: { id: auth.userId },
     select: {
       id: true,
       email: true,
@@ -50,14 +34,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'User not found' }, { status: 404 });
   }
 
-  const scopes = payload.scope.split(' ');
+  const scopes = (auth.scope || '').split(' ');
   const response: Record<string, unknown> = {
     sub: user.id,
   };
-
-  if (scopes.includes('openid')) {
-    response.sub = user.id;
-  }
 
   if (scopes.includes('profile')) {
     response.name = user.displayName;

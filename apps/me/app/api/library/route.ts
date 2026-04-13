@@ -1,30 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyAccessToken } from '@/lib/oauth/tokens';
+import { authenticateApiRequest } from '@/lib/oauth/api-auth';
 import { prisma } from '@/lib/prisma';
 
 /**
- * GET /api/library — Game library for the authenticated user.
+ * GET /api/library — Game library for a user.
  *
- * Requires Bearer access token with 'library:read' scope.
- * Returns the user's declared game library.
+ * Auth: Bearer token (library:read scope) OR ServerKey + X-User-Id.
+ * Returns the user's declared game library with tags.
  */
 export async function GET(request: NextRequest) {
-  const authHeader = request.headers.get('authorization');
-  if (!authHeader?.startsWith('Bearer ')) {
-    return NextResponse.json({ error: 'Missing Authorization header' }, { status: 401 });
+  const auth = await authenticateApiRequest(request);
+  if (!auth) {
+    return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
   }
 
-  const payload = await verifyAccessToken(authHeader.slice(7));
-  if (!payload) {
-    return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
-  }
-
-  if (!payload.scope.includes('library:read')) {
+  if (auth.scope && !auth.scope.includes('library:read')) {
     return NextResponse.json({ error: 'Insufficient scope — requires library:read' }, { status: 403 });
   }
 
   const user = await prisma.user.findUnique({
-    where: { id: payload.userId },
+    where: { id: auth.userId },
     select: { gameLibrary: true },
   });
 
@@ -37,7 +32,7 @@ export async function GET(request: NextRequest) {
   }
 
   return NextResponse.json({
-    userId: payload.userId,
+    userId: auth.userId,
     games,
     count: games.length,
   }, {
