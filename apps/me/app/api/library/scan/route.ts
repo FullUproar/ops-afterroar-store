@@ -21,7 +21,13 @@ const scanCounts = new Map<string, { count: number; resetAt: number }>();
 const MAX_SCANS_PER_DAY = 3;
 const MAX_IMAGE_BYTES = 1_500_000; // ~1.5MB base64
 
-function checkRateLimit(userId: string): { allowed: boolean; remaining: number } {
+const UNLIMITED_EMAILS = ['info@fulluproar.com', 'shawnoah.pollock@gmail.com'];
+
+function checkRateLimit(userId: string, email?: string | null): { allowed: boolean; remaining: number } {
+  if (email && UNLIMITED_EMAILS.includes(email)) {
+    return { allowed: true, remaining: 999 };
+  }
+
   const now = Date.now();
   const record = scanCounts.get(userId);
 
@@ -54,7 +60,7 @@ export async function POST(request: NextRequest) {
   }
 
   // Rate limit check
-  const rateCheck = checkRateLimit(session.user.id);
+  const rateCheck = checkRateLimit(session.user.id, session.user.email);
   if (!rateCheck.allowed) {
     return NextResponse.json({
       error: 'Daily scan limit reached (3 per day). Try again tomorrow.',
