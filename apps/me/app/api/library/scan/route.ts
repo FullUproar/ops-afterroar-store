@@ -61,6 +61,16 @@ interface ResolvedGame {
   rawGuess: string;
 }
 
+function decodeXmlEntities(str: string): string {
+  return str
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(parseInt(n)));
+}
+
 async function searchBGGApi(query: string, exact = false): Promise<Omit<ResolvedGame, 'confidence' | 'rawGuess'> | null> {
   const bggToken = process.env.BGG_API_TOKEN;
   if (!bggToken) return null;
@@ -82,17 +92,22 @@ async function searchBGGApi(query: string, exact = false): Promise<Omit<Resolved
     if (!itemMatch) return null;
 
     const bggId = parseInt(itemMatch[1]);
-    const title = itemMatch[2];
+    const title = decodeXmlEntities(itemMatch[2]);
     const yearPublished = itemMatch[3] ? parseInt(itemMatch[3]) : null;
 
-    // Fetch details for the first result
-    const detailRes = await fetch(
-      `https://boardgamegeek.com/xmlapi2/thing?id=${bggId}&stats=1`,
-      {
-        headers: { Authorization: `Bearer ${bggToken}` },
-        signal: AbortSignal.timeout(5000),
-      },
-    );
+    // Fetch details — skip if BGG is slow (non-critical enrichment)
+    let detailRes: Response | null = null;
+    try {
+      detailRes = await fetch(
+        `https://boardgamegeek.com/xmlapi2/thing?id=${bggId}&stats=1`,
+        {
+          headers: { Authorization: `Bearer ${bggToken}` },
+          signal: AbortSignal.timeout(3000),
+        },
+      );
+    } catch {
+      // Detail fetch failed — return what we have from search
+    }
 
     let minPlayers: number | null = null;
     let maxPlayers: number | null = null;
@@ -101,7 +116,7 @@ async function searchBGGApi(query: string, exact = false): Promise<Omit<Resolved
     let bggRating: number | null = null;
     let thumbnail: string | null = null;
 
-    if (detailRes.ok) {
+    if (detailRes?.ok) {
       const detailXml = await detailRes.text();
 
       const minP = detailXml.match(/minplayers value="(\d+)"/);
@@ -141,12 +156,18 @@ async function searchBGGApi(query: string, exact = false): Promise<Omit<Resolved
 
 async function resolveAgainstBGG(games: VisionGame[]): Promise<ResolvedGame[]> {
   const results: ResolvedGame[] = [];
+  let bggApiCalls = 0;
+  const MAX_BGG_CALLS = 20; // Cap BGG API calls per scan to avoid rate limits
 
   for (const game of games) {
     const searchTerms = game.title;
 
     // Step 1: BGG API exact match (most reliable — short titles like "Yogi" resolve correctly)
-    const bggExact = await searchBGGApi(searchTerms, true);
+    let bggExact: Omit<ResolvedGame, 'confidence' | 'rawGuess'> | null = null;
+    if (bggApiCalls < MAX_BGG_CALLS) {
+      bggExact = await searchBGGApi(searchTerms, true);
+      bggApiCalls++;
+    }
     if (bggExact) {
       results.push({ ...bggExact, confidence: 'high', rawGuess: game.title });
       continue;
@@ -243,8 +264,9 @@ async function resolveAgainstBGG(games: VisionGame[]): Promise<ResolvedGame[]> {
         rawGuess: game.title,
       });
     } else {
-      // Fallback: search BGG API directly
-      const bggResult = await searchBGGApi(game.title);
+      // Fallback: search BGG API directly (if under call cap)
+      const bggResult = bggApiCalls < MAX_BGG_CALLS ? await searchBGGApi(game.title) : null;
+      if (bggResult) bggApiCalls++;
       if (bggResult) {
         results.push({ ...bggResult, confidence: 'medium', rawGuess: game.title });
       } else {
