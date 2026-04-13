@@ -1,7 +1,7 @@
 import { auth } from '@/lib/auth-config';
 import { prisma } from '@/lib/prisma';
 import { redirect } from 'next/navigation';
-import { LibraryEditor } from './library-editor';
+import { LibraryPageClient } from './library-page-client';
 
 export default async function LibraryPage() {
   const session = await auth();
@@ -37,7 +37,7 @@ export default async function LibraryPage() {
         for recommendations and matchmaking.
       </p>
 
-      <LibraryEditor initialGames={library} />
+      <LibraryPageClient initialGames={library} />
     </div>
   );
 }
