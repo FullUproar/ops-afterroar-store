@@ -38,7 +38,7 @@ export default async function LibraryPage() {
       </h1>
       <p style={{ color: '#9ca3af', marginBottom: '2rem' }}>
         Games you own, love, or are willing to bring to game night.
-        This library is shared with your crews on Fugly&apos;s HQ for smart game suggestions.
+        Apps you connect to your Passport can use this for smart game suggestions.
       </p>
 
       <LibraryEditor initialGames={library} />
