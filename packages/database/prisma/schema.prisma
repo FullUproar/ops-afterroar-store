@@ -36,6 +36,7 @@ model User {
   gameLoans    GameLoan[]
   wishlistItems WishlistItem[]
   createdTags  GameTag[]
+  badges       UserBadge[]
 
   @@map("User")
 }
@@ -44,6 +45,52 @@ model User {
 // GAME TAG — Shared vocabulary for organizing collections.
 // Like hashtags: anyone can create, popular ones gain meaning.
 // ============================================================
+// ============================================================
+// PASSPORT BADGES — Portable identity markers. Native to Afterroar,
+// also issuable by Full Uproar, stores, and other platform entities.
+// ============================================================
+model PassportBadge {
+  id          String    @id @default(cuid())
+  slug        String    @unique
+  name        String
+  description String
+  iconEmoji   String?
+  iconUrl     String?
+  color       String    @default("#FF8200")
+  category    String    @default("general")
+  issuerType  String    @default("afterroar")
+  issuerName  String?
+  issuerId    String?
+  isLimited   Boolean   @default(false)
+  totalIssued Int       @default(0)
+  maxSupply   Int?
+  createdAt   DateTime  @default(now())
+  retiredAt   DateTime?
+
+  userBadges UserBadge[]
+
+  @@index([category])
+  @@index([issuerType])
+}
+
+model UserBadge {
+  id        String    @id @default(cuid())
+  userId    String
+  badgeId   String
+  issuedAt  DateTime  @default(now())
+  issuedBy  String?
+  reason    String?
+  metadata  Json?     @default("{}")
+  revokedAt DateTime?
+
+  user  User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  badge PassportBadge @relation(fields: [badgeId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, badgeId])
+  @@index([userId])
+  @@index([badgeId])
+}
+
 model GameTag {
   id        String   @id @default(cuid())
   name      String

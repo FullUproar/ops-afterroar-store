@@ -36,7 +36,7 @@ export default async function SettingsPage() {
 
   const userId = session.user.id;
 
-  const [user, consents] = await Promise.all([
+  const [user, consents, userBadges] = await Promise.all([
     prisma.user.findUnique({
       where: { id: userId },
       select: {
@@ -57,6 +57,11 @@ export default async function SettingsPage() {
       where: { userId },
       select: { category: true, granted: true, grantedAt: true, revokedAt: true, source: true },
       orderBy: { category: 'asc' },
+    }),
+    prisma.userBadge.findMany({
+      where: { userId, revokedAt: null },
+      include: { badge: true },
+      orderBy: { issuedAt: 'desc' },
     }),
   ]);
 
@@ -130,6 +135,56 @@ export default async function SettingsPage() {
           ))}
         </div>
       </section>
+
+      {/* Badges section */}
+      {userBadges.length > 0 && (
+        <section style={{ marginBottom: '2.5rem' }}>
+          <h2 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#e2e8f0', marginBottom: '0.5rem' }}>
+            Your badges
+          </h2>
+          <p style={{ color: '#6b7280', fontSize: '0.85rem', marginBottom: '1rem' }}>
+            Identity markers you&apos;ve earned, received, or collected. Portable across every app that reads your Passport.
+          </p>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
+            gap: '0.75rem',
+          }}>
+            {userBadges.map((ub) => (
+              <div key={ub.id} style={{
+                background: '#1f2937',
+                border: `1px solid ${ub.badge.color}33`,
+                borderRadius: '10px',
+                padding: '1rem',
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: '0.75rem',
+              }}>
+                <div style={{
+                  fontSize: '2rem',
+                  lineHeight: 1,
+                  flexShrink: 0,
+                  filter: `drop-shadow(0 0 12px ${ub.badge.color}44)`,
+                }}>
+                  {ub.badge.iconEmoji || '🏅'}
+                </div>
+                <div style={{ minWidth: 0 }}>
+                  <p style={{ margin: 0, fontWeight: 700, fontSize: '0.85rem', color: ub.badge.color }}>
+                    {ub.badge.name}
+                  </p>
+                  <p style={{ margin: '0.2rem 0', fontSize: '0.7rem', color: '#6b7280' }}>
+                    {ub.badge.description}
+                  </p>
+                  <p style={{ margin: 0, fontSize: '0.65rem', color: '#4b5563' }}>
+                    {ub.badge.issuerName || ub.badge.issuerType}
+                    {ub.badge.isLimited && ' · limited'}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Consent toggles */}
       <section style={{ marginBottom: '2.5rem' }}>

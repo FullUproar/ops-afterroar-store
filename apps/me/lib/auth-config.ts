@@ -31,4 +31,32 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       return session;
     },
   },
+  events: {
+    async createUser({ user }) {
+      // Auto-issue Passport Pioneer badge to new users
+      if (!user.id) return;
+      try {
+        const badge = await prisma.passportBadge.findUnique({ where: { slug: 'passport-pioneer' } });
+        if (!badge || badge.retiredAt) return;
+        if (badge.maxSupply && badge.totalIssued >= badge.maxSupply) return;
+
+        await prisma.$transaction([
+          prisma.userBadge.create({
+            data: {
+              userId: user.id,
+              badgeId: badge.id,
+              issuedBy: 'afterroar',
+              reason: 'Early Passport adopter',
+            },
+          }),
+          prisma.passportBadge.update({
+            where: { id: badge.id },
+            data: { totalIssued: { increment: 1 } },
+          }),
+        ]);
+      } catch (err) {
+        console.error('[auth] Failed to issue Pioneer badge:', err);
+      }
+    },
+  },
 });
