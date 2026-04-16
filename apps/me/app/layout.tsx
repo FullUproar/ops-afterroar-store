@@ -1,8 +1,8 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Afterroar — Your Gaming Identity',
-  description: 'Your gaming identity, your rules. One login across every store and app in the Afterroar ecosystem. Manage your data, control your consent, delete anytime.',
+  title: 'Afterroar — Your Tabletop Identity',
+  description: 'Your tabletop identity, your rules. One login across every store and app in the Afterroar ecosystem. Manage your data, control your consent, delete anytime.',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

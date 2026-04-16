@@ -24,7 +24,7 @@ export default function TermsPage() {
           What Afterroar is
         </h2>
         <p style={{ color: '#9ca3af' }}>
-          Afterroar is a gaming identity and federation platform operated by Full Uproar
+          Afterroar is a tabletop gaming identity and federation platform operated by Full Uproar
           Games, Inc. ("we," "us," "our"). It provides a cross-store player identity
           ("Passport"), loyalty points, event participation tracking, and a consent
           management system for the tabletop gaming community.

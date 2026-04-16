@@ -134,7 +134,7 @@ export default async function WelcomePage({ searchParams }: WelcomePageProps) {
           </h1>
           <p style={{ color: '#e2e8f0', fontSize: '1rem', margin: 0 }}>
             {isFreshPassport
-              ? 'Your Afterroar Passport is live. Your gaming identity, your data, your rules.'
+              ? 'Your Afterroar Passport is live. Your tabletop identity, your data, your rules.'
               : 'Good to see you back. Here\'s where you stand.'}
           </p>
         </div>

@@ -244,7 +244,7 @@ function SignedOut() {
           Afterroar
         </h1>
         <p style={{ fontSize: '1.25rem', color: '#e2e8f0', lineHeight: 1.6, margin: 0 }}>
-          Your gaming identity, your rules.
+          Your tabletop identity, your rules.
         </p>
         <p style={{ fontSize: '1rem', color: '#9ca3af', lineHeight: 1.6, margin: 0 }}>
           One login across every store and app in the Afterroar ecosystem.

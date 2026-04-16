@@ -41,7 +41,7 @@ function LoginContent() {
           margin: 0,
           lineHeight: 1.6,
         }}>
-          Your gaming identity. One login, every store, every app.
+          Your tabletop identity. One login, every store, every app.
         </p>
 
         {error && (
