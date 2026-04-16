@@ -179,6 +179,7 @@ export default async function PassportLanding() {
           </Link>
           <div style={{ display: 'flex', gap: '1rem' }}>
             <Link href="/credo" style={{ color: '#FF8200', textDecoration: 'none', fontWeight: 600 }}>The Credo</Link>
+            <Link href="/store" style={{ color: '#6b7280', textDecoration: 'none' }}>Connect</Link>
             <Link href="/privacy" style={{ color: '#6b7280', textDecoration: 'none' }}>Privacy</Link>
             <Link href="/terms" style={{ color: '#6b7280', textDecoration: 'none' }}>Terms</Link>
           </div>
@@ -266,12 +267,19 @@ function SignedOut() {
             Sign in
           </Link>
         </p>
+        <p style={{ fontSize: '0.85rem', color: '#6b7280', margin: 0 }}>
+          Own a game store?{' '}
+          <Link href="/store" style={{ color: '#FF8200', textDecoration: 'none', fontWeight: 600 }}>
+            Learn about Connect
+          </Link>
+        </p>
         <div style={{
           marginTop: '2rem', display: 'flex', flexDirection: 'column', alignItems: 'center',
           gap: '0.5rem', fontSize: '0.75rem', color: '#6b7280',
         }}>
           <div style={{ display: 'flex', gap: '1rem' }}>
             <Link href="/credo" style={{ color: '#FF8200', textDecoration: 'none', fontWeight: 600 }}>The Credo</Link>
+            <Link href="/store" style={{ color: '#6b7280', textDecoration: 'none' }}>Connect</Link>
             <Link href="/privacy" style={{ color: '#6b7280', textDecoration: 'none' }}>Privacy</Link>
             <Link href="/terms" style={{ color: '#6b7280', textDecoration: 'none' }}>Terms</Link>
           </div>

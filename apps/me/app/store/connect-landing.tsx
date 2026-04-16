@@ -164,11 +164,11 @@ export function ConnectLanding({ signedIn }: { signedIn: boolean }) {
         </p>
       </div>
 
-      {/* Credo */}
+      {/* Credo nod — concise, not commercial */}
       <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-        <p style={{ color: '#6b7280', fontSize: '0.85rem', fontStyle: 'italic', maxWidth: '32rem', margin: '0 auto' }}>
-          &quot;Players first, stores second, the federation third, the broader gaming ecosystem fourth, the business last.&quot;{' '}
-          <Link href="/credo" style={{ color: '#FF8200', fontStyle: 'normal', textDecoration: 'none' }}>— the Afterroar Credo</Link>
+        <p style={{ color: '#6b7280', fontSize: '0.85rem', maxWidth: '32rem', margin: '0 auto' }}>
+          Customer data belongs to the customer. We built the whole platform on that principle.{' '}
+          <Link href="/credo" style={{ color: '#FF8200', textDecoration: 'none' }}>Read the Credo</Link>
         </p>
       </div>
 
