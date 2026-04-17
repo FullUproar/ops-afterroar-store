@@ -5,6 +5,7 @@ import { formatCents } from "@/lib/types";
 import { BarcodeScanner } from "@/components/barcode-scanner";
 import { PageHeader } from "@/components/page-header";
 import { StatusBadge as SharedStatusBadge, EmptyState } from "@/components/shared/ui";
+import { Pagination } from "@/components/ui/pagination";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -63,6 +64,9 @@ export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
+  const [totalItems, setTotalItems] = useState(0);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [showPackShip, setShowPackShip] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
@@ -76,20 +80,22 @@ export default function OrdersPage() {
   const fetchOrders = useCallback(async () => {
     setLoading(true);
     try {
-      const url = statusFilter
-        ? `/api/orders?status=${statusFilter}`
-        : "/api/orders";
-      const res = await fetch(url);
+      const params = new URLSearchParams();
+      params.set("page", String(page));
+      params.set("pageSize", String(pageSize));
+      if (statusFilter) params.set("status", statusFilter);
+      const res = await fetch(`/api/orders?${params.toString()}`);
       if (res.ok) {
-        const data = await res.json();
-        setOrders(data);
+        const result = await res.json();
+        setOrders(result.data || result);
+        if (result.total != null) setTotalItems(result.total);
       }
     } catch {
       // Network error
     } finally {
       setLoading(false);
     }
-  }, [statusFilter]);
+  }, [statusFilter, page, pageSize]);
 
   useEffect(() => {
     fetchOrders();
@@ -184,7 +190,7 @@ export default function OrdersPage() {
           (s) => (
             <button
               key={s}
-              onClick={() => setStatusFilter(s)}
+              onClick={() => { setStatusFilter(s); setPage(1); }}
               className={`rounded-xl px-3 py-2 text-xs font-medium whitespace-nowrap transition-colors ${
                 statusFilter === s
                   ? "bg-blue-600 text-foreground"
@@ -237,6 +243,14 @@ export default function OrdersPage() {
               </div>
             </button>
           ))}
+          <Pagination
+            page={page}
+            pageSize={pageSize}
+            total={totalItems}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+            pageSizeOptions={[25, 50, 100]}
+          />
         </div>
       )}
 

@@ -3,18 +3,29 @@ import { prisma } from "@/lib/prisma";
 import { requireStaff, handleAuthError } from "@/lib/require-staff";
 import { createHQGameNight } from "@/lib/hq-bridge";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const { db, storeId } = await requireStaff();
 
-    const events = await db.posEvent.findMany({
-      where: { store_id: storeId },
-      orderBy: { starts_at: "desc" },
-      take: 100,
-      include: {
-        _count: { select: { checkins: true } },
-      },
-    });
+    const searchParams = request.nextUrl.searchParams;
+    const page = parseInt(searchParams.get("page") || "1", 10);
+    const pageSize = parseInt(searchParams.get("pageSize") || "50", 10);
+    const skip = (page - 1) * pageSize;
+
+    const where = { store_id: storeId };
+
+    const [events, total] = await Promise.all([
+      db.posEvent.findMany({
+        where,
+        orderBy: { starts_at: "desc" },
+        skip,
+        take: Math.min(pageSize, 200),
+        include: {
+          _count: { select: { checkins: true } },
+        },
+      }),
+      db.posEvent.count({ where }),
+    ]);
 
     // For HQ-linked events, get RSVP counts
     const hqEventIds = events
@@ -47,7 +58,7 @@ export async function GET() {
       _count: undefined,
     }));
 
-    return NextResponse.json(mapped);
+    return NextResponse.json({ data: mapped, total, page, pageSize });
   } catch (error) {
     return handleAuthError(error);
   }

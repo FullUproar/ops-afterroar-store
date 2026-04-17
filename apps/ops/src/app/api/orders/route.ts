@@ -5,23 +5,32 @@ export async function GET(request: NextRequest) {
   try {
     const { db } = await requireStaff();
 
-    const status = request.nextUrl.searchParams.get("status")?.trim();
+    const searchParams = request.nextUrl.searchParams;
+    const page = parseInt(searchParams.get("page") || "1", 10);
+    const pageSize = parseInt(searchParams.get("pageSize") || "50", 10);
+    const skip = (page - 1) * pageSize;
+
+    const status = searchParams.get("status")?.trim();
     const where: Record<string, unknown> = {};
     if (status) {
       where.status = status;
     }
 
-    const orders = await db.posOrder.findMany({
-      where,
-      include: {
-        items: true,
-        customer: { select: { id: true, name: true, email: true } },
-      },
-      orderBy: { created_at: "desc" },
-      take: 100,
-    });
+    const [data, total] = await Promise.all([
+      db.posOrder.findMany({
+        where,
+        include: {
+          items: true,
+          customer: { select: { id: true, name: true, email: true } },
+        },
+        orderBy: { created_at: "desc" },
+        skip,
+        take: Math.min(pageSize, 200),
+      }),
+      db.posOrder.count({ where }),
+    ]);
 
-    return NextResponse.json(orders);
+    return NextResponse.json({ data, total, page, pageSize });
   } catch (error) {
     return handleAuthError(error);
   }

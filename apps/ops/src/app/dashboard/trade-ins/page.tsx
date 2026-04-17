@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { formatCents } from '@/lib/types';
 import { EmptyState } from '@/components/shared/ui';
 import { StatusBadge } from '@/components/mobile-card';
 import { PageHeader } from '@/components/page-header';
+import { Pagination } from '@/components/ui/pagination';
 
 interface TradeInRow {
   id: string;
@@ -29,17 +30,28 @@ export default function TradeInsPage() {
   const [tradeIns, setTradeIns] = useState<TradeInRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
+  const [totalItems, setTotalItems] = useState(0);
+
+  const loadTradeIns = useCallback(async () => {
+    try {
+      setError('');
+      const res = await fetch(`/api/trade-ins?page=${page}&pageSize=${pageSize}`);
+      if (!res.ok) throw new Error('Failed to load trade-ins');
+      const result = await res.json();
+      setTradeIns(result.data || result);
+      if (result.total != null) setTotalItems(result.total);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  }, [page, pageSize]);
 
   useEffect(() => {
-    fetch('/api/trade-ins')
-      .then((res) => {
-        if (!res.ok) throw new Error('Failed to load trade-ins');
-        return res.json();
-      })
-      .then((data) => setTradeIns(data))
-      .catch((err) => setError(err.message))
-      .finally(() => setLoading(false));
-  }, []);
+    loadTradeIns();
+  }, [loadTradeIns]);
 
   return (
     <div className="flex flex-col h-full gap-4">
@@ -135,6 +147,14 @@ export default function TradeInsPage() {
               </tbody>
             </table>
           </div>
+          <Pagination
+            page={page}
+            pageSize={pageSize}
+            total={totalItems}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+            pageSizeOptions={[25, 50, 100]}
+          />
         </>
       )}
     </div>

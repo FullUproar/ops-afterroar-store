@@ -1,1 +1,4 @@
 tests/visual/results/
+
+.vercel
+.env*.local

@@ -6,6 +6,7 @@ import { GameEvent, EventCheckin, Customer, formatCents, parseDollars } from '@/
 import { StatusBadge } from '@/components/mobile-card';
 import { PageHeader } from '@/components/page-header';
 import { EmptyState } from '@/components/shared/ui';
+import { Pagination } from '@/components/ui/pagination';
 
 type EventWithCount = GameEvent & { checkin_count: number; rsvp_count: number | null };
 
@@ -127,6 +128,9 @@ export default function EventsPage() {
   const { store } = useStore();
   const [events, setEvents] = useState<EventWithCount[]>([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
+  const [totalItems, setTotalItems] = useState(0);
   const [showForm, setShowForm] = useState(false);
   const [createAsHQ, setCreateAsHQ] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -155,19 +159,20 @@ export default function EventsPage() {
   const loadEvents = useCallback(async () => {
     try {
       setLoadError(null);
-      const res = await fetch('/api/events');
+      const res = await fetch(`/api/events?page=${page}&pageSize=${pageSize}`);
       if (!res.ok) {
         setLoadError('Failed to load events. Try again.');
         return;
       }
-      const data = await res.json();
-      setEvents(data);
+      const result = await res.json();
+      setEvents(result.data || result);
+      if (result.total != null) setTotalItems(result.total);
     } catch {
       setLoadError('Failed to load events. Try again.');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [page, pageSize]);
 
   useEffect(() => {
     loadEvents();
@@ -518,6 +523,14 @@ export default function EventsPage() {
               </tbody>
             </table>
           </div>
+          <Pagination
+            page={page}
+            pageSize={pageSize}
+            total={totalItems}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+            pageSizeOptions={[25, 50, 100]}
+          />
         </>
       )}
     </div>

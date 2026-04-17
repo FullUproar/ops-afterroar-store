@@ -7,20 +7,32 @@ import { requirePermission, handleAuthError } from "@/lib/require-staff";
 /*  POST: actions (intake, mark_sold, payout, return)                  */
 /* ------------------------------------------------------------------ */
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const { db } = await requirePermission("inventory.view");
 
-    const items = await db.posConsignmentItem.findMany({
-      orderBy: { listed_at: "desc" },
-      include: {
-        consignor: { select: { id: true, name: true } },
-        inventory_item: { select: { id: true, name: true, price_cents: true } },
-      },
-      take: 200,
-    });
+    const searchParams = request.nextUrl.searchParams;
+    const page = parseInt(searchParams.get("page") || "1", 10);
+    const pageSize = parseInt(searchParams.get("pageSize") || "50", 10);
+    const skip = (page - 1) * pageSize;
 
-    return NextResponse.json(items);
+    const where = {};
+
+    const [data, total] = await Promise.all([
+      db.posConsignmentItem.findMany({
+        where,
+        orderBy: { listed_at: "desc" },
+        include: {
+          consignor: { select: { id: true, name: true } },
+          inventory_item: { select: { id: true, name: true, price_cents: true } },
+        },
+        skip,
+        take: Math.min(pageSize, 200),
+      }),
+      db.posConsignmentItem.count({ where }),
+    ]);
+
+    return NextResponse.json({ data, total, page, pageSize });
   } catch (error) {
     return handleAuthError(error);
   }

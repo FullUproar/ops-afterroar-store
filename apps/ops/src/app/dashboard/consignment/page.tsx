@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { PageHeader } from "@/components/page-header";
 import { formatCents, parseDollars } from "@/lib/types";
+import { Pagination } from "@/components/ui/pagination";
 
 interface ConsignmentItem {
   id: string;
@@ -21,6 +22,9 @@ export default function ConsignmentPage() {
   const [items, setItems] = useState<ConsignmentItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"active" | "sold" | "all">("active");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
+  const [totalItems, setTotalItems] = useState(0);
   const [showIntake, setShowIntake] = useState(false);
 
   // Intake form
@@ -35,12 +39,16 @@ export default function ConsignmentPage() {
 
   const loadItems = useCallback(async () => {
     try {
-      const res = await fetch("/api/consignment");
-      if (res.ok) setItems(await res.json());
+      const res = await fetch(`/api/consignment?page=${page}&pageSize=${pageSize}`);
+      if (res.ok) {
+        const result = await res.json();
+        setItems(result.data || result);
+        if (result.total != null) setTotalItems(result.total);
+      }
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [page, pageSize]);
 
   useEffect(() => { loadItems(); }, [loadItems]);
 
@@ -203,6 +211,7 @@ export default function ConsignmentPage() {
           <p className="text-muted">No consignment items{filter !== "all" ? ` with status "${filter}"` : ""}.</p>
         </div>
       ) : (
+        <>
         <div className="overflow-x-auto rounded-xl border border-card-border scroll-visible">
           <table className="w-full text-sm">
             <thead>
@@ -247,6 +256,15 @@ export default function ConsignmentPage() {
             </tbody>
           </table>
         </div>
+        <Pagination
+          page={page}
+          pageSize={pageSize}
+          total={totalItems}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+          pageSizeOptions={[25, 50, 100]}
+        />
+        </>
       )}
     </div>
   );

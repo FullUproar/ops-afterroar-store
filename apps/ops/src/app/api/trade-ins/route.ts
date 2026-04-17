@@ -8,20 +8,32 @@ import { formatCents } from "@/lib/types";
 /* ------------------------------------------------------------------ */
 /*  GET /api/trade-ins — list trade-ins for store                     */
 /* ------------------------------------------------------------------ */
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const { db } = await requireStaff();
 
-    const data = await db.posTradeIn.findMany({
-      orderBy: { created_at: "desc" },
-      take: 100,
-      include: {
-        customer: { select: { name: true } },
-        _count: { select: { items: true } },
-      },
-    });
+    const searchParams = request.nextUrl.searchParams;
+    const page = parseInt(searchParams.get("page") || "1", 10);
+    const pageSize = parseInt(searchParams.get("pageSize") || "50", 10);
+    const skip = (page - 1) * pageSize;
 
-    const rows = data.map((ti) => ({
+    const where = {};
+
+    const [rawData, total] = await Promise.all([
+      db.posTradeIn.findMany({
+        where,
+        orderBy: { created_at: "desc" },
+        skip,
+        take: Math.min(pageSize, 200),
+        include: {
+          customer: { select: { name: true } },
+          _count: { select: { items: true } },
+        },
+      }),
+      db.posTradeIn.count({ where }),
+    ]);
+
+    const data = rawData.map((ti) => ({
       id: ti.id,
       created_at: ti.created_at,
       customer_name: ti.customer?.name ?? "Unknown",
@@ -32,7 +44,7 @@ export async function GET() {
       status: ti.status,
     }));
 
-    return NextResponse.json(rows);
+    return NextResponse.json({ data, total, page, pageSize });
   } catch (error) {
     return handleAuthError(error);
   }

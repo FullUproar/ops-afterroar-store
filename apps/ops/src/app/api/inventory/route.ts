@@ -8,17 +8,21 @@ export async function GET(request: NextRequest) {
 
     const searchParams = request.nextUrl.searchParams;
     const page = parseInt(searchParams.get("page") || "1", 10);
-    const limit = 50;
+    const limit = parseInt(searchParams.get("pageSize") || "50", 10);
     const skip = (page - 1) * limit;
 
-    const data = await db.posInventoryItem.findMany({
-      where: { store_id: storeId },
-      orderBy: { name: "asc" },
-      skip,
-      take: limit,
-    });
+    const where = { store_id: storeId, active: true };
+    const [data, total] = await Promise.all([
+      db.posInventoryItem.findMany({
+        where,
+        orderBy: { name: "asc" },
+        skip,
+        take: Math.min(limit, 200),
+      }),
+      db.posInventoryItem.count({ where }),
+    ]);
 
-    return NextResponse.json(data);
+    return NextResponse.json({ data, total, page, pageSize: limit });
   } catch (error) {
     return handleAuthError(error);
   }

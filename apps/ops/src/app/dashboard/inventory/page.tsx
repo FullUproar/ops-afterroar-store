@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { SearchInput } from "@/components/search-input";
+import { Pagination } from "@/components/ui/pagination";
 import { useStore } from "@/lib/store-context";
 import {
   InventoryItem,
@@ -85,6 +86,11 @@ export default function InventoryPage() {
   const [error, setError] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
+  // Pagination
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
+  const [totalItems, setTotalItems] = useState(0);
+
   // Sorting
   type SortField = "name" | "price" | "quantity" | "category";
   type SortDir = "asc" | "desc";
@@ -126,15 +132,16 @@ export default function InventoryPage() {
     try {
       setLoadError(null);
       const [invRes, locRes] = await Promise.all([
-        fetch("/api/inventory"),
+        fetch(`/api/inventory?page=${page}&pageSize=${pageSize}`),
         fetch("/api/locations"),
       ]);
       if (!invRes.ok) {
         setLoadError("Failed to load inventory. Try again.");
         return;
       }
-      const data = await invRes.json();
-      setItems(data as InventoryItem[]);
+      const result = await invRes.json();
+      setItems((result.data || result) as InventoryItem[]);
+      if (result.total != null) setTotalItems(result.total);
       if (locRes.ok) {
         const locData = await locRes.json();
         setLocations(locData);
@@ -144,9 +151,8 @@ export default function InventoryPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [page, pageSize]);
 
-  // Initial load
   useEffect(() => {
     loadInventory();
   }, [loadInventory]);
@@ -992,6 +998,14 @@ export default function InventoryPage() {
                 ))}
               </tbody>
             </table>
+            <Pagination
+              page={page}
+              pageSize={pageSize}
+              total={totalItems}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+              pageSizeOptions={[25, 50, 100]}
+            />
           </div>
         </>
       )}
