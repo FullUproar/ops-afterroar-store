@@ -1,7 +1,5 @@
 'use client';
 
-import { ChevronLeft, ChevronRight } from 'lucide-react';
-
 interface PaginationProps {
   page: number;
   pageSize: number;
@@ -68,7 +66,7 @@ export function Pagination({
           style={navBtn(page <= 1)}
           aria-label="Previous page"
         >
-          <ChevronLeft size={16} />
+          ‹
         </button>
 
         <span style={{ minWidth: '5rem', textAlign: 'center', fontWeight: 600, color: 'var(--text, #e2e8f0)' }}>
@@ -81,7 +79,7 @@ export function Pagination({
           style={navBtn(page >= totalPages)}
           aria-label="Next page"
         >
-          <ChevronRight size={16} />
+          ›
         </button>
       </div>
     </div>
