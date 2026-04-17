@@ -425,6 +425,12 @@ export default function InventoryPage() {
             >
               Card Catalog
             </Link>
+            <Link
+              href="/dashboard/deck-builder"
+              className="hidden sm:block rounded-xl border border-card-border px-4 py-2 text-sm font-medium text-muted hover:bg-card-hover transition-colors"
+            >
+              Deck Builder
+            </Link>
             <button
               onClick={() => setShowShopifySync(!showShopifySync)}
               className="hidden sm:block rounded-xl border border-blue-500/30 px-4 py-2 text-sm font-medium text-blue-400 hover:bg-blue-500/10 transition-colors"

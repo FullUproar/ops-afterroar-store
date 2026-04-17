@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
 import { useStore } from '@/lib/store-context';
 import { GameEvent, EventCheckin, Customer, formatCents, parseDollars } from '@/lib/types';
 import { StatusBadge } from '@/components/mobile-card';
@@ -242,6 +243,12 @@ export default function EventsPage() {
                 <button onClick={() => setViewMode("list")} className={`px-3 py-2 text-xs font-medium transition-colors ${viewMode === "list" ? "bg-card-hover text-foreground" : "text-muted hover:text-foreground"}`} style={{ minHeight: "auto" }}>List</button>
                 <button onClick={() => setViewMode("calendar")} className={`px-3 py-2 text-xs font-medium transition-colors ${viewMode === "calendar" ? "bg-card-hover text-foreground" : "text-muted hover:text-foreground"}`} style={{ minHeight: "auto" }}>Calendar</button>
               </div>
+              <Link
+                href="/dashboard/deck-builder"
+                className="hidden sm:block px-4 py-2 rounded-lg border border-card-border text-sm font-medium text-muted hover:bg-card-hover transition-colors"
+              >
+                Deck Builder
+              </Link>
               {isConnected && (
                 <button
                   onClick={() => { setShowForm(true); setCreateAsHQ(true); }}
