@@ -1706,6 +1706,11 @@ model PosOrder {
   estimated_delivery DateTime? @db.Timestamptz()
   notes              String?
   ledger_entry_id    String?
+  // Oversold flag — set on ingest when on-hand quantity could not cover
+  // the ordered quantity. Orthogonal to status (which drives workflow).
+  // Surfaced in the fulfillment UI so the cashier can backorder, refund,
+  // or reconcile actual stock.
+  is_oversold        Boolean   @default(false)
   fulfilled_at       DateTime? @db.Timestamptz()
   shipped_at         DateTime? @db.Timestamptz()
   delivered_at       DateTime? @db.Timestamptz()

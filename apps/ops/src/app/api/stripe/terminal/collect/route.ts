@@ -3,6 +3,7 @@ import { requireStaff, handleAuthError } from "@/lib/require-staff";
 import { prisma } from "@/lib/prisma";
 import Stripe from "stripe";
 import { opLog } from "@/lib/op-log";
+import { buildIdempotencyKey } from "@/lib/stripe-terminal-recovery";
 
 /**
  * POST /api/stripe/terminal/collect
@@ -14,9 +15,9 @@ import { opLog } from "@/lib/op-log";
  */
 export async function POST(request: Request) {
   try {
-    const { storeId } = await requireStaff();
+    const { storeId, staff } = await requireStaff();
 
-    const { amount_cents, description, enable_tipping } = await request.json();
+    const { amount_cents, description, enable_tipping, client_tx_id } = await request.json();
 
     if (!amount_cents || amount_cents < 50) {
       return NextResponse.json({ error: "Amount must be at least $0.50" }, { status: 400 });
@@ -40,24 +41,61 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "No terminal reader registered. Go to Settings to register one." }, { status: 400 });
     }
 
-    // 1. Create PaymentIntent for in-person card_present
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: amount_cents,
-      currency: "usd",
-      payment_method_types: ["card_present"],
-      capture_method: "automatic",
-      description: description || "Store Ops sale",
+    // Audit: payment.start — every state transition logged so a disputed
+    // charge can be reconstructed from the op log.
+    opLog({
+      storeId,
+      eventType: "terminal.payment.start",
+      message: `Terminal payment start · $${(amount_cents / 100).toFixed(2)} · Reader ${readerId}`,
       metadata: {
-        store_id: storeId,
-        source: "terminal",
-        ...(enable_tipping ? { tipping_enabled: "true" } : {}),
+        amount_cents,
+        reader_id: readerId,
+        client_tx_id: client_tx_id ?? null,
+        enable_tipping: !!enable_tipping,
       },
+      staffName: staff.name,
+      userId: staff.user_id,
     });
 
-    // 2. Send to the reader
+    // 1. Create PaymentIntent for in-person card_present.
+    //
+    // Idempotency-Key: when the client supplies client_tx_id we derive a
+    // deterministic key per-(client_tx_id × operation). If the network
+    // drops and we retry creating the same PaymentIntent, Stripe returns
+    // the original PI rather than charging twice.
+    const piIdempotencyKey = client_tx_id
+      ? buildIdempotencyKey(client_tx_id, "payment-intent")
+      : undefined;
+
+    const paymentIntent = await stripe.paymentIntents.create(
+      {
+        amount: amount_cents,
+        currency: "usd",
+        payment_method_types: ["card_present"],
+        capture_method: "automatic",
+        description: description || "Store Ops sale",
+        metadata: {
+          store_id: storeId,
+          source: "terminal",
+          ...(client_tx_id ? { client_tx_id } : {}),
+          ...(enable_tipping ? { tipping_enabled: "true" } : {}),
+        },
+      },
+      piIdempotencyKey ? { idempotencyKey: piIdempotencyKey } : undefined,
+    );
+
+    // 2. Send to the reader.
     // When tipping is enabled, the S710 shows a tip selection screen
-    // before the "Tap, insert, or swipe" prompt
+    // before the "Tap, insert, or swipe" prompt.
+    //
+    // The processPaymentIntent call also gets an idempotency key — if we
+    // retry after a network blip, Stripe will not double-dispatch to the
+    // reader.
     try {
+      const collectIdempotencyKey = client_tx_id
+        ? buildIdempotencyKey(client_tx_id, "reader-process")
+        : undefined;
+
       await stripe.terminal.readers.processPaymentIntent(
         readerId,
         {
@@ -67,11 +105,40 @@ export async function POST(request: Request) {
               tipping: { amount_eligible: amount_cents },
             },
           } : {}),
-        }
+        },
+        collectIdempotencyKey ? { idempotencyKey: collectIdempotencyKey } : undefined,
       );
     } catch (readerError) {
-      // Cancel the payment intent if reader fails
-      await stripe.paymentIntents.cancel(paymentIntent.id).catch(() => {});
+      // Cancel the payment intent if reader fails. Cancel uses its own
+      // idempotency key so a duplicate cancel after retry is safe.
+      const cancelKey = client_tx_id
+        ? buildIdempotencyKey(client_tx_id, "pi-cancel-reader-fail")
+        : undefined;
+      await stripe.paymentIntents
+        .cancel(
+          paymentIntent.id,
+          undefined,
+          cancelKey ? { idempotencyKey: cancelKey } : undefined,
+        )
+        .catch(() => {});
+
+      // Audit the reader failure so dropped-reader patterns surface in
+      // the operational log.
+      opLog({
+        storeId,
+        eventType: "terminal.disconnect",
+        severity: "warn",
+        message: `Reader ${readerId} did not accept payment intent ${paymentIntent.id}`,
+        metadata: {
+          payment_intent_id: paymentIntent.id,
+          reader_id: readerId,
+          client_tx_id: client_tx_id ?? null,
+          error:
+            readerError instanceof Error ? readerError.message : "unknown",
+        },
+        staffName: staff.name,
+        userId: staff.user_id,
+      });
 
       if (readerError instanceof Stripe.errors.StripeError) {
         return NextResponse.json({
@@ -81,12 +148,20 @@ export async function POST(request: Request) {
       throw readerError;
     }
 
-    // Log terminal connection
+    // Audit: payment.collect — PaymentIntent created, reader has been told
+    // to collect. Now we wait for the cashier to poll status.
     opLog({
       storeId,
-      eventType: "terminal.connected",
-      message: `Terminal payment initiated · ${(amount_cents / 100).toFixed(2)} · Reader ${readerId}`,
-      metadata: { payment_intent_id: paymentIntent.id, amount_cents, reader_id: readerId },
+      eventType: "terminal.payment.collect",
+      message: `Terminal collecting · $${(amount_cents / 100).toFixed(2)} · PI ${paymentIntent.id}`,
+      metadata: {
+        payment_intent_id: paymentIntent.id,
+        amount_cents,
+        reader_id: readerId,
+        client_tx_id: client_tx_id ?? null,
+      },
+      staffName: staff.name,
+      userId: staff.user_id,
     });
 
     return NextResponse.json({
@@ -143,6 +218,20 @@ export async function GET(request: Request) {
         eventType: "payment.success",
         message: `Card payment succeeded · $${((pi.amount ?? 0) / 100).toFixed(2)}`,
         metadata: { payment_intent_id: pi.id, amount_cents: pi.amount },
+        staffName: staff.name,
+      });
+      // Audit: payment.completed — terminal -> success, ready for receipt.
+      // The register UI must not print a receipt until this state is
+      // reached (or until /recover confirms succeeded).
+      opLog({
+        storeId,
+        eventType: "terminal.payment.completed",
+        message: `Terminal payment completed · PI ${pi.id}`,
+        metadata: {
+          payment_intent_id: pi.id,
+          amount_cents: pi.amount,
+          raw_status: pi.status,
+        },
         staffName: staff.name,
       });
     } else if (status === "failed") {

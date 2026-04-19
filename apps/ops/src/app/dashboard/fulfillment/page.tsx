@@ -26,6 +26,8 @@ interface OrderItem {
     image_url: string | null;
     category: string;
     weight_oz: number | null;
+    /** Live on-hand at fetch time — used to detect mid-fulfillment shortages. */
+    quantity: number;
   } | null;
 }
 
@@ -45,6 +47,8 @@ interface FulfillmentOrder {
   status: string;
   fulfillment_status: string;
   fulfillment_type: string;
+  /** Set by ingest when on-hand couldn't cover the ordered qty. */
+  is_oversold: boolean;
   total_cents: number;
   shipping_cents: number;
   shipping_method: string | null;
@@ -58,6 +62,16 @@ interface FulfillmentOrder {
   customer: { id: string; name: string; email: string | null; phone: string | null } | null;
   items: OrderItem[];
   shipping_labels: ShippingLabel[];
+}
+
+/** A line item that can't be covered by current on-hand. */
+interface ShortItem {
+  line_id: string;
+  inventory_item_id: string | null;
+  name: string;
+  ordered: number;
+  on_hand: number;
+  short_by: number;
 }
 
 interface Summary {
@@ -122,6 +136,81 @@ export default function FulfillmentPage() {
   const [loadingRates, setLoadingRates] = useState(false);
   const [selectedRate, setSelectedRate] = useState<ShippingRate | null>(null);
   const [generatingLabel, setGeneratingLabel] = useState(false);
+
+  // Oversell resolution state — keyed by order id when the cashier
+  // opens the "what to do?" picker. The reconcile dialog uses
+  // reconcileQuantities to track per-item user input.
+  const [oversellOrderId, setOversellOrderId] = useState<string | null>(null);
+  const [oversellAction, setOversellAction] = useState<"backorder" | "cancel" | "reconcile" | null>(null);
+  const [oversellSubmitting, setOversellSubmitting] = useState(false);
+  const [reconcileQuantities, setReconcileQuantities] = useState<Record<string, number>>({});
+
+  /**
+   * Compute which line items are short on inventory at this very moment.
+   * Drives the oversell banner — surfaces both ingest-time oversells
+   * (is_oversold = true) and the case where stock dropped after ingest
+   * (e.g. POS sale snuck in between webhook and fulfillment).
+   */
+  function getShortItems(order: FulfillmentOrder): ShortItem[] {
+    const out: ShortItem[] = [];
+    for (const line of order.items) {
+      if (line.fulfillment_type !== "merchant") continue;
+      const inv = line.inventory_item;
+      if (!inv) continue;
+      // After ingest we hard-decremented on-hand. So if quantity is now
+      // negative, that's exactly how short we are. We treat anything
+      // < 0 as a shortage and recommend reconcile / backorder / cancel.
+      if (inv.quantity < 0) {
+        out.push({
+          line_id: line.id,
+          inventory_item_id: inv.id,
+          name: line.name,
+          ordered: line.quantity,
+          on_hand: inv.quantity,
+          // The shortfall is the absolute negative balance, capped at
+          // the line quantity (we can never owe more than we sold).
+          short_by: Math.min(line.quantity, Math.abs(inv.quantity)),
+        });
+      }
+    }
+    return out;
+  }
+
+  async function submitOversellResolution(
+    order: FulfillmentOrder,
+    action: "backorder" | "cancel" | "reconcile",
+  ) {
+    setOversellSubmitting(true);
+    try {
+      const body: Record<string, unknown> = {
+        order_id: order.id,
+        action,
+      };
+      if (action === "reconcile") {
+        const reconcile_quantities = Object.entries(reconcileQuantities)
+          .map(([inventory_item_id, on_hand]) => ({ inventory_item_id, on_hand }))
+          .filter((adj) => Number.isFinite(adj.on_hand));
+        if (reconcile_quantities.length === 0) {
+          setOversellSubmitting(false);
+          return;
+        }
+        body.reconcile_quantities = reconcile_quantities;
+      }
+      const res = await fetch("/api/fulfillment/oversell", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (res.ok) {
+        setOversellOrderId(null);
+        setOversellAction(null);
+        setReconcileQuantities({});
+        await fetchOrders();
+      }
+    } finally {
+      setOversellSubmitting(false);
+    }
+  }
 
   const fetchOrders = useCallback(async () => {
     try {
@@ -445,8 +534,151 @@ ${sections.map((s: typeof sections[number]) => `
               </button>
 
               {/* Expanded order details */}
-              {isExpanded && (
+              {isExpanded && (() => {
+                const shortItems = getShortItems(order);
+                const showOversellBanner = order.is_oversold || shortItems.length > 0;
+                const oversellOpen = oversellOrderId === order.id;
+                return (
                 <div className="border-t border-gray-100 dark:border-gray-800 p-4 space-y-4">
+                  {/* Oversell banner — shows when ingest flagged the order
+                      OR when on-hand has dropped below ordered since
+                      ingest (POS race window). The cashier picks one of
+                      three resolution paths via the inline picker. */}
+                  {showOversellBanner && (
+                    <div className="rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 p-3 space-y-2">
+                      <div className="flex items-start gap-2 text-sm">
+                        <span className="text-amber-600 text-base shrink-0">&#9888;</span>
+                        <div className="flex-1">
+                          <p className="font-semibold text-amber-900 dark:text-amber-200">
+                            This order is short {shortItems.reduce((s, i) => s + i.short_by, 0) || "some"} unit
+                            {shortItems.reduce((s, i) => s + i.short_by, 0) === 1 ? "" : "s"}
+                            {shortItems.length > 0 && (
+                              <> of {shortItems.map((i) => i.name).join(", ")}</>
+                            )}
+                            . Choose how to proceed:
+                          </p>
+                          {!oversellOpen && (
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              <button
+                                onClick={() => { setOversellOrderId(order.id); setOversellAction("backorder"); }}
+                                className="px-3 py-1.5 rounded-md text-xs font-medium bg-amber-100 dark:bg-amber-800/40 text-amber-900 dark:text-amber-100 hover:bg-amber-200"
+                              >
+                                Backorder remaining
+                              </button>
+                              <button
+                                onClick={() => { setOversellOrderId(order.id); setOversellAction("cancel"); }}
+                                className="px-3 py-1.5 rounded-md text-xs font-medium bg-amber-100 dark:bg-amber-800/40 text-amber-900 dark:text-amber-100 hover:bg-amber-200"
+                              >
+                                Cancel + refund
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setOversellOrderId(order.id);
+                                  setOversellAction("reconcile");
+                                  // Pre-fill reconcile fields with the
+                                  // ordered quantity — the most common
+                                  // case is "I have it, count was wrong".
+                                  const initial: Record<string, number> = {};
+                                  for (const s of shortItems) {
+                                    if (s.inventory_item_id) initial[s.inventory_item_id] = s.ordered;
+                                  }
+                                  setReconcileQuantities(initial);
+                                }}
+                                className="px-3 py-1.5 rounded-md text-xs font-medium bg-amber-100 dark:bg-amber-800/40 text-amber-900 dark:text-amber-100 hover:bg-amber-200"
+                              >
+                                Skip — I have it, count is wrong
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Confirmation panels for the chosen action */}
+                      {oversellOpen && oversellAction === "backorder" && (
+                        <div className="border-t border-amber-300 dark:border-amber-700/50 pt-2 flex items-center justify-between gap-3 text-xs text-amber-900 dark:text-amber-200">
+                          <span>Mark order as backordered? Customer should be notified separately.</span>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => submitOversellResolution(order, "backorder")}
+                              disabled={oversellSubmitting}
+                              className="px-3 py-1.5 rounded-md text-xs font-semibold bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-50"
+                            >
+                              {oversellSubmitting ? "..." : "Confirm backorder"}
+                            </button>
+                            <button
+                              onClick={() => { setOversellOrderId(null); setOversellAction(null); }}
+                              className="px-3 py-1.5 rounded-md text-xs font-medium border border-amber-300 dark:border-amber-700"
+                            >
+                              Nevermind
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {oversellOpen && oversellAction === "cancel" && (
+                        <div className="border-t border-amber-300 dark:border-amber-700/50 pt-2 flex items-center justify-between gap-3 text-xs text-amber-900 dark:text-amber-200">
+                          <span>Cancel the order and restore stock for the cancelled lines? (Refund happens upstream on the marketplace.)</span>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => submitOversellResolution(order, "cancel")}
+                              disabled={oversellSubmitting}
+                              className="px-3 py-1.5 rounded-md text-xs font-semibold bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
+                            >
+                              {oversellSubmitting ? "..." : "Confirm cancel"}
+                            </button>
+                            <button
+                              onClick={() => { setOversellOrderId(null); setOversellAction(null); }}
+                              className="px-3 py-1.5 rounded-md text-xs font-medium border border-amber-300 dark:border-amber-700"
+                            >
+                              Nevermind
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {oversellOpen && oversellAction === "reconcile" && (
+                        <div className="border-t border-amber-300 dark:border-amber-700/50 pt-2 space-y-2 text-xs text-amber-900 dark:text-amber-200">
+                          <p>Set the actual on-hand for each short item — the system will adjust inventory with reason &ldquo;fulfillment reconciliation&rdquo;.</p>
+                          <div className="space-y-1">
+                            {shortItems.map((s) => s.inventory_item_id ? (
+                              <div key={s.line_id} className="flex items-center gap-2">
+                                <span className="flex-1 truncate">{s.name} (system: {s.on_hand}, ordered: {s.ordered})</span>
+                                <input
+                                  type="number"
+                                  min={0}
+                                  value={reconcileQuantities[s.inventory_item_id] ?? ""}
+                                  onChange={(e) => {
+                                    const v = parseInt(e.target.value, 10);
+                                    setReconcileQuantities((prev) => ({
+                                      ...prev,
+                                      [s.inventory_item_id!]: Number.isNaN(v) ? 0 : v,
+                                    }));
+                                  }}
+                                  className="w-20 rounded-md border border-amber-300 dark:border-amber-700 bg-white dark:bg-amber-950/40 px-2 py-1 text-xs"
+                                />
+                              </div>
+                            ) : null)}
+                          </div>
+                          <div className="flex gap-2 justify-end">
+                            <button
+                              onClick={() => submitOversellResolution(order, "reconcile")}
+                              disabled={oversellSubmitting}
+                              className="px-3 py-1.5 rounded-md text-xs font-semibold bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-50"
+                            >
+                              {oversellSubmitting ? "..." : "Adjust inventory"}
+                            </button>
+                            <button
+                              onClick={() => { setOversellOrderId(null); setOversellAction(null); setReconcileQuantities({}); }}
+                              className="px-3 py-1.5 rounded-md text-xs font-medium border border-amber-300 dark:border-amber-700"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {/* Ship-to address */}
                   <div className="flex items-start gap-3">
                     <span className="text-gray-400 mt-0.5 shrink-0">&#x1F4E6;</span>
@@ -707,7 +939,8 @@ ${sections.map((s: typeof sections[number]) => `
                     )}
                   </div>
                 </div>
-              )}
+                );
+              })()}
             </div>
           );
         })}

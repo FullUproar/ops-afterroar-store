@@ -54,6 +54,7 @@ export async function GET(request: NextRequest) {
           status: true,
           fulfillment_status: true,
           fulfillment_type: true,
+          is_oversold: true,
           total_cents: true,
           shipping_cents: true,
           shipping_method: true,
@@ -84,6 +85,10 @@ export async function GET(request: NextRequest) {
                   image_url: true,
                   category: true,
                   weight_oz: true,
+                  // Current on-hand for fulfillment-time recompute. The
+                  // UI compares this to the line item's quantity to
+                  // decide whether to surface the oversell banner.
+                  quantity: true,
                 },
               },
             },

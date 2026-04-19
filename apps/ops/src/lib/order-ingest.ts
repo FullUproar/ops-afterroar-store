@@ -11,6 +11,29 @@ import { syncOrderToShipStation } from "@/lib/shipstation";
 /*    - SKU → inventory matching + stock deduction                     */
 /*    - Order + items creation                                         */
 /*    - ShipStation sync                                               */
+/*                                                                     */
+/*  HARD HOLD vs SOFT HOLD — DESIGN DECISION                          */
+/*  -----------------------------------------                         */
+/*  We use a HARD HOLD: ingest decrements posInventoryItem.quantity   */
+/*  in the same transaction as order creation, and the oversold flag  */
+/*  is set if there wasn't enough stock to begin with.                */
+/*                                                                    */
+/*  The soft-hold alternative would be: keep on-hand untouched and   */
+/*  only "reserve" via a parallel ledger, then resolve at fulfillment.*/
+/*  We rejected it because:                                           */
+/*    1. POS sales already use atomic decrement — same shape.         */
+/*    2. The marketplace pushers (Shopify/eBay) read on-hand directly,*/
+/*       so a hard decrement keeps every channel in sync without an   */
+/*       extra reservation-aware view.                                */
+/*    3. Oversells are surfaced explicitly via is_oversold + the      */
+/*       fulfillment-time recompute, so the cashier can resolve them. */
+/*                                                                    */
+/*  If a future requirement makes hold-release semantics important    */
+/*  (e.g. release reserves on cart abandonment), switch to the soft- */
+/*  hold model: don't decrement here, write a row to                  */
+/*  pos_inventory_holds with the order_id as the reference, and have  */
+/*  the marketplace push subtract `holds.qty` from on-hand the same   */
+/*  way the existing online_allocation logic does.                    */
 /* ------------------------------------------------------------------ */
 
 export interface IngestOrderPayload {
@@ -67,6 +90,8 @@ export interface IngestOrderResult {
   reason?: string;
   shipstation_synced?: boolean;
   stock_warnings?: string[];
+  /** True when at least one item didn't have enough on-hand to cover the order. */
+  oversold?: boolean;
 }
 
 export async function ingestOrder(
@@ -155,22 +180,24 @@ export async function ingestOrder(
     0,
   );
 
-  // Deduct inventory
+  // Compute oversell status before we touch the DB. An item is oversold
+  // when on-hand quantity is less than the ordered quantity. We still
+  // decrement (which may push quantity negative) because the order was
+  // already accepted upstream — fulfillment will surface the warning
+  // and let the cashier choose how to resolve.
   const stockWarnings: string[] = [];
+  let isOversold = false;
   for (const item of merchantItems) {
     const inv = item.sku ? inventoryBySku.get(item.sku) : null;
-    if (inv) {
-      if (inv.quantity < item.quantity) {
-        stockWarnings.push(`${item.name}: requested ${item.quantity}, have ${inv.quantity}`);
-      }
-      await prisma.posInventoryItem.update({
-        where: { id: inv.id },
-        data: {
-          quantity: { decrement: item.quantity },
-          updated_at: new Date(),
-        },
-      });
+    if (inv && inv.quantity < item.quantity) {
+      stockWarnings.push(`${item.name}: requested ${item.quantity}, have ${inv.quantity}`);
+      isOversold = true;
     }
+  }
+  if (isOversold) {
+    console.warn(
+      `[OrderIngest] Oversold: order ${payload.order_number} (${payload.source}) — ${stockWarnings.length} short item(s)`,
+    );
   }
 
   // Normalize shipping address
@@ -192,43 +219,81 @@ export async function ingestOrder(
   if (payload.notes) noteParts.push(payload.notes);
   if (stockWarnings.length) noteParts.push(`Stock warnings: ${stockWarnings.join("; ")}`);
 
-  // Create order
-  const order = await prisma.posOrder.create({
-    data: {
-      store_id: storeId,
-      customer_id: customerId,
-      order_number: payload.order_number,
-      source: payload.source,
-      status: "processing",
-      fulfillment_status: "unfulfilled",
-      fulfillment_type: "merchant",
-      subtotal_cents: subtotalCents,
-      tax_cents: payload.tax_cents || 0,
-      shipping_cents: payload.shipping_cents || 0,
-      total_cents: payload.total_cents,
-      shipping_method: payload.shipping_method
-        ? `${payload.shipping_method.carrier_code || ""}:${payload.shipping_method.service_code || ""}`
-        : null,
-      shipping_carrier: payload.shipping_method?.carrier_code || null,
-      shipping_address: shippingAddress || undefined,
-      weight_oz: totalWeightOz,
-      notes: noteParts.join(" | ") || null,
-      items: {
-        create: merchantItems.map((item) => {
-          const inv = item.sku ? inventoryBySku.get(item.sku) : null;
-          return {
-            name: item.name,
-            quantity: item.quantity,
-            price_cents: item.price_cents,
-            total_cents: item.price_cents * item.quantity,
-            fulfillment_type: "merchant",
-            inventory_item_id: inv?.id || null,
-          };
-        }),
+  // Atomic: create the order + items AND decrement inventory in one
+  // transaction. If anything throws we don't end up with a phantom
+  // decrement against an order that never landed (or vice versa).
+  const order = await prisma.$transaction(async (tx) => {
+    const created = await tx.posOrder.create({
+      data: {
+        store_id: storeId,
+        customer_id: customerId,
+        order_number: payload.order_number,
+        source: payload.source,
+        status: "processing",
+        fulfillment_status: "unfulfilled",
+        fulfillment_type: "merchant",
+        is_oversold: isOversold,
+        subtotal_cents: subtotalCents,
+        tax_cents: payload.tax_cents || 0,
+        shipping_cents: payload.shipping_cents || 0,
+        total_cents: payload.total_cents,
+        shipping_method: payload.shipping_method
+          ? `${payload.shipping_method.carrier_code || ""}:${payload.shipping_method.service_code || ""}`
+          : null,
+        shipping_carrier: payload.shipping_method?.carrier_code || null,
+        shipping_address: shippingAddress || undefined,
+        weight_oz: totalWeightOz,
+        notes: noteParts.join(" | ") || null,
+        items: {
+          create: merchantItems.map((item) => {
+            const inv = item.sku ? inventoryBySku.get(item.sku) : null;
+            return {
+              name: item.name,
+              quantity: item.quantity,
+              price_cents: item.price_cents,
+              total_cents: item.price_cents * item.quantity,
+              fulfillment_type: "merchant",
+              inventory_item_id: inv?.id || null,
+            };
+          }),
+        },
       },
-    },
-    select: { id: true, order_number: true },
+      select: { id: true, order_number: true },
+    });
+
+    // Hard hold: decrement on-hand for every matched item. If quantity
+    // would go negative we still decrement — the oversold flag is the
+    // signal, not a refusal to record the order.
+    for (const item of merchantItems) {
+      const inv = item.sku ? inventoryBySku.get(item.sku) : null;
+      if (inv) {
+        await tx.posInventoryItem.update({
+          where: { id: inv.id },
+          data: {
+            quantity: { decrement: item.quantity },
+            updated_at: new Date(),
+          },
+        });
+      }
+    }
+
+    return created;
   });
+
+  // Fire-and-forget: push updated inventory to Shopify (and any other
+  // channel that subscribes via this helper) so other marketplaces see
+  // the new on-hand right away. This complements the periodic eBay
+  // sync cron.
+  for (const item of merchantItems) {
+    const inv = item.sku ? inventoryBySku.get(item.sku) : null;
+    if (inv) {
+      import("@/lib/shopify-sync")
+        .then(({ pushInventoryToShopify }) =>
+          pushInventoryToShopify(storeId, inv.id).catch(() => {}),
+        )
+        .catch(() => {});
+    }
+  }
 
   // Sync to ShipStation
   const ssOrder = {
@@ -285,5 +350,6 @@ export async function ingestOrder(
     order_number: order.order_number,
     shipstation_synced: synced,
     stock_warnings: stockWarnings.length > 0 ? stockWarnings : undefined,
+    oversold: isOversold || undefined,
   };
 }

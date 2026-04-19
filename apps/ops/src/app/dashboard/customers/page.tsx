@@ -6,6 +6,25 @@ import { formatCents } from '@/lib/types';
 import { StatusBadge } from '@/components/mobile-card';
 import { PageHeader } from '@/components/page-header';
 import { EmptyState } from '@/components/shared/ui';
+import { useFormDraft } from '@/hooks/use-form-draft';
+import { useUnsavedChangesWarning } from '@/hooks/use-unsaved-changes-warning';
+
+/* ------------------------------------------------------------------ */
+/*  Form-draft pattern reference                                       */
+/*                                                                     */
+/*  Every multi-field form should follow this contract:               */
+/*    1. const { value, setValue, hasDraft, clearDraft } =            */
+/*         useFormDraft("<unique-key>", initialValues);                */
+/*    2. const dirty = JSON.stringify(value) !==                       */
+/*         JSON.stringify(initialValues);                              */
+/*    3. useUnsavedChangesWarning(dirty);                              */
+/*    4. On successful submit: clearDraft();                           */
+/*                                                                     */
+/*  This keeps work safe across:                                      */
+/*    - Mode toggles (dashboard ↔ register) — confirm prompt           */
+/*    - Tab close / browser navigation — beforeunload prompt           */
+/*    - Accidental nav back — auto-restore on remount                  */
+/* ------------------------------------------------------------------ */
 
 /* ------------------------------------------------------------------ */
 /*  Customer Segments                                                   */
@@ -106,7 +125,21 @@ export default function CustomersPage() {
   const [search, setSearch] = useState('');
   const [segmentFilter, setSegmentFilter] = useState<CustomerSegment | 'all'>('all');
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ name: '', email: '', phone: '' });
+  // Form draft is auto-persisted to localStorage per the contract above.
+  // hasDraft lets us nudge the user that there's a recovered draft.
+  const CUSTOMER_FORM_INITIAL = { name: '', email: '', phone: '' };
+  const { value: form, setValue: setForm, hasDraft: hasFormDraft, clearDraft: clearFormDraft } =
+    useFormDraft<{ name: string; email: string; phone: string }>(
+      'customers-create',
+      CUSTOMER_FORM_INITIAL,
+    );
+  // Dirty when any field differs from initial — drives the unsaved-
+  // changes warning on mode switch + tab close.
+  const formDirty =
+    form.name !== CUSTOMER_FORM_INITIAL.name ||
+    form.email !== CUSTOMER_FORM_INITIAL.email ||
+    form.phone !== CUSTOMER_FORM_INITIAL.phone;
+  useUnsavedChangesWarning(formDirty);
   const [saving, setSaving] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [createError, setCreateError] = useState<string | null>(null);
@@ -157,6 +190,13 @@ export default function CustomersPage() {
     loadCustomers();
   }, [loadCustomers]);
 
+  // Auto-open the form if there's a recovered draft so the cashier
+  // sees their work-in-progress immediately.
+  useEffect(() => {
+    if (hasFormDraft && formDirty) setShowForm(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
@@ -169,6 +209,8 @@ export default function CustomersPage() {
       });
       if (res.ok) {
         setForm({ name: '', email: '', phone: '' });
+        // Drop the persisted draft now that it's been submitted.
+        clearFormDraft();
         setShowForm(false);
         setCreateError(null);
         loadCustomers();
@@ -256,6 +298,18 @@ export default function CustomersPage() {
 
       {showForm && (
         <form onSubmit={handleCreate} className="bg-card border border-card-border rounded-xl p-4 space-y-4 shadow-sm dark:shadow-none">
+          {hasFormDraft && formDirty && (
+            <div className="rounded-lg border border-accent/30 bg-accent/5 px-3 py-2 text-xs text-accent flex items-center justify-between gap-3">
+              <span>Restored your unsaved draft.</span>
+              <button
+                type="button"
+                onClick={() => { setForm({ name: '', email: '', phone: '' }); clearFormDraft(); }}
+                className="text-xs underline hover:opacity-80"
+              >
+                Discard draft
+              </button>
+            </div>
+          )}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm text-muted mb-1">Name</label>

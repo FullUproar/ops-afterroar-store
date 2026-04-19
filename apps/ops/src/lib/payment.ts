@@ -28,7 +28,7 @@ export interface PaymentResult {
 
 export interface PaymentProvider {
   charge(amount_cents: number, metadata?: Record<string, unknown>): Promise<PaymentResult>;
-  refund?(transaction_id: string, amount_cents: number): Promise<PaymentResult>;
+  refund?(transaction_id: string, amount_cents: number, options?: { idempotency_key?: string }): Promise<PaymentResult>;
   name: string;
 }
 
@@ -133,34 +133,44 @@ export class StripePaymentProvider implements PaymentProvider {
       const stripe = new Stripe(stripeKey);
       const isTest = stripeKey.startsWith("sk_test_");
 
+      // Idempotency: when caller passes client_tx_id via metadata, Stripe
+      // de-duplicates the PI creation if we retry after a network blip.
+      const clientTxId = metadata?.client_tx_id as string | undefined;
+      const idempotencyKey = clientTxId
+        ? `${clientTxId}-stripe-direct-charge`
+        : undefined;
+
       // Create and auto-confirm a PaymentIntent
       // In test mode: use pm_card_visa (always succeeds)
-      const paymentIntent = await stripe.paymentIntents.create({
-        amount: amount_cents,
-        currency: "usd",
-        ...(isTest
-          ? {
-              payment_method: "pm_card_visa",
-              confirm: true,
-              automatic_payment_methods: {
-                enabled: true,
-                allow_redirects: "never",
-              },
-            }
-          : {
-              automatic_payment_methods: {
-                enabled: true,
-                allow_redirects: "never",
-              },
-            }),
-        metadata: {
-          ...Object.fromEntries(
-            Object.entries(metadata || {}).map(([k, v]) => [k, String(v)])
-          ),
-          source: "afterroar_store_ops",
-          ...(isTest ? { test_mode: "true" } : {}),
+      const paymentIntent = await stripe.paymentIntents.create(
+        {
+          amount: amount_cents,
+          currency: "usd",
+          ...(isTest
+            ? {
+                payment_method: "pm_card_visa",
+                confirm: true,
+                automatic_payment_methods: {
+                  enabled: true,
+                  allow_redirects: "never",
+                },
+              }
+            : {
+                automatic_payment_methods: {
+                  enabled: true,
+                  allow_redirects: "never",
+                },
+              }),
+          metadata: {
+            ...Object.fromEntries(
+              Object.entries(metadata || {}).map(([k, v]) => [k, String(v)])
+            ),
+            source: "afterroar_store_ops",
+            ...(isTest ? { test_mode: "true" } : {}),
+          },
         },
-      });
+        idempotencyKey ? { idempotencyKey } : undefined,
+      );
 
       return {
         success: true,
@@ -184,7 +194,8 @@ export class StripePaymentProvider implements PaymentProvider {
 
   async refund(
     transaction_id: string,
-    amount_cents: number
+    amount_cents: number,
+    options?: { idempotency_key?: string }
   ): Promise<PaymentResult> {
     try {
       const Stripe = (await import("stripe")).default;
@@ -200,10 +211,17 @@ export class StripePaymentProvider implements PaymentProvider {
         };
       }
       const stripe = new Stripe(stripeKey);
-      const refund = await stripe.refunds.create({
-        payment_intent: transaction_id,
-        amount: amount_cents,
-      });
+      // Idempotency on refunds: avoid double-refunding if a retry races.
+      const refundIdempotency =
+        options?.idempotency_key ??
+        `refund-${transaction_id}-${amount_cents}`;
+      const refund = await stripe.refunds.create(
+        {
+          payment_intent: transaction_id,
+          amount: amount_cents,
+        },
+        { idempotencyKey: refundIdempotency },
+      );
       return {
         success: true,
         transaction_id: refund.id,
@@ -268,6 +286,12 @@ export class StripeConnectProvider implements PaymentProvider {
 
       const stripe = new Stripe(stripeKey);
 
+      // Idempotency: same client_tx_id → same PI on retry, never double.
+      const clientTxId = metadata?.client_tx_id as string | undefined;
+      const idempotencyKey = clientTxId
+        ? `${clientTxId}-stripe-connect-charge`
+        : undefined;
+
       // Create a PaymentIntent on the connected account
       const paymentIntent = await stripe.paymentIntents.create(
         {
@@ -282,6 +306,7 @@ export class StripeConnectProvider implements PaymentProvider {
         },
         {
           stripeAccount: this.connectedAccountId,
+          ...(idempotencyKey ? { idempotencyKey } : {}),
         }
       );
 
@@ -307,7 +332,8 @@ export class StripeConnectProvider implements PaymentProvider {
 
   async refund(
     transaction_id: string,
-    amount_cents: number
+    amount_cents: number,
+    options?: { idempotency_key?: string }
   ): Promise<PaymentResult> {
     try {
       const Stripe = (await import("stripe")).default;
@@ -328,6 +354,10 @@ export class StripeConnectProvider implements PaymentProvider {
 
       const stripe = new Stripe(stripeKey);
 
+      const refundIdempotency =
+        options?.idempotency_key ??
+        `refund-connect-${transaction_id}-${amount_cents}`;
+
       const refund = await stripe.refunds.create(
         {
           payment_intent: transaction_id,
@@ -335,6 +365,7 @@ export class StripeConnectProvider implements PaymentProvider {
         },
         {
           stripeAccount: this.connectedAccountId,
+          idempotencyKey: refundIdempotency,
         }
       );
 
@@ -498,6 +529,13 @@ export async function processRefund(
   amount_cents: number,
   options?: {
     stripe_connected_account_id?: string;
+    /**
+     * Idempotency key forwarded to Stripe — prevents double-refunds
+     * if the refund flow is retried after a network failure. Caller
+     * should derive this from a stable identifier such as the original
+     * client_tx_id plus operation, e.g. `${clientTxId}-refund`.
+     */
+    idempotency_key?: string;
   }
 ): Promise<PaymentResult> {
   // Determine provider from transaction ID prefix
@@ -527,12 +565,16 @@ export async function processRefund(
     const connectedId = options?.stripe_connected_account_id;
     if (connectedId) {
       const provider = new StripeConnectProvider(connectedId);
-      return provider.refund!(original_transaction_id, amount_cents);
+      return provider.refund!(original_transaction_id, amount_cents, {
+        idempotency_key: options?.idempotency_key,
+      });
     }
     // Direct Stripe refund (no connected account)
     if (isStripeAvailable()) {
       const provider = new StripePaymentProvider();
-      return provider.refund!(original_transaction_id, amount_cents);
+      return provider.refund!(original_transaction_id, amount_cents, {
+        idempotency_key: options?.idempotency_key,
+      });
     }
   }
 

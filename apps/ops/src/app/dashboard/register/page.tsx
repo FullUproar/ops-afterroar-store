@@ -1126,10 +1126,35 @@ export default function RegisterPage() {
   }
 
   // ---- Complete sale ----
-  // State for terminal card payment
+  // Terminal card payment state machine.
+  //
+  //   idle → processing  (PI created, sent to reader)
+  //        → reconnecting (network drop while polling — keep retrying,
+  //                        do NOT print receipt, do NOT show "failed")
+  //        → verifying    (back online, calling /recover to ask Stripe
+  //                        what actually happened)
+  //        → succeeded   (Stripe confirmed; finalize sale + receipt)
+  //        → failed      (Stripe explicitly says canceled / declined)
+  //
+  // The cardinal rule: never collapse processing → failed automatically.
+  // If the poll throws or returns a non-final status, bounce through
+  // reconnecting → verifying first so we don't tell the customer their
+  // charge failed when Stripe actually captured it.
+  type TerminalState =
+    | "idle"
+    | "processing"
+    | "reconnecting"
+    | "verifying"
+    | "succeeded"
+    | "failed";
   const [waitingForTerminal, setWaitingForTerminal] = useState(false);
+  const [terminalState, setTerminalState] = useState<TerminalState>("idle");
   const [terminalPiId, setTerminalPiId] = useState<string | null>(null);
+  const [terminalClientTxId, setTerminalClientTxId] = useState<string | null>(null);
   const terminalPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Count consecutive poll failures to flip into "reconnecting" UI after
+  // a couple of misses (one transient blip should not alarm the cashier).
+  const terminalPollErrorsRef = useRef(0);
 
   // Called after tip prompt (or directly if no tip)
   async function proceedWithSale(method: PaymentMethod, tipCents: number = 0) {
@@ -1198,6 +1223,15 @@ export default function RegisterPage() {
     // For card payments: route through Stripe Terminal reader
     if (method === "card" && !isTraining) {
       setProcessing(true);
+      setTerminalState("processing");
+      terminalPollErrorsRef.current = 0;
+
+      // Generate the client_tx_id BEFORE any Stripe call so we can use
+      // it as the deterministic idempotency key. Same ID must be passed
+      // to /collect AND to /api/checkout's finalizeSale so the whole
+      // round trip is one atomic "transaction" from the client's POV.
+      const clientTxId = `tx_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      setTerminalClientTxId(clientTxId);
 
       // Tipping on terminal: always enable when tips_mode isn't "never"
       const enableTipping = storeSettings.tips_mode !== "never";
@@ -1211,12 +1245,14 @@ export default function RegisterPage() {
             amount_cents: amountDue,
             description: `Sale: ${cart.map(c => c.name).join(", ")}`.substring(0, 200),
             enable_tipping: enableTipping,
+            client_tx_id: clientTxId,
           }),
         });
         const collectData = await collectRes.json();
 
         if (!collectRes.ok) {
           showError(collectData.error || "Failed to send to card reader");
+          setTerminalState("idle");
           setProcessing(false);
           return;
         }
@@ -1229,37 +1265,86 @@ export default function RegisterPage() {
         terminalPollRef.current = setInterval(async () => {
           try {
             const statusRes = await fetch(`/api/stripe/terminal/collect?payment_intent_id=${collectData.payment_intent_id}`);
+            if (!statusRes.ok) {
+              throw new Error(`status ${statusRes.status}`);
+            }
             const statusData = await statusRes.json();
+
+            // Successful poll — clear the disconnect counter and bounce
+            // out of "reconnecting" if we were in it.
+            if (terminalPollErrorsRef.current > 0) {
+              terminalPollErrorsRef.current = 0;
+              setTerminalState((prev) => (prev === "reconnecting" ? "verifying" : prev));
+            }
 
             if (statusData.status === "succeeded") {
               // Payment collected! Now record the sale
               clearInterval(terminalPollRef.current!);
               terminalPollRef.current = null;
+              setTerminalState("succeeded");
               setWaitingForTerminal(false);
               setTerminalPiId(null);
+              setTerminalClientTxId(null);
               // Capture card details for receipt
               setLastCardBrand(statusData.card_brand || null);
               setLastCardLast4(statusData.card_last4 || null);
               // Capture tip from terminal (Stripe reader collected it on-screen)
               const terminalTipCents = statusData.tip_cents || 0;
-              await finalizeSale(method, collectData.payment_intent_id, terminalTipCents);
+              await finalizeSale(method, collectData.payment_intent_id, terminalTipCents, clientTxId);
             } else if (statusData.status === "failed" || statusData.status === "cancelled") {
+              // Stripe explicitly told us this PI ended in failure or was
+              // cancelled. Safe to surface as failed — but only after a
+              // verify pass to be certain (handles race with webhook).
               clearInterval(terminalPollRef.current!);
               terminalPollRef.current = null;
+              setTerminalState("verifying");
+              try {
+                const recoverRes = await fetch("/api/stripe/terminal/recover", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    paymentIntentId: collectData.payment_intent_id,
+                    client_tx_id: clientTxId,
+                  }),
+                });
+                const recoverData = await recoverRes.json();
+                if (recoverData.status === "succeeded") {
+                  // Race: poll said failed but Stripe captured. Honor the
+                  // recovery result and complete the sale.
+                  setTerminalState("succeeded");
+                  setWaitingForTerminal(false);
+                  setTerminalPiId(null);
+                  setTerminalClientTxId(null);
+                  setLastCardBrand(recoverData.card_brand || null);
+                  setLastCardLast4(recoverData.card_last4 || null);
+                  await finalizeSale(method, collectData.payment_intent_id, recoverData.tip_cents || 0, clientTxId);
+                  return;
+                }
+              } catch {
+                // Verify failed — fall through to failed state
+              }
+              setTerminalState("failed");
               setWaitingForTerminal(false);
               setTerminalPiId(null);
+              setTerminalClientTxId(null);
               setProcessing(false);
               showError(statusData.error || "Card payment failed or was cancelled");
             }
             // status === "waiting" — keep polling
           } catch {
-            // Network error during poll — keep trying
+            // Network error during poll. Don't show "failed" — flip into
+            // reconnecting after 2 consecutive misses, never auto-cancel.
+            terminalPollErrorsRef.current += 1;
+            if (terminalPollErrorsRef.current >= 2) {
+              setTerminalState("reconnecting");
+            }
           }
         }, 2000);
 
         return; // Don't proceed — poll callback will handle completion
       } catch {
         showError("Failed to connect to card reader");
+        setTerminalState("idle");
         setProcessing(false);
         return;
       }
@@ -1275,16 +1360,51 @@ export default function RegisterPage() {
       clearInterval(terminalPollRef.current);
       terminalPollRef.current = null;
     }
+    // Before tearing down: verify with Stripe what really happened. If
+    // the charge actually succeeded between "Cancel tap" and us getting
+    // here, we must not silently drop it — flip to verifying so the
+    // cashier doesn't think a successful charge was cancelled.
     if (terminalPiId) {
+      setTerminalState("verifying");
+      try {
+        const recoverRes = await fetch("/api/stripe/terminal/recover", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            paymentIntentId: terminalPiId,
+            client_tx_id: terminalClientTxId,
+          }),
+        });
+        const recoverData = await recoverRes.json();
+        if (recoverData.status === "succeeded") {
+          // The customer was actually charged. Finalize the sale and
+          // print the receipt — never just throw the money away.
+          setTerminalState("succeeded");
+          setWaitingForTerminal(false);
+          setLastCardBrand(recoverData.card_brand || null);
+          setLastCardLast4(recoverData.card_last4 || null);
+          const piId = terminalPiId;
+          const ctx = terminalClientTxId ?? `tx_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+          setTerminalPiId(null);
+          setTerminalClientTxId(null);
+          await finalizeSale("card", piId, recoverData.tip_cents || 0, ctx);
+          return;
+        }
+      } catch {
+        // verify failed — fall through to cancel
+      }
+      // Verify said it's safe to cancel
       await fetch(`/api/stripe/terminal/collect?payment_intent_id=${terminalPiId}`, { method: "DELETE" }).catch(() => {});
     }
     setWaitingForTerminal(false);
     setTerminalPiId(null);
+    setTerminalClientTxId(null);
+    setTerminalState("idle");
     setProcessing(false);
   }
 
-  async function finalizeSale(method: PaymentMethod, stripePaymentIntentId?: string, tipCents: number = 0) {
-    const clientTxId = `tx_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  async function finalizeSale(method: PaymentMethod, stripePaymentIntentId?: string, tipCents: number = 0, explicitClientTxId?: string) {
+    const clientTxId = explicitClientTxId ?? `tx_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     const payload = {
       items: cart.map((c) => ({ inventory_item_id: c.inventory_item_id, quantity: c.quantity, price_cents: c.price_cents, ...(c.category === "gift_card" ? { category: "gift_card" } : {}) })),
       customer_id: customer?.id ?? null,
@@ -1526,14 +1646,36 @@ export default function RegisterPage() {
         />
       )}
 
-      {/* ====== WAITING FOR TERMINAL ====== */}
+      {/* ====== WAITING FOR TERMINAL ======
+          Renders one of four states:
+            processing    → "Waiting for card..." (PI in flight, reader prompted)
+            reconnecting  → "Reconnecting to terminal..." (poll has dropped)
+            verifying     → "Verifying transaction..." (recovering / asking Stripe)
+            (succeeded / failed transition out before render)
+          We intentionally never go straight to a "Failed" UI from a
+          network blip — see the poll handler for the recovery flow.
+      */}
       {waitingForTerminal && (
         <div className="fixed inset-0 z-[70] flex flex-col items-center justify-center bg-card">
           <div className="text-center space-y-6">
-            <div className="text-6xl animate-pulse">💳</div>
-            <div className="text-2xl font-bold text-foreground">Waiting for card...</div>
+            <div className="text-6xl animate-pulse">
+              {terminalState === "reconnecting" ? "\u{1F4F6}" : terminalState === "verifying" ? "\u{1F50D}" : "\u{1F4B3}"}
+            </div>
+            <div className="text-2xl font-bold text-foreground">
+              {terminalState === "reconnecting"
+                ? "Reconnecting to terminal..."
+                : terminalState === "verifying"
+                  ? "Verifying transaction..."
+                  : "Waiting for card..."}
+            </div>
             <div className="text-lg font-mono font-bold text-accent tabular-nums">{formatCents(amountDue)}</div>
-            <div className="text-base text-muted">Customer should tap, insert, or swipe on the reader</div>
+            <div className="text-base text-muted">
+              {terminalState === "reconnecting"
+                ? "Connection dropped — keeping the charge safe. Don't touch the reader."
+                : terminalState === "verifying"
+                  ? "Checking with Stripe to confirm the result. Don't print a receipt yet."
+                  : "Customer should tap, insert, or swipe on the reader"}
+            </div>
           </div>
           <div className="mt-12 flex gap-3">
             {process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY?.startsWith("pk_test") && (

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireStaff, handleAuthError } from "@/lib/require-staff";
 import Stripe from "stripe";
+import { buildIdempotencyKey } from "@/lib/stripe-terminal-recovery";
 
 /**
  * POST /api/stripe/terminal/payment
@@ -10,7 +11,7 @@ export async function POST(request: Request) {
   try {
     const { storeId } = await requireStaff();
 
-    const { amount_cents, description, enable_tipping, tip_presets } = await request.json();
+    const { amount_cents, description, enable_tipping, tip_presets, client_tx_id } = await request.json();
 
     if (!amount_cents || amount_cents < 50) {
       return NextResponse.json(
@@ -28,20 +29,32 @@ export async function POST(request: Request) {
 
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
-    // Create a PaymentIntent for terminal collection
-    // Tipping: when enabled, the S710 reader shows a tip prompt on-screen
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: amount_cents,
-      currency: "usd",
-      payment_method_types: ["card_present"],
-      capture_method: "automatic",
-      description: description || "Store Ops sale",
-      metadata: {
-        store_id: storeId,
-        source: "terminal",
-        ...(enable_tipping ? { tipping_enabled: "true" } : {}),
+    // Create a PaymentIntent for terminal collection.
+    // Tipping: when enabled, the S710 reader shows a tip prompt on-screen.
+    //
+    // Idempotency: derive a deterministic key from client_tx_id so if the
+    // network blips and the client retries, Stripe deduplicates server-side
+    // and we never end up with two PaymentIntents for one cart.
+    const piIdempotencyKey = client_tx_id
+      ? buildIdempotencyKey(client_tx_id, "payment-intent")
+      : undefined;
+
+    const paymentIntent = await stripe.paymentIntents.create(
+      {
+        amount: amount_cents,
+        currency: "usd",
+        payment_method_types: ["card_present"],
+        capture_method: "automatic",
+        description: description || "Store Ops sale",
+        metadata: {
+          store_id: storeId,
+          source: "terminal",
+          ...(client_tx_id ? { client_tx_id } : {}),
+          ...(enable_tipping ? { tipping_enabled: "true" } : {}),
+        },
       },
-    });
+      piIdempotencyKey ? { idempotencyKey: piIdempotencyKey } : undefined,
+    );
 
     return NextResponse.json({
       client_secret: paymentIntent.client_secret,
@@ -66,7 +79,7 @@ export async function PATCH(request: Request) {
   try {
     await requireStaff();
 
-    const { reader_id, payment_intent_id, enable_tipping } = await request.json();
+    const { reader_id, payment_intent_id, enable_tipping, client_tx_id } = await request.json();
 
     if (!reader_id || !payment_intent_id) {
       return NextResponse.json(
@@ -96,9 +109,16 @@ export async function PATCH(request: Request) {
       };
     }
 
+    // Idempotency: same client_tx_id + operation → same key, so a retry
+    // does not double-dispatch to the reader.
+    const collectIdempotencyKey = client_tx_id
+      ? buildIdempotencyKey(client_tx_id, "reader-process")
+      : undefined;
+
     const reader = await stripe.terminal.readers.processPaymentIntent(
       reader_id,
       processConfig,
+      collectIdempotencyKey ? { idempotencyKey: collectIdempotencyKey } : undefined,
     );
 
     return NextResponse.json({

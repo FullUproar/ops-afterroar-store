@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requirePermission, handleAuthError } from "@/lib/require-staff";
 import { opLog } from "@/lib/op-log";
+import { pushInventoryToShopify } from "@/lib/shopify-sync";
 
 const VALID_REASONS = [
   "Received shipment",
@@ -102,6 +103,12 @@ export async function POST(request: NextRequest) {
       staffName: staff.name,
       userId: staff.user_id,
     });
+
+    // Fire-and-forget: keep marketplaces in sync with the new on-hand.
+    // Cashier-initiated adjustments (theft, breakage, count corrections,
+    // fulfillment reconciliation) all need to update Shopify the same
+    // way a POS sale does.
+    pushInventoryToShopify(storeId, item_id).catch(() => {});
 
     return NextResponse.json(result);
   } catch (error) {
