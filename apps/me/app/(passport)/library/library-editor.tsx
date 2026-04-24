@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import { Search, X, Plus } from 'lucide-react';
 import { Button, Chip, EmptyState, TYPE, SpinnerInline, inputStyle } from '@/app/components/ui';
 
@@ -39,6 +39,9 @@ interface SearchResult {
   complexity?: number;
 }
 
+type TimeBand = 'quick' | 'medium' | 'long';
+type WeightBand = 'light' | 'mid' | 'heavy';
+
 export function LibraryEditor({ initialGames }: { initialGames: GameEntry[] }) {
   const [games, setGames] = useState<GameEntry[]>(initialGames);
   const [search, setSearch] = useState('');
@@ -48,7 +51,45 @@ export function LibraryEditor({ initialGames }: { initialGames: GameEntry[] }) {
   const [saved, setSaved] = useState(false);
   const [manualAdd, setManualAdd] = useState(false);
   const [manualTitle, setManualTitle] = useState('');
+  const [playerFilter, setPlayerFilter] = useState<number | null>(null);
+  const [timeFilter, setTimeFilter] = useState<TimeBand | null>(null);
+  const [weightFilter, setWeightFilter] = useState<WeightBand | null>(null);
   const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const filtersActive = playerFilter != null || timeFilter != null || weightFilter != null;
+
+  const filtered = useMemo(() => {
+    if (!filtersActive) return games;
+    return games.filter((g) => {
+      if (playerFilter != null) {
+        if (g.minPlayers == null || g.maxPlayers == null || g.minPlayers === 0) return false;
+        const fits = playerFilter === 6
+          ? g.maxPlayers >= 6
+          : g.minPlayers <= playerFilter && g.maxPlayers >= playerFilter;
+        if (!fits) return false;
+      }
+      if (timeFilter != null) {
+        const t = g.maxPlayMinutes ?? g.minPlayMinutes;
+        if (t == null || t <= 0) return false;
+        if (timeFilter === 'quick' && t >= 30) return false;
+        if (timeFilter === 'medium' && (t < 30 || t > 90)) return false;
+        if (timeFilter === 'long' && t <= 90) return false;
+      }
+      if (weightFilter != null) {
+        if (g.complexity == null || g.complexity === 0) return false;
+        if (weightFilter === 'light' && g.complexity >= 2.5) return false;
+        if (weightFilter === 'mid' && (g.complexity < 2.5 || g.complexity > 3.5)) return false;
+        if (weightFilter === 'heavy' && g.complexity <= 3.5) return false;
+      }
+      return true;
+    });
+  }, [games, playerFilter, timeFilter, weightFilter, filtersActive]);
+
+  function clearFilters() {
+    setPlayerFilter(null);
+    setTimeFilter(null);
+    setWeightFilter(null);
+  }
 
   const handleSearch = (query: string) => {
     setSearch(query);
@@ -241,12 +282,64 @@ export function LibraryEditor({ initialGames }: { initialGames: GameEntry[] }) {
         </p>
       ) : null}
 
+      {/* Filters */}
+      {games.length > 1 ? (
+        <div style={{ marginBottom: '0.9rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+          <div className="ar-chips">
+            {[2, 3, 4, 5, 6].map((n) => {
+              const on = playerFilter === n;
+              return (
+                <button key={n} onClick={() => setPlayerFilter(on ? null : n)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}>
+                  <Chip on={on}>{n === 6 ? '6+ players' : `${n} players`}</Chip>
+                </button>
+              );
+            })}
+          </div>
+          <div className="ar-chips">
+            {([
+              ['quick', 'Under 30 min'],
+              ['medium', '30–90 min'],
+              ['long', 'Over 90 min'],
+            ] as [TimeBand, string][]).map(([band, label]) => {
+              const on = timeFilter === band;
+              return (
+                <button key={band} onClick={() => setTimeFilter(on ? null : band)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}>
+                  <Chip on={on}>{label}</Chip>
+                </button>
+              );
+            })}
+            {([
+              ['light', 'Light'],
+              ['mid', 'Medium'],
+              ['heavy', 'Heavy'],
+            ] as [WeightBand, string][]).map(([band, label]) => {
+              const on = weightFilter === band;
+              return (
+                <button key={band} onClick={() => setWeightFilter(on ? null : band)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}>
+                  <Chip on={on}>{label}</Chip>
+                </button>
+              );
+            })}
+            {filtersActive ? (
+              <button onClick={clearFilters} style={{
+                background: 'none', border: 'none', padding: 0, cursor: 'pointer',
+                ...TYPE.mono, fontSize: '0.62rem', letterSpacing: '0.14em', textTransform: 'uppercase',
+                color: 'var(--ink-soft)', textDecoration: 'underline', textUnderlineOffset: '3px',
+                paddingLeft: '0.4rem', alignSelf: 'center',
+              }}>clear</button>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
       {/* Game list */}
       {games.length === 0 ? (
         <EmptyState title="Your library is empty" desc="Search above to add games you own." />
+      ) : filtered.length === 0 ? (
+        <EmptyState title="No games match" desc={`Your filters exclude all ${games.length} games. Try loosening them — games without play data can't match precise filters.`} />
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', background: 'var(--rule)', border: '1px solid var(--rule)' }}>
-          {games.map((game) => {
+          {filtered.map((game) => {
             const meta = formatMeta(game);
             return (
             <div key={game.title} style={{ padding: '0.85rem 1rem', background: 'var(--panel-mute)' }}>
@@ -303,7 +396,7 @@ export function LibraryEditor({ initialGames }: { initialGames: GameEntry[] }) {
       )}
       {games.length > 0 ? (
         <p style={{ ...TYPE.mono, color: 'var(--ink-faint)', fontSize: '0.68rem', margin: '0.75rem 0 0', textAlign: 'center', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
-          {games.length} {games.length === 1 ? 'game' : 'games'}
+          {filtersActive ? `${filtered.length} of ${games.length} games` : `${games.length} ${games.length === 1 ? 'game' : 'games'}`}
         </p>
       ) : null}
     </div>
