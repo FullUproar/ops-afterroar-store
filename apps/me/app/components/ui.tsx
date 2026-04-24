@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ArrowRight, Loader2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Loader2 } from 'lucide-react';
 import type { CSSProperties, ReactNode } from 'react';
 
 /* ============================================================
@@ -68,6 +68,7 @@ export function SecHero({
   count,
   desc,
   actions,
+  showBack = true,
 }: {
   fieldNum?: string;
   fieldTotal?: number;
@@ -76,12 +77,33 @@ export function SecHero({
   count?: string;
   desc?: ReactNode;
   actions?: ReactNode;
+  showBack?: boolean;
 }) {
   return (
     <section style={{
       padding: '1.1rem var(--pad-x) 1.1rem',
       borderBottom: '1px solid var(--rule)',
     }}>
+      {showBack ? (
+        <Link href="/dashboard" style={{
+          ...TYPE.mono,
+          fontSize: '0.62rem',
+          letterSpacing: '0.22em',
+          textTransform: 'uppercase',
+          color: 'var(--orange)',
+          fontWeight: 700,
+          textDecoration: 'none',
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '0.35rem',
+          marginBottom: '0.7rem',
+          padding: '0.3rem 0',
+        }}>
+          <ArrowLeft size={12} strokeWidth={2.5} />
+          Player Card
+        </Link>
+      ) : null}
+
       {fieldNum ? (
         <p style={{
           ...TYPE.mono,
