@@ -203,7 +203,7 @@ export default function CatalogPage() {
     } finally {
       setLoading(false);
     }
-  }, [query, gameTab]);
+  }, [query, gameTab, filterSet, filterColor, filterRarity, filterMinPrice, filterMaxPrice, filterFormat]);
 
   // Debounced search on Enter or after typing pause
   useEffect(() => {
@@ -737,7 +737,7 @@ export default function CatalogPage() {
 
         {/* Listings zone — operator console panel */}
         {!loading && (cards.length > 0 || pokemonCards.length > 0) && (
-          <section className="ar-zone ar-zone-active relative" style={{ minHeight: 200 }}>
+          <section className="ar-zone active relative" style={{ minHeight: 200 }}>
             <div className="ar-zone-head">
               <span>
                 Listings ·{" "}
