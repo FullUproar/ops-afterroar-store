@@ -151,7 +151,11 @@ export default function CatalogPage() {
       if (gameTab === "pokemon" || gameTab === "yugioh") {
         const endpoint = gameTab === "pokemon" ? "/api/catalog/pokemon" : "/api/catalog/yugioh";
         const res = await fetch(`${endpoint}?q=${encodeURIComponent(query.trim())}`);
-        if (!res.ok) throw new Error("Search failed");
+        if (!res.ok) {
+          let serverMessage: string | undefined;
+          try { const body = await res.json(); serverMessage = body?.error; } catch {}
+          throw new Error(serverMessage || `Search failed (${res.status})`);
+        }
         const data = await res.json();
         setPokemonCards(data.cards || []);
         setCards([]);
@@ -173,7 +177,13 @@ export default function CatalogPage() {
         `/api/catalog/scryfall?q=${encodeURIComponent(scryfallQuery)}`
       );
       if (!res.ok) {
-        throw new Error("Search failed");
+        // Surface the server's actual error message so the operator can act on it
+        let serverMessage: string | undefined;
+        try {
+          const body = await res.json();
+          serverMessage = body?.error;
+        } catch { /* response wasn't JSON */ }
+        throw new Error(serverMessage || `Search failed (${res.status})`);
       }
       const data = await res.json();
       setCards(data.cards || []);
@@ -197,8 +207,9 @@ export default function CatalogPage() {
           // Non-critical, ignore
         }
       }
-    } catch {
-      setError("Failed to search Scryfall. Please try again.");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Search failed";
+      setError(`Search failed: ${message}`);
       setCards([]);
     } finally {
       setLoading(false);

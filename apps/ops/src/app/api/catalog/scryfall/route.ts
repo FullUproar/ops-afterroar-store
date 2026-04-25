@@ -42,6 +42,12 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ cards: mapped, total });
   } catch (error) {
+    // Verbose server-side log so we can pinpoint the failure mode in prod
+    console.error("[catalog/scryfall] search failed", {
+      q: request.nextUrl.searchParams.get("q"),
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+    });
     return handleAuthError(error);
   }
 }
