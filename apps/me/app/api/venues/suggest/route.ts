@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth-config";
 import { prisma } from "@/lib/prisma";
+import { createLinearIssue } from "@/lib/linear";
 
 /* ------------------------------------------------------------------ */
 /*  POST /api/venues/suggest                                           */
@@ -50,6 +51,8 @@ export async function POST(request: NextRequest) {
       { status: 401 },
     );
   }
+  // Narrow once so promise callbacks below see a non-undefined value.
+  const userId: string = session.user.id;
 
   let body: SuggestBody;
   try {
@@ -75,7 +78,7 @@ export async function POST(request: NextRequest) {
   const recentCount = await prisma.venue.count({
     where: {
       createdAt: { gte: since },
-      metadata: { path: ["suggested_by_user_id"], equals: session.user.id },
+      metadata: { path: ["suggested_by_user_id"], equals: userId },
     },
   });
   if (recentCount >= RATE_LIMIT_PER_USER) {
@@ -132,6 +135,8 @@ export async function POST(request: NextRequest) {
   }
 
   // ── Create ──
+  const submitterEmail = session.user.email ?? "unknown";
+  const submitterName = session.user.name ?? null;
   const venue = await prisma.venue.create({
     data: {
       slug: finalSlug,
@@ -145,11 +150,57 @@ export async function POST(request: NextRequest) {
       venueType: "game_store",
       metadata: {
         crowdsourced: true,
-        suggested_by_user_id: session.user.id,
+        suggested_by_user_id: userId,
         suggested_at: new Date().toISOString(),
       },
     },
   });
+
+  // Fire-and-forget: open a Linear issue so we can sanity-check the
+  // submission, enrich the listing, and (if we feel like it) reach out
+  // to the actual store. Failure here MUST NOT block the user response.
+  const baseUrl = process.env.NEXTAUTH_URL || process.env.AUTH_URL || "https://afterroar.me";
+  const linearLabel = process.env.LINEAR_VENUE_SUGGEST_LABEL || "ME";
+  const looseMatchLine = looseMatch
+    ? `\n**Possible duplicate:** [${looseMatch.name}](${baseUrl}/stores/${looseMatch.slug}) — flagged via fuzzy name match. Worth a look before approving.\n`
+    : "";
+  void createLinearIssue({
+    title: `Suggested venue: ${name} (${[city, state].filter(Boolean).join(", ") || "no location"})`,
+    description: [
+      `**New venue** added to the directory by an Afterroar Passport user.`,
+      "",
+      `**Listing:** [${name}](${baseUrl}/stores/${finalSlug}) (\`${finalSlug}\`)`,
+      `**Location:** ${[city, state].filter(Boolean).join(", ") || "—"}`,
+      `**Website:** ${body.website?.trim() || "—"}`,
+      `**Phone:** ${body.phone?.trim() || "—"}`,
+      `**Address:** ${body.address?.trim() || "—"}`,
+      "",
+      `**Suggested by:** ${submitterName ?? "(no display name)"} — ${submitterEmail}`,
+      looseMatchLine,
+      "---",
+      "",
+      "Status: \`unclaimed\` (community-added). The actual store owner can claim it from the listing page; until then this is searchable in the directory with a 'Community-added' badge.",
+    ]
+      .join("\n")
+      .trim(),
+    labels: [linearLabel],
+  })
+    .then((issue) => {
+      if (!issue) return;
+      return prisma.venue.update({
+        where: { id: venue.id },
+        data: {
+          metadata: {
+            crowdsourced: true,
+            suggested_by_user_id: userId,
+            suggested_at: new Date().toISOString(),
+            linear_issue_id: issue.identifier,
+            linear_issue_url: issue.url,
+          },
+        },
+      });
+    })
+    .catch((err) => console.error("[venues/suggest] linear filing failed", err));
 
   return NextResponse.json({
     ok: true,
