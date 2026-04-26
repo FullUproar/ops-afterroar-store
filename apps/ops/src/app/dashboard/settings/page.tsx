@@ -15,6 +15,8 @@ import { PageHeader } from '@/components/page-header';
 import { HelpTooltip } from '@/components/help-tooltip';
 import { PermissionsEditor } from '@/components/permissions-editor';
 import { SubNav } from "@/components/ui/sub-nav";
+import { CustomTagsPanel, type CustomTag } from "@/components/settings/custom-tags-panel";
+import { QuickItemsPanel, type QuickItem } from "@/components/settings/quick-items-panel";
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
@@ -835,15 +837,27 @@ export default function SettingsPage() {
           {/* ════════════════ STORE TAB ════════════════ */}
           {activeTab === 'store' && !activeSection && (
             <SectionTileGrid
-              sections={tabSections.map((s) => ({
-                key: s.key,
-                label: s.label,
-                summary: sectionSummary(s, settings),
-              }))}
+              sections={[
+                ...tabSections.map((s) => ({
+                  key: s.key,
+                  label: s.label,
+                  summary: sectionSummary(s, settings),
+                })),
+                {
+                  key: 'custom_tags',
+                  label: 'Custom Tags',
+                  summary: (() => {
+                    const ct = (settings.custom_tags ?? []) as CustomTag[];
+                    return ct.length === 0
+                      ? 'Define your own merchandising labels'
+                      : `${ct.length} tag${ct.length === 1 ? '' : 's'} defined`;
+                  })(),
+                },
+              ]}
               onSelect={setActiveSection}
             />
           )}
-          {activeTab === 'store' && activeSection && (
+          {activeTab === 'store' && activeSection && activeSection !== 'custom_tags' && (
             <>
               {tabSections
                 .filter((s) => s.key === activeSection)
@@ -861,6 +875,23 @@ export default function SettingsPage() {
                   />
                 ))}
             </>
+          )}
+          {activeTab === 'store' && activeSection === 'custom_tags' && (
+            <Panel
+              num="01"
+              eyebrow="Merchandising"
+              title="Custom Tags"
+              desc="Store-defined labels you can apply to inventory and target with promotions. Use these for distributor exclusives, clearance, staff picks, holiday themes, or anything else specific to how you merchandise."
+            >
+              <CustomTagsPanel
+                value={(settings.custom_tags ?? []) as CustomTag[]}
+                saving={saving === 'custom_tags'}
+                onChange={(next) => {
+                  updateLocal('custom_tags' as keyof StoreSettings, next as unknown as StoreSettings[keyof StoreSettings]);
+                  saveField('custom_tags', next);
+                }}
+              />
+            </Panel>
           )}
 
           {/* ════════════════ PAYMENTS TAB ════════════════ */}
@@ -1266,6 +1297,16 @@ export default function SettingsPage() {
                   summary: sectionSummary(s, settings),
                 })),
                 {
+                  key: 'quick_items',
+                  label: 'Register Quick Buttons',
+                  summary: (() => {
+                    const qi = (settings.quick_items ?? []) as QuickItem[];
+                    return qi.length === 0
+                      ? 'Auto-fills from top sellers — configure to override'
+                      : `${qi.length} button${qi.length === 1 ? '' : 's'} configured`;
+                  })(),
+                },
+                {
                   key: 'appearance',
                   label: 'Appearance',
                   summary: `Theme: ${theme === 'system' ? 'System' : theme === 'dark' ? 'Dark' : 'Light'}`,
@@ -1274,7 +1315,24 @@ export default function SettingsPage() {
               onSelect={setActiveSection}
             />
           )}
-          {activeTab === 'operations' && activeSection && activeSection !== 'appearance' && (
+          {activeTab === 'operations' && activeSection === 'quick_items' && (
+            <Panel
+              num="01"
+              eyebrow="Register"
+              title="Quick Buttons"
+              desc="The tap-to-add tiles on the register screen. Curate them for the items you sell most often, or leave it empty to let the register auto-fill from your top sellers."
+            >
+              <QuickItemsPanel
+                value={(settings.quick_items ?? []) as QuickItem[]}
+                saving={saving === 'quick_items'}
+                onChange={(next) => {
+                  updateLocal('quick_items' as keyof StoreSettings, next as unknown as StoreSettings[keyof StoreSettings]);
+                  saveField('quick_items', next);
+                }}
+              />
+            </Panel>
+          )}
+          {activeTab === 'operations' && activeSection && activeSection !== 'appearance' && activeSection !== 'quick_items' && (
             <>
               {tabSections
                 .filter((s) => s.key === activeSection)

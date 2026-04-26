@@ -67,6 +67,15 @@ export interface StoreSettings {
   mobile_allow_refunds: boolean;      // can mobile register process refunds (default false)
   mobile_allow_cash: boolean;         // can mobile register accept cash (default true)
   hidden_nav_items: string[];        // hrefs of nav items to hide (e.g. ["/dashboard/cafe", "/dashboard/consignment"])
+  // Custom tags — store-defined taxonomy on top of the fixed `category` enum.
+  // Stores use these for things like "Asmodee exclusive", "Clearance", or
+  // "Holiday gift idea". Applied to inventory via attributes.tags[] and
+  // referenced by promotions via scope=tag, scope_value=<tag_id>.
+  custom_tags: { id: string; label: string; color: string }[];
+  // Register quick-button tiles — store-curated favorites that override the
+  // automatic top-sellers fallback. Each tile points at an inventory item
+  // and renders as a one-tap add-to-cart button on the register screen.
+  quick_items: { id: string; label: string; inventory_id?: string; price_cents?: number; color?: string }[];
   [key: string]: unknown;
 }
 
@@ -133,6 +142,8 @@ export const SETTINGS_DEFAULTS: StoreSettings = {
   mobile_allow_refunds: false,
   mobile_allow_cash: true,
   hidden_nav_items: [],
+  custom_tags: [],
+  quick_items: [],
 };
 
 /** Server-safe: get typed settings from a store record */

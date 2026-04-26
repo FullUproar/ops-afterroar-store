@@ -101,6 +101,9 @@ export interface StoreSettings {
   tips_contexts: string[];
   tips_presets: number[];
   tips_allow_custom: boolean;
+  // Custom tags & register quick items (see store-settings-shared.ts)
+  custom_tags: { id: string; label: string; color: string }[];
+  quick_items: { id: string; label: string; inventory_id?: string; price_cents?: number; color?: string }[];
 }
 
 /** Sensible defaults — a store works immediately with zero config */
@@ -197,6 +200,9 @@ export const SETTINGS_DEFAULTS: StoreSettings = {
   timeclock_geofence_lat: 0,
   timeclock_geofence_lng: 0,
   timeclock_geofence_radius_meters: 150,
+  // Custom tags & register quick items
+  custom_tags: [],
+  quick_items: [],
 };
 
 /** Settings section metadata for the settings UI */
