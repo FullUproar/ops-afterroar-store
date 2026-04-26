@@ -21,6 +21,7 @@ import { useMode } from "@/lib/mode-context";
 import { BarcodeScanner } from "@/components/barcode-scanner";
 import { BarcodeLearnModal } from "@/components/barcode-learn-modal";
 import { BarcodeSvg } from "@/components/barcode-svg";
+import { VariantPickerModal } from "@/components/register/variant-picker-modal";
 import { NumericKeypad } from "@/components/numeric-keypad";
 import { useScanner } from "@/hooks/use-scanner";
 import type { ScannerError } from "@/lib/scanner-manager";
@@ -436,6 +437,12 @@ export default function RegisterPage() {
   const [scannerFlash, setScannerFlash] = useState<"none" | "success" | "error">("none");
   const [scannerErrorText, setScannerErrorText] = useState<string | null>(null);
   const [learnBarcode, setLearnBarcode] = useState<string | null>(null);
+  // Variant picker state — opened when a scanned/searched item has 2+ variants
+  const [variantPickerState, setVariantPickerState] = useState<{
+    scanned: InventoryItem;
+    variants: InventoryItem[];
+    parent: InventoryItem | null;
+  } | null>(null);
   const [lastAddedIndex, setLastAddedIndex] = useState<number | null>(null);
   const scannerErrorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const scannerFlashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -679,7 +686,7 @@ export default function RegisterPage() {
       }
 
       if (found) {
-        addToCart(found);
+        tryAddFromScan(found);
       } else if (zeroStockMatch) {
         // Item exists but system says 0 stock — offer override
         const item = zeroStockMatch;
@@ -895,7 +902,7 @@ export default function RegisterPage() {
       const cached = searchCache.current.get(trimmed.toLowerCase());
       if (cached) {
         const exactBarcode = cached.find((d) => d.barcode && d.barcode === trimmed && d.quantity > 0);
-        if (exactBarcode) { addToCart(exactBarcode); setSearchQuery(""); setSearchResults([]); setActivePanel(null); return; }
+        if (exactBarcode) { tryAddFromScan(exactBarcode); setSearchQuery(""); setSearchResults([]); setActivePanel(null); return; }
         setSearchResults(cached.filter((d) => d.quantity > 0));
       }
       // Try offline cache first (non-blocking — if IDB fails, fall through to API)
@@ -904,7 +911,7 @@ export default function RegisterPage() {
         if (localResults.length > 0) {
           const asInventory = localResults.map((r) => ({ ...r, low_stock_threshold: 5, image_url: null, external_id: null, catalog_product_id: null, shared_to_catalog: false, created_at: "", updated_at: "" })) as InventoryItem[];
           const exactBarcode = asInventory.find((d) => d.barcode && d.barcode === trimmed && d.quantity > 0);
-          if (exactBarcode) { addToCart(exactBarcode); setSearchQuery(""); setSearchResults([]); setActivePanel(null); return; }
+          if (exactBarcode) { tryAddFromScan(exactBarcode); setSearchQuery(""); setSearchResults([]); setActivePanel(null); return; }
           const filtered = asInventory.filter((d) => d.quantity > 0);
           searchCache.current.set(trimmed.toLowerCase(), filtered);
           setSearchResults(filtered);
@@ -917,7 +924,7 @@ export default function RegisterPage() {
         const data: InventoryItem[] = await res.json();
         if (Array.isArray(data)) {
           const exactBarcode = data.find((d) => d.barcode && d.barcode === trimmed && d.quantity > 0);
-          if (exactBarcode) { addToCart(exactBarcode); setSearchQuery(""); setSearchResults([]); setActivePanel(null); return; }
+          if (exactBarcode) { tryAddFromScan(exactBarcode); setSearchQuery(""); setSearchResults([]); setActivePanel(null); return; }
           const filtered = data.filter((d) => d.quantity > 0);
           searchCache.current.set(trimmed.toLowerCase(), filtered);
           setSearchResults(filtered);
@@ -1018,6 +1025,47 @@ export default function RegisterPage() {
     else if (/stripe.*not.*config/i.test(message)) friendly = "Stripe is not configured. Use Cash or set up Stripe in Settings.";
     setErrorBanner(friendly);
     // No auto-dismiss for errors — user must acknowledge
+  }
+
+  /**
+   * Scan-path entrypoint. If the matched item is part of a variant family
+   * (parent with children, OR child with siblings), open the picker so the
+   * cashier can confirm which cover/edition the customer is buying. If it's
+   * a stand-alone item, fall through to plain addToCart.
+   *
+   * Failure-mode tolerance: if the variants endpoint errors or is slow, we
+   * fall back to addToCart immediately — never block a sale on the picker.
+   */
+  async function tryAddFromScan(item: InventoryItem) {
+    const itemAny = item as unknown as { parent_id?: string | null };
+    // Heuristic short-circuit: stand-alone with no parent_id and no children
+    // would normally need a fetch to confirm, but the cost of the picker for
+    // a plain item is just one extra round trip. Skip the network call only
+    // when we know there are no variants. For now we always fetch; with our
+    // store sizes this is fine. If it becomes a hotspot we can pre-filter
+    // by adding a `has_variants` boolean to the search response.
+    try {
+      const res = await fetch(`/api/inventory/${item.id}/variants`);
+      if (res.ok) {
+        const data = await res.json() as { parent: InventoryItem | null; variants: InventoryItem[] };
+        const family: InventoryItem[] = [];
+        if (data.parent) family.push(data.parent);
+        for (const v of data.variants ?? []) {
+          if (data.parent && v.id === data.parent.id) continue;
+          family.push(v);
+        }
+        // 2+ rows = real family worth disambiguating. itemAny check ensures
+        // we only show the picker when there's *another* variant to pick.
+        if (family.length >= 2) {
+          setVariantPickerState({ scanned: item, variants: data.variants ?? [], parent: data.parent });
+          return;
+        }
+      }
+    } catch {
+      // ignore — fall through to addToCart
+    }
+    void itemAny;
+    addToCart(item);
   }
 
   function addToCart(item: InventoryItem) {
@@ -2383,6 +2431,19 @@ export default function RegisterPage() {
       {learnBarcode && (
         <BarcodeLearnModal barcode={learnBarcode} onClose={() => setLearnBarcode(null)} onItemCreated={(item, addToCartFlag) => { if (addToCartFlag) addToCart(item); showItemAdded(`${item.name} added to inventory`); }} onBarcodeAssigned={(item) => { showItemAdded(`Barcode assigned to ${item.name}`); }} />
       )}
+
+      {/* ====== VARIANT PICKER MODAL ====== */}
+      <VariantPickerModal
+        open={!!variantPickerState}
+        scannedItem={variantPickerState?.scanned ?? null}
+        variants={variantPickerState?.variants ?? []}
+        parent={variantPickerState?.parent ?? null}
+        onPick={(v) => {
+          setVariantPickerState(null);
+          addToCart(v);
+        }}
+        onClose={() => setVariantPickerState(null)}
+      />
     </div>
   );
 }

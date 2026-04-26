@@ -150,6 +150,60 @@ export const SOURCE_SYSTEMS: Record<string, SourceSystemConfig> = {
     ],
   },
 
+  celerant: {
+    name: "celerant",
+    label: "Celerant (Command/Cumulus Retail)",
+    /**
+     * Mapping derived from the canonical "style export" SQL (samLozier gist):
+     *   upc, STYLE, brand, Description, Attr1, Attr2, Size, cost, Suggested,
+     *   price, dept, type, Sub1, sub2, sub3, store
+     *
+     * Notes (see Celerant research report):
+     *   - STYLE is the parent SKU. Multiple SKUs can share a STYLE — those are
+     *     variants in Celerant. We import each row as its own item and store
+     *     STYLE in external_id; a follow-up pass groups by external_id to
+     *     wire parent_id automatically.
+     *   - Attr1/Attr2/Size are generic dimension columns — meaning is store-
+     *     specific. We park them in attributes.celerant_attr1/2/size so they
+     *     survive the import; the operator re-labels per-store in a later UI
+     *     step (or treats them as variant_label — see post-import pass).
+     *   - dept/type/Sub1/sub2/sub3 form a 5-level taxonomy. dept becomes
+     *     `category` after normalize_category; the rest land in attributes.*.
+     *   - Suggested is MSRP — distinct from the retail price (price). We
+     *     keep it as attributes.msrp_cents.
+     *   - QOH (quantity_on_hand) appears in some exports as an extra column.
+     *     The operator maps it to `quantity` if present.
+     */
+    inventory: [
+      { source: "upc", target: "barcode" },
+      { source: "STYLE", target: "external_id" },
+      { source: "brand", target: "attributes.brand" },
+      { source: "Description", target: "name" },
+      { source: "Attr1", target: "attributes.celerant_attr1" },
+      { source: "Attr2", target: "attributes.celerant_attr2" },
+      { source: "Size", target: "attributes.celerant_size" },
+      { source: "cost", target: "cost_cents", transform: "dollars_to_cents" },
+      { source: "Suggested", target: "attributes.msrp_cents", transform: "dollars_to_cents" },
+      { source: "price", target: "price_cents", transform: "dollars_to_cents" },
+      { source: "dept", target: "category", transform: "normalize_category" },
+      { source: "type", target: "attributes.celerant_type" },
+      { source: "Sub1", target: "attributes.celerant_sub1" },
+      { source: "sub2", target: "attributes.celerant_sub2" },
+      { source: "sub3", target: "attributes.celerant_sub3" },
+      { source: "QOH", target: "quantity" },
+    ],
+    customers: [
+      // Celerant's customer report column names depend on the report config.
+      // These are the most common headers we've seen — operator can override
+      // any in the mapping UI before commit.
+      { source: "First Name", target: "name" },
+      { source: "Email", target: "email" },
+      { source: "Phone", target: "phone", transform: "normalize_phone" },
+      { source: "Store Credit", target: "credit_balance_cents", transform: "dollars_to_cents" },
+      { source: "Notes", target: "notes" },
+    ],
+  },
+
   csv: {
     name: "csv",
     label: "Generic CSV",

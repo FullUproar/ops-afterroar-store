@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { formatCents, parseDollars } from '@/lib/types';
 import { PageHeader } from '@/components/page-header';
+import { SuggestedReorders } from '@/components/purchase-orders/suggested-reorders';
 
 interface POItem {
   id: string;
@@ -25,6 +26,10 @@ interface PurchaseOrder {
   order_date: string;
   expected_delivery: string | null;
   total_cost_cents: number;
+  freight_cents?: number;
+  tax_cents?: number;
+  other_fees_cents?: number;
+  cost_allocation?: string;
   notes: string | null;
   item_count: number;
   items: POItem[];
@@ -81,6 +86,11 @@ export default function PurchaseOrdersPage() {
   const [formSupplierId, setFormSupplierId] = useState('');
   const [formDelivery, setFormDelivery] = useState('');
   const [formNotes, setFormNotes] = useState('');
+  // Phase 2 landed-cost inputs
+  const [formFreight, setFormFreight] = useState('');
+  const [formTax, setFormTax] = useState('');
+  const [formOtherFees, setFormOtherFees] = useState('');
+  const [formCostAlloc, setFormCostAlloc] = useState<'by_cost' | 'by_weight' | 'even'>('by_cost');
   const [formItems, setFormItems] = useState<NewPOItem[]>([
     { name: '', quantity_ordered: 1, cost_cents: 0, cost_display: '' },
   ]);
@@ -142,6 +152,11 @@ export default function PurchaseOrdersPage() {
 
     setSaving(true);
     try {
+      const toCents = (s: string) => {
+        const n = parseFloat(s.replace(/[^0-9.]/g, ''));
+        if (isNaN(n) || n < 0) return 0;
+        return Math.round(n * 100);
+      };
       const res = await fetch('/api/purchase-orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -150,6 +165,10 @@ export default function PurchaseOrdersPage() {
           supplier_name: formSupplier.trim(),
           expected_delivery: formDelivery || null,
           notes: formNotes || null,
+          freight_cents: toCents(formFreight),
+          tax_cents: toCents(formTax),
+          other_fees_cents: toCents(formOtherFees),
+          cost_allocation: formCostAlloc,
           items: validItems.map((i) => ({
             inventory_item_id: i.inventory_item_id || null,
             name: i.name,
@@ -174,6 +193,10 @@ export default function PurchaseOrdersPage() {
     setFormSupplierId('');
     setFormDelivery('');
     setFormNotes('');
+    setFormFreight('');
+    setFormTax('');
+    setFormOtherFees('');
+    setFormCostAlloc('by_cost');
     setFormItems([{ name: '', quantity_ordered: 1, cost_cents: 0, cost_display: '' }]);
   }
 
@@ -295,6 +318,74 @@ export default function PurchaseOrdersPage() {
               rows={2}
               className="w-full bg-card-hover border border-input-border rounded px-3 py-2 text-foreground text-sm"
             />
+          </div>
+
+          {/* Landed cost: freight, tax, other fees, allocation strategy */}
+          <div className="border border-card-border rounded p-3 bg-card-hover/30 space-y-3">
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium text-foreground">Landed Cost (optional)</label>
+              <span className="text-xs text-muted">Spreads fees across line items at receive time</span>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              <div>
+                <label className="block text-xs text-muted mb-1">Freight</label>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={formFreight}
+                  onChange={(e) => setFormFreight(e.target.value)}
+                  placeholder="0.00"
+                  className="w-full bg-card border border-input-border rounded px-3 py-2 text-foreground text-sm font-mono tabular-nums"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-muted mb-1">Tax</label>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={formTax}
+                  onChange={(e) => setFormTax(e.target.value)}
+                  placeholder="0.00"
+                  className="w-full bg-card border border-input-border rounded px-3 py-2 text-foreground text-sm font-mono tabular-nums"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-muted mb-1">Other fees</label>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={formOtherFees}
+                  onChange={(e) => setFormOtherFees(e.target.value)}
+                  placeholder="0.00"
+                  className="w-full bg-card border border-input-border rounded px-3 py-2 text-foreground text-sm font-mono tabular-nums"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs text-muted mb-1">Allocation</label>
+              <div className="inline-flex border border-input-border rounded overflow-hidden">
+                {(
+                  [
+                    { value: 'by_cost', label: 'By cost (default)' },
+                    { value: 'by_weight', label: 'By weight' },
+                    { value: 'even', label: 'Evenly per unit' },
+                  ] as const
+                ).map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setFormCostAlloc(opt.value)}
+                    className={`px-3 py-1.5 text-xs transition-colors ${
+                      formCostAlloc === opt.value
+                        ? 'bg-orange text-void'
+                        : 'bg-card text-muted hover:text-foreground'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
 
           <div>
@@ -420,6 +511,12 @@ export default function PurchaseOrdersPage() {
         </form>
       )}
 
+      {/* Auto-suggested reorders from items below their reorder_point */}
+      <SuggestedReorders
+        refreshKey={orders.length}
+        onPOCreated={() => loadOrders()}
+      />
+
       {loading ? (
         <p className="text-muted">Loading purchase orders...</p>
       ) : orders.length === 0 ? (
@@ -544,6 +641,32 @@ export default function PurchaseOrdersPage() {
                             </div>
                             {detailPO.notes && (
                               <p className="text-sm text-muted">Notes: {detailPO.notes}</p>
+                            )}
+                            {/* Landed cost summary */}
+                            {((detailPO.freight_cents ?? 0) > 0 ||
+                              (detailPO.tax_cents ?? 0) > 0 ||
+                              (detailPO.other_fees_cents ?? 0) > 0) && (
+                              <div className="text-xs text-muted">
+                                Landed cost:
+                                {(detailPO.freight_cents ?? 0) > 0 && (
+                                  <span className="ml-2 font-mono tabular-nums">
+                                    Freight {formatCents(detailPO.freight_cents ?? 0)}
+                                  </span>
+                                )}
+                                {(detailPO.tax_cents ?? 0) > 0 && (
+                                  <span className="ml-2 font-mono tabular-nums">
+                                    · Tax {formatCents(detailPO.tax_cents ?? 0)}
+                                  </span>
+                                )}
+                                {(detailPO.other_fees_cents ?? 0) > 0 && (
+                                  <span className="ml-2 font-mono tabular-nums">
+                                    · Other {formatCents(detailPO.other_fees_cents ?? 0)}
+                                  </span>
+                                )}
+                                <span className="ml-2 italic">
+                                  (allocated {detailPO.cost_allocation === 'by_weight' ? 'by weight' : detailPO.cost_allocation === 'even' ? 'evenly' : 'by cost'})
+                                </span>
+                              </div>
                             )}
                             <table className="w-full text-sm">
                               <thead>

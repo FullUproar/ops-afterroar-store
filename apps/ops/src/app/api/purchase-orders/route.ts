@@ -33,7 +33,17 @@ export async function POST(request: NextRequest) {
     const { db, storeId } = await requirePermission("inventory.adjust");
 
     const body = await request.json();
-    const { supplier_id, supplier_name, expected_delivery, notes, items } = body;
+    const {
+      supplier_id,
+      supplier_name,
+      expected_delivery,
+      notes,
+      items,
+      freight_cents,
+      tax_cents,
+      other_fees_cents,
+      cost_allocation,
+    } = body;
 
     if (!supplier_name || typeof supplier_name !== "string") {
       return NextResponse.json(
@@ -55,6 +65,9 @@ export async function POST(request: NextRequest) {
       0
     );
 
+    const validAllocs = ["by_cost", "by_weight", "even"] as const;
+    const alloc = validAllocs.includes(cost_allocation) ? cost_allocation : "by_cost";
+
     const po = await db.posPurchaseOrder.create({
       data: {
         store_id: storeId,
@@ -65,6 +78,10 @@ export async function POST(request: NextRequest) {
           : null,
         notes: notes || null,
         total_cost_cents: totalCost,
+        freight_cents: typeof freight_cents === "number" && freight_cents >= 0 ? freight_cents : 0,
+        tax_cents: typeof tax_cents === "number" && tax_cents >= 0 ? tax_cents : 0,
+        other_fees_cents: typeof other_fees_cents === "number" && other_fees_cents >= 0 ? other_fees_cents : 0,
+        cost_allocation: alloc,
         items: {
           create: items.map(
             (item: {
