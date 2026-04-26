@@ -231,6 +231,22 @@ export default async function AdminClaimsPage() {
                     </p>
                   </div>
                 )}
+                {(() => {
+                  const ev = (c.evidence as Record<string, unknown> | null) ?? {};
+                  const linearUrl = ev.linear_issue_url as string | undefined;
+                  const linearId = ev.linear_issue_id as string | undefined;
+                  if (!linearUrl) return null;
+                  return (
+                    <p style={{ fontSize: '0.78rem', margin: '0 0 0.85rem' }}>
+                      <a href={linearUrl} target="_blank" rel="noopener noreferrer" style={{ color: '#5E6AD2', textDecoration: 'underline' }}>
+                        Linear: {linearId ?? 'discuss'} →
+                      </a>
+                      <span style={{ color: '#475569', marginLeft: '0.4rem' }}>
+                        Use Linear comments for back-and-forth with the contestant.
+                      </span>
+                    </p>
+                  );
+                })()}
 
                 {c.notes && (
                   <p style={{ fontSize: '0.78rem', color: '#FF8200', margin: '0 0 0.85rem' }}>

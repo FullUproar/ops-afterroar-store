@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { randomBytes } from "crypto";
 import { auth } from "@/lib/auth-config";
 import { prisma } from "@/lib/prisma";
+import { fileClaimContestIssue } from "@/lib/linear";
 
 /* ------------------------------------------------------------------ */
 /*  POST /api/entities/[slug]/claim                                    */
@@ -133,6 +134,43 @@ export async function POST(
           evidence,
         },
       });
+
+      // Fire-and-forget: open a Linear issue so admin triage happens in
+      // the same place as everything else. Failure here MUST NOT block the
+      // contest; surface the issue URL on the claim if it succeeds.
+      const baseUrl = process.env.NEXTAUTH_URL || process.env.AUTH_URL || "https://afterroar.me";
+      const adminUrl = `${baseUrl.replace(/\/$/, "")}/admin/claims`;
+      const currentOwners = await prisma.entityMember.findMany({
+        where: { entityId: entity.id, role: "owner" },
+        include: { user: { select: { email: true } } },
+      });
+      const evidenceNote = (evidence?.note as string) ?? "";
+      void fileClaimContestIssue({
+        storeName: entity.name,
+        storeSlug: entity.slug,
+        contestantName: session.user.name ?? null,
+        contestantEmail: session.user.email ?? "unknown",
+        contestantContactEmail: contactEmail || null,
+        evidenceNote,
+        currentOwnerEmails: currentOwners.map((m) => m.user.email).filter(Boolean) as string[],
+        adminUrl,
+      })
+        .then((issue) => {
+          if (!issue) return;
+          // Stash the Linear URL on the claim so the admin queue can link
+          // out to comment threads.
+          return prisma.entityClaim.update({
+            where: { id: contest.id },
+            data: {
+              evidence: {
+                ...(evidence as Record<string, unknown>),
+                linear_issue_id: issue.identifier,
+                linear_issue_url: issue.url,
+              },
+            },
+          });
+        })
+        .catch((err) => console.error("[claim] linear filing failed", err));
 
       return NextResponse.json({
         ok: true,
