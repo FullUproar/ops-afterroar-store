@@ -54,8 +54,10 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ sl
         }
       />
 
-      {/* Claim CTA — only visible when the venue isn't yet claimed/active */}
-      {(venue.status === 'unclaimed' || venue.status === 'pending') && (
+      {/* Claim panel — shows differently per venue status:
+          unclaimed/pending → instant claim CTA.
+          active → low-key 'request review' affordance for owner contests. */}
+      {(venue.status === 'unclaimed' || venue.status === 'pending' || venue.status === 'active') && (
         <StoreClaimPanel
           slug={venue.slug}
           storeName={venue.name}

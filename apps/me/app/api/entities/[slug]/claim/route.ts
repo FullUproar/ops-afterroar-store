@@ -2,49 +2,32 @@ import { NextRequest, NextResponse } from "next/server";
 import { randomBytes } from "crypto";
 import { auth } from "@/lib/auth-config";
 import { prisma } from "@/lib/prisma";
-import { sendEmail, claimVerifyTemplate } from "@/lib/email";
 
 /* ------------------------------------------------------------------ */
 /*  POST /api/entities/[slug]/claim                                    */
 /*                                                                      */
-/*  Initiate a claim on an unclaimed AfterroarEntity. The signed-in    */
-/*  user submits the contact email they own at the store; we send a   */
-/*  verification link to that email. Clicking the link consumes the   */
-/*  token, flips the entity status to "active", and adds the user as  */
-/*  the first EntityMember with role=owner.                            */
+/*  Two flows live behind the same endpoint, decided by the entity's   */
+/*  current state and the body's `contest` flag:                        */
 /*                                                                      */
-/*  Body: { contactEmail, contactName?, contactPhone?, evidence? }    */
+/*  ─── Instant claim (status=unclaimed | pending) ────                 */
+/*  Trust the signed-in user. Any Passport account can claim any       */
+/*  unclaimed listing — we promote the Venue to AfterroarEntity, add  */
+/*  the user as the owner, and flip status to active. This is the      */
+/*  "Yelp for indie game stores" model: low friction wins; bad-faith   */
+/*  claims get caught at the contest layer.                            */
 /*                                                                      */
-/*  Domain match shortcut: if the submitted email's domain matches    */
-/*  the entity's websiteUrl host, we still send the email (proof of   */
-/*  control) but the email is more trusted — review queue priority.   */
+/*  ─── Contest (status=active, body has contest:true) ────             */
+/*  An already-claimed listing gets contested. We file an EntityClaim  */
+/*  with status="contest" plus the claimant's evidence. An admin       */
+/*  reviews via /admin/claims and either approves (transferring        */
+/*  ownership) or rejects.                                              */
+/*                                                                      */
+/*  Body: { contest?: boolean, contactEmail?: string, contactName?,   */
+/*          contactPhone?, evidence?: Record<string, unknown> }        */
 /* ------------------------------------------------------------------ */
-
-const CLAIM_TOKEN_TTL_HOURS = 72;
 
 function makeToken(): string {
   return randomBytes(32).toString("hex");
-}
-
-function buildVerifyUrl(token: string): string {
-  const base =
-    process.env.NEXTAUTH_URL ||
-    process.env.AUTH_URL ||
-    "https://afterroar.me";
-  return `${base.replace(/\/$/, "")}/claim/verify?token=${token}`;
-}
-
-function emailDomainMatches(email: string, websiteUrl: string | null | undefined): boolean {
-  if (!websiteUrl) return false;
-  try {
-    const emailDomain = email.split("@")[1]?.toLowerCase().trim();
-    if (!emailDomain) return false;
-    const url = new URL(websiteUrl.startsWith("http") ? websiteUrl : `https://${websiteUrl}`);
-    const siteHost = url.hostname.toLowerCase().replace(/^www\./, "");
-    return emailDomain === siteHost || emailDomain.endsWith(`.${siteHost}`);
-  } catch {
-    return false;
-  }
 }
 
 export async function POST(
@@ -58,9 +41,13 @@ export async function POST(
       { status: 401 },
     );
   }
+  // After this point, narrow once so TS knows the id is defined.
+  const userId: string = session.user.id;
+  const userEmail: string = session.user.email ?? "unknown";
 
   const { slug } = await params;
   let body: {
+    contest?: boolean;
     contactEmail?: string;
     contactName?: string;
     contactPhone?: string;
@@ -69,25 +56,15 @@ export async function POST(
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+    body = {};
   }
 
-  const contactEmail = String(body.contactEmail ?? "").trim().toLowerCase();
-  if (!contactEmail || !contactEmail.includes("@")) {
-    return NextResponse.json(
-      { error: "A valid contact email is required." },
-      { status: 400 },
-    );
-  }
-
-  // Lazy-promote: the public /stores/[slug] page reads from the Venue
-  // directory table. AfterroarEntity is the canonical identity record we
-  // need for membership + claim. If the Venue exists but no Entity does
-  // yet, create one mirroring Venue data with status="unclaimed" so the
-  // claim flow has something to work against.
+  // Resolve / lazy-promote Venue → AfterroarEntity. Public /stores/[slug]
+  // reads from Venue; the canonical identity record is AfterroarEntity. We
+  // create the Entity at claim-initiate time if it doesn't exist yet.
   let entity = await prisma.afterroarEntity.findUnique({ where: { slug } });
+  let venue = await prisma.venue.findUnique({ where: { slug } });
   if (!entity) {
-    const venue = await prisma.venue.findUnique({ where: { slug } });
     if (!venue) {
       return NextResponse.json({ error: "Store not found." }, { status: 404 });
     }
@@ -96,7 +73,7 @@ export async function POST(
         slug: venue.slug,
         name: venue.name,
         type: "store",
-        status: "unclaimed",
+        status: venue.status === "active" ? "active" : "unclaimed",
         contactEmail: venue.email,
         contactPhone: venue.phone,
         websiteUrl: venue.website,
@@ -112,12 +89,6 @@ export async function POST(
       },
     });
   }
-  if (entity.status === "active") {
-    return NextResponse.json(
-      { error: "This store is already claimed. Contact support if you believe this is in error." },
-      { status: 409 },
-    );
-  }
   if (entity.status === "suspended") {
     return NextResponse.json(
       { error: "This store is unavailable. Contact support." },
@@ -125,66 +96,119 @@ export async function POST(
     );
   }
 
-  // Don't let two users race a claim — invalidate any prior pending claim
-  // for the same entity. Only ONE pending claim at a time. The freshly
-  // created claim's token is the one that wins.
-  await prisma.entityClaim.deleteMany({
-    where: { entityId: entity.id, status: "pending" },
-  });
+  // ── Contest path (re-claim attempt on an already-active entity) ──
+  if (entity.status === "active" || body.contest) {
+    if (entity.status !== "active") {
+      // Contest flag set but entity isn't claimed yet — fall through to
+      // instant claim. (Defensive: don't make the user re-submit.)
+    } else {
+      // Deep clone + cast to Prisma.InputJsonValue. JSON round-trip ensures
+      // any non-serializable values from the request body are stripped.
+      const evidence = JSON.parse(JSON.stringify(body.evidence ?? {}));
+      const contactEmail = (body.contactEmail ?? "").trim().toLowerCase();
+      // Don't let one user spam the queue with multiple open contests on
+      // the same entity. Replace any prior pending contest from this user.
+      await prisma.entityClaim.deleteMany({
+        where: {
+          entityId: entity.id,
+          claimantUserId: userId,
+          status: "contest",
+        },
+      });
 
-  const token = makeToken();
-  const expiresAt = new Date(Date.now() + CLAIM_TOKEN_TTL_HOURS * 60 * 60 * 1000);
-  const domainMatch = emailDomainMatches(contactEmail, entity.websiteUrl);
+      const contest = await prisma.entityClaim.create({
+        data: {
+          entityId: entity.id,
+          claimantUserId: userId,
+          contactEmail: contactEmail || (session.user.email ?? "unknown"),
+          contactName: body.contactName?.trim() || null,
+          contactPhone: body.contactPhone?.trim() || null,
+          // Token is required by the schema — generate one even though the
+          // contest flow doesn't use it.
+          token: makeToken(),
+          status: "contest",
+          // Long expiry: contests sit until an admin reviews. 30 days is
+          // generous for the queue.
+          expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+          evidence,
+        },
+      });
 
-  const claim = await prisma.entityClaim.create({
-    data: {
-      entityId: entity.id,
-      claimantUserId: session.user.id,
-      contactEmail,
-      contactName: body.contactName?.trim() || null,
-      contactPhone: body.contactPhone?.trim() || null,
-      token,
-      expiresAt,
-      evidence: {
-        ...(body.evidence ?? {}),
-        domain_match: domainMatch,
-        ip_hash: hashRequestSource(request),
-      },
-    },
-  });
-
-  // Move entity to "pending" so the public page reflects an in-flight claim.
-  if (entity.status === "unclaimed") {
-    await prisma.afterroarEntity.update({
-      where: { id: entity.id },
-      data: { status: "pending" },
-    });
+      return NextResponse.json({
+        ok: true,
+        contest: true,
+        message:
+          "Your contest is in the admin queue. We'll review and reach out if we need more information.",
+        contest_id: contest.id,
+      });
+    }
   }
 
-  // Fire-and-forget email
-  const verifyUrl = buildVerifyUrl(token);
-  const tpl = claimVerifyTemplate({
-    storeName: entity.name,
-    verifyUrl,
-    claimantEmail: session.user.email ?? null,
-    expiresHours: CLAIM_TOKEN_TTL_HOURS,
+  // ── Instant claim (status=unclaimed | pending) ──
+  // Trust the signed-in user. Create EntityMember (role=owner) + flip both
+  // Entity and Venue to active. Atomic.
+  const result = await prisma.$transaction(async (tx) => {
+    const updatedEntity = await tx.afterroarEntity.update({
+      where: { id: entity!.id },
+      data: {
+        status: "active",
+        approvedAt: new Date(),
+      },
+    });
+
+    if (venue) {
+      await tx.venue.update({
+        where: { id: venue.id },
+        data: { status: "active" },
+      });
+    }
+
+    await tx.entityMember.upsert({
+      where: { entityId_userId: { entityId: entity!.id, userId: userId } },
+      create: {
+        entityId: entity!.id,
+        userId: userId,
+        role: "owner",
+        addedBy: "self_claim",
+      },
+      update: { role: "owner" },
+    });
+
+    // Audit row so we have a paper trail: who claimed when, which IP.
+    // (EntityClaim with status=verified doubles as the audit record.)
+    await tx.entityClaim.create({
+      data: {
+        entityId: entity!.id,
+        claimantUserId: userId,
+        contactEmail: userEmail,
+        token: makeToken(),
+        status: "verified",
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+        verifiedAt: new Date(),
+        evidence: {
+          flow: "instant_self_claim",
+          ip_hash: hashRequestSource(request),
+        },
+      },
+    });
+
+    return { entity: updatedEntity };
   });
-  sendEmail({ to: contactEmail, ...tpl }).catch((err) =>
-    console.error("[claim] verification email failed", err),
-  );
 
   return NextResponse.json({
     ok: true,
-    message: `Verification link sent to ${contactEmail}. The link expires in ${CLAIM_TOKEN_TTL_HOURS} hours.`,
-    claim_id: claim.id,
-    domain_match: domainMatch,
-    // Surface in dev when no Resend key is set so we can click through.
-    ...(process.env.NODE_ENV !== "production" ? { dev_verify_url: verifyUrl } : {}),
+    contest: false,
+    entity: {
+      id: result.entity.id,
+      slug: result.entity.slug,
+      name: result.entity.name,
+      status: result.entity.status,
+    },
+    message: `You're now the owner of ${result.entity.name}.`,
   });
 }
 
 function hashRequestSource(request: NextRequest): string {
-  // Cheap fingerprint for audit — not for security. xff or remote address.
   const xff = request.headers.get("x-forwarded-for") ?? "";
   const ua = request.headers.get("user-agent") ?? "";
   return `${xff}|${ua}`.slice(0, 80);
