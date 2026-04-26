@@ -219,7 +219,7 @@ function LoginContent() {
               </a>
             </p>
 
-            <p style={{ ...TYPE.body, fontSize: '0.72rem', color: 'var(--ink-faint)', lineHeight: 1.5, margin: 0, textAlign: 'center' }}>
+            <p style={{ ...TYPE.body, fontSize: '0.82rem', color: 'var(--ink-faint)', lineHeight: 1.55, margin: 0, textAlign: 'center' }}>
               By signing in, you agree to our{' '}
               <a href="/terms" style={{ color: 'var(--orange)' }}>Terms of Service</a> and{' '}
               <a href="/privacy" style={{ color: 'var(--orange)' }}>Privacy Policy</a>.

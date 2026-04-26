@@ -85,8 +85,8 @@ function SignupContent() {
               <p style={{ ...TYPE.body, fontSize: "0.9rem", color: "var(--ink-soft)", lineHeight: 1.5, margin: 0 }}>
                 We sent a verification link to <strong style={{ color: "var(--cream)" }}>{email}</strong>. Click it to finish setting up your Passport.
               </p>
-              <p style={{ ...TYPE.body, fontSize: "0.78rem", color: "var(--ink-faint)", margin: 0 }}>
-                Didn't get it? Check spam, or sign up again to resend.
+              <p style={{ ...TYPE.body, fontSize: "0.85rem", color: "var(--ink-faint)", margin: 0, lineHeight: 1.5 }}>
+                Didn&apos;t get it? Check spam, or sign up again to resend.
               </p>
               <a
                 href="/login"
@@ -246,7 +246,7 @@ function SignupContent() {
             <p
               style={{
                 ...TYPE.body,
-                fontSize: "0.78rem",
+                fontSize: "0.85rem",
                 color: "var(--ink-faint)",
                 textAlign: "center",
                 margin: 0,
@@ -257,7 +257,7 @@ function SignupContent() {
               </a>
             </p>
 
-            <p style={{ ...TYPE.body, fontSize: "0.72rem", color: "var(--ink-faint)", lineHeight: 1.5, margin: 0, textAlign: "center" }}>
+            <p style={{ ...TYPE.body, fontSize: "0.82rem", color: "var(--ink-faint)", lineHeight: 1.55, margin: 0, textAlign: "center" }}>
               By signing up, you agree to our{" "}
               <a href="/terms" style={{ color: "var(--orange)" }}>Terms</a> and{" "}
               <a href="/privacy" style={{ color: "var(--orange)" }}>Privacy Policy</a>.
@@ -301,7 +301,7 @@ function Field({
       <span
         style={{
           ...TYPE.body,
-          fontSize: "0.78rem",
+          fontSize: "0.85rem",
           color: "var(--ink-soft)",
           fontWeight: 600,
           letterSpacing: "0.04em",
@@ -331,7 +331,7 @@ function Field({
         onBlur={(e) => (e.currentTarget.style.borderColor = "var(--rule)")}
       />
       {hint && (
-        <span style={{ ...TYPE.body, fontSize: "0.7rem", color: "var(--ink-faint)" }}>{hint}</span>
+        <span style={{ ...TYPE.body, fontSize: "0.82rem", color: "var(--ink-faint)", lineHeight: 1.4 }}>{hint}</span>
       )}
     </label>
   );
