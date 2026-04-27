@@ -48,7 +48,12 @@ export async function middleware(request: NextRequest) {
     path.startsWith("/status") ||
     path.startsWith("/api/health") ||
     path.startsWith("/api/push/vapid-key") ||
-    path.startsWith("/api/push/send");
+    path.startsWith("/api/push/send") ||
+    // R2 register sync — these endpoints use X-API-Key auth (not NextAuth
+    // sessions) and must be exempt from the session-redirect middleware
+    // or they'd 307 to /login before the route handler can run.
+    path.startsWith("/api/sync") ||
+    path.startsWith("/api/register-bootstrap");
 
   // JWT check (no DB access needed — runs on Edge)
   // NextAuth v5 uses "authjs" cookie prefix, not "next-auth"
