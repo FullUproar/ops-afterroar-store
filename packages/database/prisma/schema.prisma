@@ -546,6 +546,7 @@ model PosStore {
   hq_outbox            PosHqOutbox[]
   shipping_labels      PosShippingLabel[]
   packaging_types      PosPackagingType[]
+  register_events      RegisterEvent[]
   hosted_network_tournaments  PosNetworkTournament[]
   network_tournament_entries  PosNetworkTournamentStore[]
   network_player_ratings      PosNetworkPlayerRating[]
@@ -2138,4 +2139,68 @@ model ApiUsageLog {
   @@index([apiKeyId, timestamp(sort: Desc)])
   @@index([endpoint, timestamp(sort: Desc)])
   @@index([status, timestamp(sort: Desc)])
+}
+
+// ============================================================
+// REGISTER EVENT LOG (R2 OFFLINE SYNC)
+// Append-only log of register-side events pushed from each device.
+// Replays into pos_* tables (sales → ledger, inventory decrement, etc.)
+// or surfaces conflicts to /dashboard/reconciliation.
+//
+// See afterroar-mobile/docs/register-sync-architecture.md for the full
+// architecture (Lamport clocks, idempotency, per-table conflict policies).
+// ============================================================
+model RegisterEvent {
+  /// Client-generated UUID. Idempotency primary — a retry of the same
+  /// event must be a no-op. Combined with deviceId in the unique
+  /// constraint to guarantee no double-apply across devices.
+  id           String   @id
+
+  storeId      String
+  /// Device identifier — typically a per-tablet UUID generated on first
+  /// boot and persisted in Capacitor Preferences. Stable across app
+  /// restarts; rotates only when the tablet's local data is wiped.
+  deviceId     String
+
+  /// Lamport count for ordering. Each device increments per event.
+  /// Server orders events by (lamport ASC, deviceId) when replaying.
+  /// Wall clock is for humans; this is for causality.
+  lamport      Int
+
+  /// Wall clock from the device when the event was created. Used for
+  /// audit + display, NOT for ordering. Tablet clocks drift; trust
+  /// Lamport for causality, this for "what time did the cashier ring
+  /// this up."
+  wallTime     DateTime
+
+  /// Event type — sale, return, credit_apply, loyalty_redeem, etc.
+  /// Server has a per-type handler that mutates pos_* tables.
+  type         String
+
+  /// Event-specific payload. Validated against per-type schema by the
+  /// /api/sync endpoint. Free-form here so adding new event types
+  /// doesn't require migrations.
+  payload      Json
+
+  /// Server-side outcome: applied | conflict | duplicate | rejected.
+  /// 'duplicate' means the (deviceId, id) pair was seen before — sync
+  /// retries hit this and treat it as success.
+  status       String   @default("applied")
+
+  /// When `status='conflict'`, structured info about why and what to
+  /// surface in the reconciliation queue.
+  conflictData Json?
+
+  /// When the server received and processed this event. Lags wallTime
+  /// by however long the device was offline.
+  receivedAt   DateTime @default(now())
+
+  /// FK to PosStore — store-scoped event log; cascade with store.
+  store        PosStore @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@unique([deviceId, id], name: "RegisterEvent_idempotency")
+  @@index([storeId, wallTime(sort: Desc)])
+  @@index([storeId, status])
+  @@index([storeId, deviceId, lamport])
+  @@map("register_events")
 }

@@ -22,6 +22,9 @@ const AVAILABLE_SCOPES = [
   "read:events:checkins",
   "read:venues:inventory",
   "read:venues:revenue",
+  // R2 register sync — push offline events to /api/sync on apps/ops.
+  // Per-store scope: each register tablet gets its own key.
+  "register:write",
   "admin:*",
 ];
 
