@@ -26,6 +26,16 @@ const mono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: 'Afterroar — Your Tabletop Identity',
   description: 'Your tabletop identity, your rules. One login across every store and app in the Afterroar ecosystem. Manage your data, control your consent, delete anytime.',
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'Afterroar',
+  },
+};
+
+export const viewport = {
+  themeColor: '#FF8200',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

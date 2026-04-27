@@ -1,0 +1,33 @@
+{
+  "name": "Afterroar",
+  "short_name": "Afterroar",
+  "description": "Your tabletop identity. One Passport across every store and app.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0a0a0a",
+  "theme_color": "#FF8200",
+  "icons": [
+    {
+      "src": "/badges/passport-pioneer.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Sign in",
+      "short_name": "Sign in",
+      "url": "/login",
+      "description": "Sign in to your Afterroar Passport"
+    },
+    {
+      "name": "API Monitor",
+      "short_name": "API",
+      "url": "/admin/api-usage",
+      "description": "Federation API usage dashboard (admin)"
+    }
+  ]
+}
