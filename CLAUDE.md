@@ -1,16 +1,30 @@
 @AGENTS.md
 
-# Afterroar Store Ops
+# Afterroar (monorepo: apps/ops + apps/me)
+
+**This is the monorepo for `afterroar-ops` (Store Ops POS at www.afterroar.store) and `afterroar-me` (Passport identity at www.afterroar.me).** Both apps share `packages/database`.
+
+> ## Platform map (cross-repo orientation)
+>
+> The Afterroar/Full Uproar platform spans 3 active repos. Authoritative master map: [`../CLAUDE.md`](../CLAUDE.md) at the platform root.
+>
+> | Repo | What it contains | Local path |
+> |---|---|---|
+> | **`afterroar`** (this repo) | Store Ops POS server + Passport identity | `c:\dev\FULL UPROAR PLATFORM\ops-afterroar-store` |
+> | `full-uproar-site` | FU storefront + Game Night HQ + 3 marketing sites | `c:\dev\full-uproar-site` |
+> | `afterroar-mobile` | Capacitor apps: register (R1 in flight), garmr (watchdog), passport (consumer) | `c:\dev\FULL UPROAR PLATFORM\afterroar-mobile` |
+>
+> **Trap path**: `c:\dev\ops-afterroar-store` is a stale legacy clone. Do not push schema changes from there.
 
 POS and operations platform for friendly local game stores (FLGS).
 Part of the Full Uproar Games ecosystem.
 
 ## Tech Stack
 - Next.js 16 + React 19 + TypeScript + Tailwind CSS
-- Prisma ORM with @prisma/adapter-pg (NOT Supabase — fully migrated)
-- NextAuth v5 (Google OAuth + Credentials)
-- Shared PostgreSQL with Afterroar HQ — **Neon** (`ep-crimson-surf-amyp1ski-pooler.c-5.us-east-1.aws.neon.tech`), migrated from Prisma Postgres 2026-04-11
-- Vercel hosting
+- Prisma 7 with `@prisma/adapter-pg` driver-adapter mode (NOT Supabase — fully migrated)
+- NextAuth v5 (Google OAuth + Afterroar OIDC)
+- **Database**: dedicated **Neon** project (`ep-steep-king-amgsp5e4-pooler.c-5.us-east-1.aws.neon.tech`), split from the FU shared Neon on 2026-04-27. Both apps/ops + apps/me share this single Afterroar Neon DB.
+- Vercel hosting (separate Vercel projects: `afterroar-ops` for apps/ops, `afterroar-me` for apps/me)
 
 ## Database
 - All Store Ops tables use `pos_` prefix (36+ tables)
