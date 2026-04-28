@@ -53,7 +53,7 @@ export function withApiKey<TParams>(
           );
         } else {
           apiKeyId = verified.id;
-          bumpUsage(verified.id);
+          bumpUsage(verified);
           response = await handler(req, { ...ctx, apiKey: verified });
           status = response.status;
         }

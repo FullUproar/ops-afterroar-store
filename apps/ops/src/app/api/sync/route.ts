@@ -40,6 +40,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { withApiKey } from "@/lib/api-middleware";
 import { applyEvent, type RegisterEventInput } from "@/lib/register-sync";
+import { resolveRegisterStoreId } from "@/lib/register-auth";
 
 const MAX_BATCH = 100;
 
@@ -77,14 +78,30 @@ function validateRequest(body: unknown): SyncRequest | { error: string } {
 }
 
 export const POST = withApiKey<Record<string, never>>(
-  async (req: NextRequest) => {
+  async (req: NextRequest, { apiKey }) => {
     let body: unknown;
     try { body = await req.json(); } catch { return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 }); }
 
     const validated = validateRequest(body);
     if ("error" in validated) return NextResponse.json({ error: validated.error }, { status: 400 });
 
-    const { deviceId, storeId, events } = validated;
+    const { deviceId, storeId: claimedStoreId, events } = validated;
+
+    // Verify the device/key is actually allowed to write to the claimed store.
+    // For paired-device tokens the store is bound on the row; for API keys we
+    // resolve via the User → PosStaff path. Tampered request bodies that name
+    // another store will be rejected here.
+    const authorizedStoreId = await resolveRegisterStoreId(apiKey);
+    if (!authorizedStoreId) {
+      return NextResponse.json({ error: "Auth has no associated store" }, { status: 403 });
+    }
+    if (authorizedStoreId !== claimedStoreId) {
+      return NextResponse.json(
+        { error: "storeId does not match the authenticated principal" },
+        { status: 403 },
+      );
+    }
+    const storeId = authorizedStoreId;
 
     // Apply events in lamport order — defensive sort even though clients
     // SHOULD push in order. Catches bugs where a retry pushes an old

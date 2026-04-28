@@ -53,7 +53,10 @@ export async function middleware(request: NextRequest) {
     // sessions) and must be exempt from the session-redirect middleware
     // or they'd 307 to /login before the route handler can run.
     path.startsWith("/api/sync") ||
-    path.startsWith("/api/register-bootstrap");
+    path.startsWith("/api/register-bootstrap") ||
+    path.startsWith("/api/register/") ||
+    // Pairing — the tablet has no auth yet; the code IS the auth.
+    path === "/api/devices/pair";
 
   // JWT check (no DB access needed — runs on Edge)
   // NextAuth v5 uses "authjs" cookie prefix, not "next-auth"

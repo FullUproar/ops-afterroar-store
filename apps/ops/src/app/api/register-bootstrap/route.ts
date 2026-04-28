@@ -16,33 +16,23 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { withApiKey } from "@/lib/api-middleware";
+import { getStripe } from "@/lib/stripe";
+import { resolveRegisterStoreId } from "@/lib/register-auth";
 
 export const GET = withApiKey<Record<string, never>>(
   async (_req, { apiKey }) => {
-    // Resolve the store the key was minted for. ApiKey.createdBy points
-    // at the User who owns it; that User has a posStaff record on the
-    // store. For demo, single-store assumption — a key belongs to one
-    // store.
-    const keyOwner = await prisma.apiKey.findUnique({
-      where: { id: apiKey.id },
-      select: { createdById: true },
-    });
-    if (!keyOwner?.createdById) {
-      return NextResponse.json({ error: "API key has no associated user" }, { status: 403 });
+    const storeId = await resolveRegisterStoreId(apiKey);
+    if (!storeId) {
+      return NextResponse.json(
+        { error: "Auth has no associated store (paired device or staff record required)" },
+        { status: 403 },
+      );
     }
-    const staffRecord = await prisma.posStaff.findFirst({
-      where: { user_id: keyOwner.createdById, active: true },
-      select: { store_id: true },
-    });
-    if (!staffRecord) {
-      return NextResponse.json({ error: "API key owner has no active staff record" }, { status: 403 });
-    }
-    const storeId = staffRecord.store_id;
 
     const [store, inventory, staff] = await Promise.all([
       prisma.posStore.findUnique({
         where: { id: storeId },
-        select: { id: true, name: true },
+        select: { id: true, name: true, settings: true },
       }),
       prisma.posInventoryItem.findMany({
         where: { store_id: storeId, active: true },
@@ -53,6 +43,8 @@ export const GET = withApiKey<Record<string, never>>(
           quantity: true,
           sku: true,
           category: true,
+          barcode: true,
+          barcodes: true,
         },
         orderBy: { name: "asc" },
       }),
@@ -66,8 +58,39 @@ export const GET = withApiKey<Record<string, never>>(
       return NextResponse.json({ error: "Store not found" }, { status: 404 });
     }
 
+    const settings = (store.settings ?? {}) as Record<string, unknown>;
+    const taxRatePercent = typeof settings.tax_rate_percent === "number" ? settings.tax_rate_percent : 0;
+    const taxIncludedInPrice = settings.tax_included_in_price === true;
+    const stripePublishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? null;
+
+    // Tap-to-Pay availability: requires the merchant's Stripe account to have
+    // either `tap_to_pay_payments` capability active OR `card_present_payments`
+    // (which TTPA derives from). Best-effort check — if the API call fails,
+    // we let the device discover for itself rather than blocking the boot.
+    let tapToPayApproved = false;
+    const stripe = getStripe();
+    if (stripe) {
+      try {
+        const acct = await stripe.accounts.retrieve();
+        const caps = (acct.capabilities ?? {}) as Record<string, string>;
+        tapToPayApproved =
+          caps.tap_to_pay_payments === "active" ||
+          caps.card_present_payments === "active";
+      } catch {
+        // Account capabilities lookup failed — fall through. The register's
+        // own SDK init will discover whether TTPA actually works.
+      }
+    }
+
     return NextResponse.json({
-      store,
+      store: {
+        id: store.id,
+        name: store.name,
+        taxRatePercent,
+        taxIncludedInPrice,
+        stripePublishableKey,
+        tapToPayApproved,
+      },
       inventory: inventory.map((i) => ({
         id: i.id,
         name: i.name,
@@ -75,6 +98,8 @@ export const GET = withApiKey<Record<string, never>>(
         quantity: i.quantity,
         sku: i.sku,
         category: i.category,
+        barcode: i.barcode,
+        barcodes: i.barcodes ?? [],
       })),
       staff: staff.map((s) => ({
         id: s.id,

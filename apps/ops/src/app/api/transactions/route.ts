@@ -9,8 +9,17 @@ export async function GET(request: NextRequest) {
     const q = url.searchParams.get("q")?.trim() || "";
     const customerId = url.searchParams.get("customer_id") || "";
     const dateStr = url.searchParams.get("date") || "";
+    const fromStr = url.searchParams.get("from") || "";
+    const toStr = url.searchParams.get("to") || "";
     const type = url.searchParams.get("type") || "";
-    const limit = Math.min(Math.max(parseInt(url.searchParams.get("limit") || "20", 10), 1), 100);
+    const staffId = url.searchParams.get("staff_id") || "";
+    const paymentMethod = url.searchParams.get("payment_method") || "";
+    const sourceFilter = url.searchParams.get("source") || ""; // 'register' | 'online' | ''
+    const format = url.searchParams.get("format") || "json"; // 'json' | 'csv'
+    const limit = Math.min(
+      Math.max(parseInt(url.searchParams.get("limit") || "20", 10), 1),
+      format === "csv" ? 5000 : 100,
+    );
     const offset = Math.max(parseInt(url.searchParams.get("offset") || "0", 10), 0);
 
     // Build where clause
@@ -31,7 +40,12 @@ export async function GET(request: NextRequest) {
       where.customer_id = customerId;
     }
 
-    // Date filter
+    // Staff filter
+    if (staffId) {
+      where.staff_id = staffId;
+    }
+
+    // Date filter — `date=` (single day) OR `from=`/`to=` (range, both optional)
     if (dateStr) {
       const date = new Date(dateStr + "T00:00:00");
       const nextDay = new Date(date);
@@ -40,6 +54,15 @@ export async function GET(request: NextRequest) {
         gte: date,
         lt: nextDay,
       };
+    } else if (fromStr || toStr) {
+      const range: Record<string, Date> = {};
+      if (fromStr) range.gte = new Date(fromStr + "T00:00:00");
+      if (toStr) {
+        const toDate = new Date(toStr + "T00:00:00");
+        toDate.setDate(toDate.getDate() + 1);
+        range.lt = toDate;
+      }
+      where.created_at = range;
     }
 
     // Text/amount search
@@ -77,8 +100,9 @@ export async function GET(request: NextRequest) {
       db.posLedgerEntry.count({ where }),
     ]);
 
-    const transactions = entries.map((entry) => {
+    let transactions = entries.map((entry) => {
       const meta = (entry.metadata ?? {}) as Record<string, unknown>;
+      const itemArr = Array.isArray(meta.items) ? (meta.items as Array<Record<string, unknown>>) : [];
       return {
         id: entry.id,
         type: entry.type,
@@ -89,11 +113,64 @@ export async function GET(request: NextRequest) {
         customer_id: entry.customer?.id ?? null,
         customer_email: entry.customer?.email ?? null,
         staff_name: entry.staff?.name ?? null,
-        payment_method: (meta.payment_method as string) ?? null,
+        payment_method: ((meta.payment_method ?? meta.paymentMethod) as string) ?? null,
+        // 'register' if this came from the offline register sync; 'online' otherwise.
+        source: meta.source === "register_offline" ? "register" : "online",
+        item_count: itemArr.length,
         metadata: meta,
         created_at: entry.created_at.toISOString(),
       };
     });
+
+    if (paymentMethod) {
+      transactions = transactions.filter((t) => t.payment_method === paymentMethod);
+    }
+    if (sourceFilter) {
+      transactions = transactions.filter((t) => t.source === sourceFilter);
+    }
+
+    if (format === "csv") {
+      const headers = [
+        "Date",
+        "Type",
+        "Source",
+        "Staff",
+        "Customer",
+        "Items",
+        "Payment",
+        "Amount",
+        "Description",
+      ];
+      const escape = (v: unknown) => {
+        const s = v == null ? "" : String(v);
+        return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+      };
+      const lines = [headers.join(",")];
+      for (const t of transactions) {
+        lines.push(
+          [
+            t.created_at,
+            t.type,
+            t.source,
+            t.staff_name ?? "",
+            t.customer_name ?? "",
+            t.item_count,
+            t.payment_method ?? "",
+            (t.amount_cents / 100).toFixed(2),
+            t.description ?? "",
+          ]
+            .map(escape)
+            .join(","),
+        );
+      }
+      return new NextResponse(lines.join("\n"), {
+        status: 200,
+        headers: {
+          "Content-Type": "text/csv; charset=utf-8",
+          "Content-Disposition": `attachment; filename="sales-${new Date().toISOString().slice(0, 10)}.csv"`,
+        },
+      });
+    }
 
     return NextResponse.json({ transactions, total, limit, offset });
   } catch (error) {
