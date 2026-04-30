@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { pushVerifiedCountToSmiirl } from "@/lib/smiirl";
 
 /* ------------------------------------------------------------------ */
 /*  GET /api/auth/verify-email?token=...&email=...                     */
@@ -59,6 +60,13 @@ export async function GET(request: NextRequest) {
       where: { identifier_token: { identifier: email, token } },
     }),
   ]);
+
+  // Fire-and-forget push to the Smiirl counter so the convention display
+  // updates within ~1 second of a successful verification, instead of
+  // waiting for the hourly cron. No-op if SMIIRL_DEVICE_MAC isn't set.
+  pushVerifiedCountToSmiirl().catch((err) =>
+    console.error("[verify-email] Smiirl push failed:", err),
+  );
 
   return NextResponse.json({ ok: true, email });
 }
