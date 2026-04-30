@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Bricolage_Grotesque, Archivo, JetBrains_Mono } from 'next/font/google';
 import './globals.css';
+import { Providers } from './components/providers';
 
 const display = Bricolage_Grotesque({
   subsets: ['latin'],
@@ -42,7 +43,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={`${display.variable} ${body.variable} ${mono.variable}`}>
       <body style={{ fontFamily: 'var(--font-body), system-ui, sans-serif' }}>
-        {children}
+        <Providers>{children}</Providers>
       </body>
     </html>
   );
