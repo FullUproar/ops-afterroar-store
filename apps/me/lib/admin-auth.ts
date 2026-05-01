@@ -1,5 +1,6 @@
 import { auth } from '@/lib/auth-config';
 import { redirect } from 'next/navigation';
+import type { Session } from 'next-auth';
 
 /**
  * Simple admin allowlist via env var. Comma-separated list of emails.
@@ -27,20 +28,61 @@ function adminEmailSet(): Set<string> {
   );
 }
 
-export async function getAdminSession() {
-  const session = await auth();
+export type AdminCheckResult =
+  | { ok: true; session: Session }
+  | { ok: false; reason: 'not_signed_in' }
+  | { ok: false; reason: 'env_missing'; userEmail: string }
+  | { ok: false; reason: 'not_on_allowlist'; userEmail: string };
+
+export async function checkAdmin(): Promise<AdminCheckResult> {
+  // The auth() return type collapses to NextMiddleware in some
+  // contexts due to overload inference; the runtime value is always
+  // Session | null when invoked without arguments. Cast accordingly.
+  const session = (await auth()) as Session | null;
   const email = session?.user?.email?.toLowerCase();
-  if (!email) return null;
-  if (!adminEmailSet().has(email)) return null;
-  return session;
+  if (!email) return { ok: false, reason: 'not_signed_in' };
+
+  const allowlist = adminEmailSet();
+  if (allowlist.size === 0) {
+    return { ok: false, reason: 'env_missing', userEmail: email };
+  }
+  if (!allowlist.has(email)) {
+    return { ok: false, reason: 'not_on_allowlist', userEmail: email };
+  }
+  // session is non-null here because we returned early on missing email
+  return { ok: true, session: session as Session };
 }
 
-export async function requireAdmin() {
-  const session = await getAdminSession();
-  if (!session) {
+export async function getAdminSession(): Promise<Session | null> {
+  const result = await checkAdmin();
+  return result.ok ? result.session : null;
+}
+
+export async function requireAdmin(): Promise<Session> {
+  const result = await checkAdmin();
+  if (result.ok) return result.session;
+
+  // Log specifically which path failed so Vercel logs make first-time
+  // setup debuggable instead of presenting a silent redirect to /login.
+  if (result.reason === 'env_missing') {
+    console.warn(
+      `[admin-auth] /admin access refused: ADMIN_EMAILS env var is empty or unset. ` +
+      `User attempting access: ${result.userEmail}. ` +
+      `Set ADMIN_EMAILS in Vercel project env to a comma-separated allowlist.`,
+    );
+  } else if (result.reason === 'not_on_allowlist') {
+    console.warn(
+      `[admin-auth] /admin access refused: ${result.userEmail} not on ADMIN_EMAILS allowlist.`,
+    );
+  }
+
+  if (result.reason === 'not_signed_in') {
     redirect('/login?callbackUrl=/admin/users');
   }
-  return session!;
+  // Signed in but not authorized: render the not-authorized page,
+  // don't bounce to login. The user IS signed in; the bounce loop is
+  // unhelpful and confusing.
+  redirect('/admin/not-authorized');
 }
 
 export function isAdminEmail(email: string | null | undefined): boolean {
