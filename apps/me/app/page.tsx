@@ -1,5 +1,6 @@
 import { auth } from '@/lib/auth-config';
 import { prisma } from '@/lib/prisma';
+import { assignPassportCode } from '@/lib/passport-code';
 import Link from 'next/link';
 import { LayoutGrid, ArrowRight } from 'lucide-react';
 import { PassportCard } from './passport-card';
@@ -16,7 +17,7 @@ export default async function PassportLanding() {
 
   if (!userId) return <SignedOut />;
 
-  const [user, recentBadges, recentPoints] = await Promise.all([
+  let [user, recentBadges, recentPoints] = await Promise.all([
     prisma.user.findUnique({
       where: { id: userId as string },
       select: { displayName: true, email: true, passportCode: true },
@@ -34,6 +35,21 @@ export default async function PassportLanding() {
       select: { id: true, amount: true, description: true, createdAt: true, action: true },
     }),
   ]);
+
+  // Self-heal: NextAuth v5's events.createUser is fire-and-forget, so the
+  // OAuth callback can redirect here before the passportCode write lands.
+  // The previous "sign out and back in" advice didn't work because the
+  // event only fires on user creation, not subsequent sign-ins, leaving
+  // the orphaned user permanently codeless. Generate inline if missing.
+  if (user && !user.passportCode) {
+    await assignPassportCode(userId as string).catch((err) => {
+      console.error('[passport landing] self-heal failed:', err);
+    });
+    user = await prisma.user.findUnique({
+      where: { id: userId as string },
+      select: { displayName: true, email: true, passportCode: true },
+    });
+  }
 
   const allRecent = mergeRecent(recentBadges, recentPoints);
   const cutoff = Date.now() - RECENT_WINDOW_MS;
@@ -99,7 +115,7 @@ export default async function PassportLanding() {
                 textAlign: 'center',
                 width: '100%',
               }}>
-                Your Passport code hasn&apos;t been generated yet. Try signing out and back in, or contact support.
+                We couldn&apos;t generate your Passport code. Refresh the page; if it sticks, contact support.
               </div>
             )}
 
