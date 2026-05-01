@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { logUserActivity } from "@/lib/user-activity";
 
 /* ------------------------------------------------------------------ */
 /*  GET /api/auth/verify-email?token=...&email=...                     */
@@ -59,6 +60,12 @@ export async function GET(request: NextRequest) {
       where: { identifier_token: { identifier: email, token } },
     }),
   ]);
+
+  // CYA log: email verified.
+  await logUserActivity({
+    userId: user.id,
+    action: 'auth.email_verified',
+  });
 
   // Smiirl now polls /api/smiirl/count.json directly — no push needed.
   // Counter reflects new verifications within one poll cycle (~5s).

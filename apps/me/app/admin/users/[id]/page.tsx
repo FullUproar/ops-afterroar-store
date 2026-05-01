@@ -45,12 +45,18 @@ export default async function EditUserPage({ params }: PageProps) {
         <PlayerCard maxWidth="40rem">
           <TitleBar left={`Admin · ${user.email}`} />
           <div style={{ padding: '1.5rem var(--pad-x) 1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-            <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
               <a
                 href="/admin/users"
                 style={{ ...TYPE.body, fontSize: '0.82rem', color: 'var(--orange)', textDecoration: 'none' }}
               >
                 ← All users
+              </a>
+              <a
+                href={`/admin/activity?userId=${user.id}`}
+                style={{ ...TYPE.body, fontSize: '0.82rem', color: 'var(--orange)', textDecoration: 'none' }}
+              >
+                Activity log →
               </a>
             </div>
 

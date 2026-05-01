@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { hash } from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
+import { logUserActivity } from '@/lib/user-activity';
 
 const PASSWORD_MIN_LENGTH = 8;
 const TOKEN_PREFIX = 'pwreset:';
@@ -71,6 +72,12 @@ export async function POST(request: NextRequest) {
   // for this email. Keeps email-verify tokens (different prefix) intact.
   await prisma.verificationToken.deleteMany({
     where: { identifier: email, token: { startsWith: TOKEN_PREFIX } },
+  });
+
+  // CYA log: password reset completed. Account-takeover-relevant event.
+  await logUserActivity({
+    userId: user.id,
+    action: 'auth.password_reset',
   });
 
   return NextResponse.json({ ok: true });

@@ -5,6 +5,7 @@ import { auth } from '@/lib/auth-config';
 import { sendEmail, verifyEmailTemplate } from '@/lib/email';
 import { assignPassportCode } from '@/lib/passport-code';
 import { parentalConsentRequired } from '@/lib/age-gate';
+import { logUserActivity } from '@/lib/user-activity';
 
 const VERIFY_TOKEN_TTL_HOURS = 24;
 
@@ -209,6 +210,30 @@ export async function POST(request: NextRequest) {
   sendEmail({ to: child.email, ...tpl }).catch((err) =>
     console.error('[parental-consent/approve] email send failed', err),
   );
+
+  // CYA logs for the consent event. The grant is the load-bearing legal
+  // moment: parent X consented for kid Y on date Z, this is the audit
+  // trail. Logged on BOTH sides so each user's own activity log shows
+  // the event from their perspective.
+  await logUserActivity({
+    userId: parent.id,
+    action: 'consent.parental_grant',
+    metadata: {
+      childUserId: child.id,
+      childEmail: child.email,
+      consentRequestId: consent.id,
+      pathChosen: proActive ? 'pro' : 'free_consent_fee',
+    },
+  });
+  await logUserActivity({
+    userId: child.id,
+    action: 'lifecycle.account_create',
+    metadata: {
+      source: 'parental_consent',
+      parentUserId: parent.id,
+      consentRequestId: consent.id,
+    },
+  });
 
   return NextResponse.json({
     ok: true,

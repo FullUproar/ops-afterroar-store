@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { sendEmail, verifyEmailTemplate } from "@/lib/email";
 import { assignPassportCode } from "@/lib/passport-code";
 import { readAgeGateCookie, classifyAge, isUnder13Blocked } from "@/lib/age-gate";
+import { logUserActivity } from "@/lib/user-activity";
 
 /* ------------------------------------------------------------------ */
 /*  POST /api/auth/signup                                              */
@@ -185,6 +186,21 @@ export async function POST(request: NextRequest) {
   await assignPassportCode(user.id).catch((err) =>
     console.error("[signup] assignPassportCode failed:", err),
   );
+
+  // CYA log: account_create. The OAuth path logs from events.createUser;
+  // this is the email/password equivalent. Skip when we're updating an
+  // existing row (already-signed-up case) — that's a re-attempt, not a
+  // new account.
+  if (!userId) {
+    await logUserActivity({
+      userId: user.id,
+      action: 'lifecycle.account_create',
+      metadata: {
+        source: 'email_password',
+        attestation: confirmedAdult && !dob ? 'checkbox' : 'dob_screen',
+      },
+    });
+  }
 
   // Generate verification token + persist
   const token = generateToken();

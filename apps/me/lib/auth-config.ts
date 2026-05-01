@@ -6,6 +6,7 @@ import { CustomPrismaAdapter } from '@/lib/auth-adapter';
 import { prisma } from '@/lib/prisma';
 import { assignPassportCode } from '@/lib/passport-code';
 import { readAgeGateCookie, isUnder13Blocked, hasAdultAttestation } from '@/lib/age-gate';
+import { logUserActivity } from '@/lib/user-activity';
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: CustomPrismaAdapter(prisma),
@@ -115,6 +116,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         // Single-use: delete on consume.
         await prisma.verificationToken.delete({ where: { token: stored.token } }).catch(() => {});
+
+        // CYA log: magic-link consume. The events.signIn handler will
+        // ALSO log auth.signin, but we capture this distinct event so
+        // we know HOW they signed in (link vs. password vs. OAuth).
+        await logUserActivity({
+          userId: user.id,
+          action: 'auth.magic_link_consume',
+        });
 
         return {
           id: user.id,
@@ -254,10 +263,60 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       }
 
       // Smiirl push removed — the device is now in poll mode (JSON URL)
-      // pointed at /api/smiirl/count.json. Push mode collided with manual
-      // sets via the Smiirl admin UI, causing the counter to oscillate.
-      // Poll mode makes us the single source of truth without needing to
-      // call out from inside the auth flow.
+      // pointed at /api/smiirl/count.json.
+
+      // CYA log: account_create. Distinct from admin-driven creates
+      // captured in AdminAuditLog with action 'user.create'. This fires
+      // for OAuth signups (email/password signups log it themselves
+      // from /api/auth/signup since events.createUser only runs for
+      // adapter-managed flows).
+      await logUserActivity({
+        userId: user.id,
+        action: 'lifecycle.account_create',
+        metadata: { source: 'oauth' },
+      });
+    },
+    /**
+     * Fires on every successful sign-in (OAuth + Credentials). The
+     * `isNewUser` flag distinguishes first-time signups; we already log
+     * those via createUser, so just record the signin event here.
+     */
+    async signIn({ user, account, isNewUser }) {
+      if (!user.id || isNewUser) return;
+      await logUserActivity({
+        userId: user.id,
+        action: 'auth.signin',
+        metadata: {
+          provider: account?.provider ?? 'unknown',
+        },
+      });
+    },
+    /**
+     * Fires when a session is destroyed (signOut() called). NextAuth v5
+     * passes either the JWT token or the DB session depending on
+     * strategy. We use JWT, so token.id is the user id when present.
+     */
+    async signOut(message) {
+      const token = (message as { token?: { id?: string } }).token;
+      const userId = token?.id;
+      if (!userId) return;
+      await logUserActivity({
+        userId,
+        action: 'auth.signout',
+      });
+    },
+    /**
+     * Fires when an OAuth account is linked to an existing User row
+     * (e.g., a password user adds Google later). Distinct from createUser
+     * which fires only for the very first User row.
+     */
+    async linkAccount({ user, account }) {
+      if (!user.id) return;
+      await logUserActivity({
+        userId: user.id,
+        action: 'auth.oauth_link',
+        metadata: { provider: account.provider },
+      });
     },
   },
 });
