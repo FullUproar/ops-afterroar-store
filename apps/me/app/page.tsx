@@ -138,7 +138,7 @@ export default async function PassportLanding() {
                     Supervised account
                   </div>
                   <div style={{ ...TYPE.body, fontSize: '0.78rem', color: 'var(--ink-soft)', marginTop: '0.1rem', lineHeight: 1.4 }}>
-                    {user.parent.displayName || user.parent.email} can see your activity. They never see message contents.
+                    {user.parent.displayName || user.parent.email} can see your Passport activity (apps you sign into, badges earned, check-ins). Activity inside the apps themselves stays inside those apps.
                   </div>
                 </div>
               </div>

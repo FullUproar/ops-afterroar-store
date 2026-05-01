@@ -171,10 +171,12 @@ export default async function ChildDrilldownPage({ params }: PageProps) {
               color: 'var(--ink-faint)',
               lineHeight: 1.55,
             }}>
-              <strong style={{ color: 'var(--ink-soft)' }}>What you don&apos;t see:</strong> the contents
-              of any messages your kid sends or receives, drafts in progress, or private posts to crews
-              they&apos;ve joined. We show metadata so you have an inform path; we don&apos;t turn the
-              dashboard into surveillance. Read more on the{' '}
+              <strong style={{ color: 'var(--ink-soft)' }}>What this view shows:</strong> Passport-level
+              activity only. Sign-ins, badges, store check-ins, and any alerts the apps your kid uses
+              chose to surface to Passport. <strong style={{ color: 'var(--ink-soft)' }}>What it
+              doesn&apos;t:</strong> activity inside Game Night HQ or any third-party app that uses
+              Passport for sign-in. Those services hold their own data and may offer their own parental
+              tools. Full explainer on the{' '}
               <a href="/parents" style={{ color: 'var(--orange)' }}>
                 parent help page
               </a>
@@ -298,34 +300,45 @@ function ActivityRow({
 }
 
 function humanizeAlert(type: string, payload: Record<string, unknown>): string {
+  // Passport-level alerts (identity layer). Apps that want to surface
+  // their own alerts to Passport push them via Connect-tier APIs in the
+  // future; types coming from individual apps will be prefixed (e.g.,
+  // 'hq:public_event_rsvp'). The dashboard renders an "from [app]" tag
+  // when the alert type is prefixed, but the contents stay app-owned.
   switch (type) {
-    case 'new_adult_connection': {
-      const name = (payload.connectionName as string) || (payload.connectionEmail as string) || 'an adult';
-      return `New connection added: ${name}`;
+    case 'new_app_signin':
+      return `Signed in to a new app: ${(payload.appName as string) || 'unknown'}`;
+    case 'new_device_signin':
+      return `Signed in from a new device`;
+    case 'new_passport_connection': {
+      const name = (payload.connectionName as string) || (payload.connectionEmail as string) || 'someone';
+      return `Added Passport connection: ${name}`;
     }
-    case 'public_rsvp': {
-      const eventTitle = (payload.eventTitle as string) || 'a public event';
-      return `RSVP'd to ${eventTitle}`;
-    }
-    case 'photo_upload':
-      return `Uploaded a photo at a game night`;
-    case 'circle_change':
-      return `Changed Circle membership`;
-    default:
+    case 'identity_change':
+      return `Account-level identity change`;
+    default: {
+      // App-prefixed alerts: e.g. 'hq:public_event_rsvp' renders as
+      // "From HQ: public_event_rsvp" with the original payload. The
+      // app's own page is the place for details.
+      if (type.includes(':')) {
+        const [app, rest] = type.split(':', 2);
+        return `From ${app.toUpperCase()}: ${rest}`;
+      }
       return `Activity: ${type}`;
+    }
   }
 }
 
 function humanizeActivity(action: string, targetType: string | null): string {
-  // Map common UserActivity action codes to human strings. Falls back to
-  // the raw action for anything unmapped.
+  // Passport-level UserActivity actions. App-specific activity (RSVPs,
+  // chats, etc.) lives in those apps and isn't surfaced here.
   const map: Record<string, string> = {
-    login: 'Signed in',
-    'game-night.rsvp': 'RSVP\'d to a game night',
-    'game-night.attend': 'Checked in to a game night',
+    login: 'Signed in to Passport',
     'badge.earn': 'Earned a badge',
-    'circle.add': 'Added to a Circle',
     'profile.update': 'Updated profile',
+    'store.checkin': 'Checked in at a store',
+    'consent.grant': 'Granted a consent',
+    'consent.revoke': 'Revoked a consent',
   };
   return map[action] || `${action}${targetType ? ` (${targetType})` : ''}`;
 }

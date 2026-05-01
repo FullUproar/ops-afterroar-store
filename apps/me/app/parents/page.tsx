@@ -204,35 +204,55 @@ export default function ParentsPage() {
           </div>
         </div>
 
-        <h2 style={h2}>What the Pro monitoring dashboard shows</h2>
+        <h2 style={h2}>Passport is identity. The apps are separate.</h2>
         <p style={p}>
-          If you choose the Pro path, you get access to a parent dashboard at{' '}
-          <a href="/parent-dashboard" style={a}>/parent-dashboard</a>. It shows:
+          This is the most important thing to understand about how Afterroar works:
+          your child&apos;s Passport is an <strong>identity layer</strong>. They use that
+          identity to sign in to gaming apps and check in at participating game stores.
+          Each app and each store is a separate service with its own data and its own
+          privacy policies. Afterroar doesn&apos;t see inside those apps; we just provide
+          the sign-in.
         </p>
+        <p style={p}>
+          What that means for parental oversight: the Pro monitoring dashboard at{' '}
+          <a href="/parent-dashboard" style={a}>/parent-dashboard</a> shows what your kid
+          is doing <em>at the Passport level</em>, not what they&apos;re doing inside any
+          individual app.
+        </p>
+
+        <h2 style={h2}>What the Pro dashboard shows</h2>
+        <p style={p}>Identity-level activity that Afterroar (the Passport platform) records:</p>
         <ul style={ul}>
-          <li><strong>Recent activity:</strong> RSVPs to game nights, badges earned, places they&apos;ve checked in</li>
-          <li><strong>Connections:</strong> who they&apos;ve added to their Circle, with timestamps</li>
-          <li><strong>Photos:</strong> photos they&apos;ve uploaded at game nights they attended</li>
-          <li><strong>Alerts:</strong> notifications when they connect with an adult outside their approved Circle, or RSVP to a public event at a non-venue location</li>
+          <li><strong>Where they&apos;re using their Passport</strong>: which apps they&apos;ve signed in to, which stores they&apos;ve checked in at</li>
+          <li><strong>Badges earned</strong> across the network</li>
+          <li><strong>Loyalty points</strong> and store memberships at participating stores</li>
+          <li><strong>Account-level alerts</strong>: new device sign-in, identity changes, parent-relevant notifications from the apps your kid uses (when those apps choose to surface them to Passport)</li>
         </ul>
         <div style={screenshotPlaceholder}>[ screenshot: parent dashboard view ]</div>
 
         <h2 style={h2}>What the dashboard does NOT show</h2>
         <p style={p}>
-          We made a deliberate choice to give parents an inform path, not a surveillance
-          tool. The dashboard never shows:
+          The dashboard does <strong>not</strong> show what your kid does inside any
+          individual app. Each app is its own service:
         </p>
         <ul style={ul}>
-          <li>Message contents — anything your kid types in chats, polls, or comments</li>
-          <li>Drafts, search history, or anything they were considering but didn&apos;t share</li>
-          <li>Private posts to crews they&apos;ve joined</li>
-          <li>Anything they&apos;ve explicitly marked private</li>
+          <li>Activity inside Game Night HQ (RSVPs, chats, photos, crews, recaps) is held by HQ, not Passport</li>
+          <li>Activity inside any third-party app that uses Passport for sign-in is held by that app</li>
+          <li>Purchases or behavior inside individual game stores is held by those stores</li>
         </ul>
         <p style={p}>
-          We think this is the right balance. Strong oversight (read-DM, screen time
-          tracking, etc.) belongs in dedicated parental control software — Afterroar is a
-          gaming Passport, not a surveillance app. If you want stronger oversight, we&apos;d
-          suggest layering Afterroar with whatever family-controls tooling fits your needs.
+          For oversight inside a specific app, you&apos;ll want to engage with that app
+          directly. Each app the kid signs into shows up on the Passport dashboard with a
+          link to that app&apos;s parent help page (if they offer one) or contact info so
+          you can ask questions.
+        </p>
+        <p style={p}>
+          Why we built it this way: Afterroar&apos;s job is identity. Surveillance across
+          a federated network of apps is the wrong shape — it would centralize data we
+          shouldn&apos;t hold and create a target for attackers. Each app is responsible
+          for its own data and its own parental tools, and we&apos;re responsible for the
+          identity layer underneath. If you want stronger oversight, layer Afterroar with
+          whatever family-controls software fits your situation.
         </p>
 
         <h2 style={h2}>Privacy by default for minor accounts</h2>
@@ -306,11 +326,13 @@ export default function ParentsPage() {
 
         <h3 style={h3}>What about my kid&apos;s privacy from ME, the parent?</h3>
         <p style={p}>
-          We deliberately limit what the dashboard shows to metadata — events, connections,
-          photos — and never message contents or drafts. Your kid sees a &quot;Supervised by
-          [your name]&quot; badge on their own profile so they know oversight is on. We
-          believe transparency between parent and kid produces healthier outcomes than
-          stealth surveillance.
+          We deliberately limit what Passport shows you to identity-level activity: which
+          apps they use, which stores they check in at, which badges they earn. We don&apos;t
+          have access to what they do inside any individual app, so we can&apos;t share it
+          with you even if we wanted to. Each app is its own service. Your kid sees a
+          &quot;Supervised by [your name]&quot; badge on their Passport profile so they
+          know identity-level oversight is on. We believe transparency between parent and
+          kid produces healthier outcomes than stealth surveillance.
         </p>
 
         <h3 style={h3}>I have multiple kids. Do I pay multiple times?</h3>

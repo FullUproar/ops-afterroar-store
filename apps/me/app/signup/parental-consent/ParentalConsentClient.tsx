@@ -319,15 +319,15 @@ export default function ParentalConsentClient({
           />
           {/* Pro path: $5/mo Pro */}
           <PathCard
-            tier="Pro · Monitored account"
+            tier="Pro · Monitored Passport"
             price="$5/mo"
             highlighted
             selected={chosenPath === 'pro'}
             disabled={!isVerified}
             features={[
               'Everything in Free path',
-              'Monitor their activity (RSVPs, connections, photos)',
-              'Get alerts on adult connections outside their Circle',
+              "See where they're using their Passport (apps signed in, stores checked in)",
+              'Badges earned + account-level alerts (new device, identity changes)',
               'All your own Pro perks (verified profile, public hosting, etc.)',
             ]}
             actionLabel={isProActive ? 'Active ✓' : 'Start Pro'}
@@ -339,7 +339,7 @@ export default function ParentalConsentClient({
                     window.location.href = `/billing/subscribe?tier=pro&consent_token=${encodeURIComponent(token)}&return=${encodeURIComponent(callbackUrl)}`;
                   }
             }
-            footnote="First month covers the consent fee. Cancel any time."
+            footnote="First month covers the consent fee. Cancel any time. Passport-level only — individual apps hold their own data."
           />
         </div>
       </Step>

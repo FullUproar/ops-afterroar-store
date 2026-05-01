@@ -86,8 +86,8 @@ export default async function ParentDashboardPage() {
                 {kids.length === 0
                   ? "No linked minor accounts. When a teen sends you a consent request and you approve it, they'll appear here."
                   : proActive
-                    ? "Light-touch oversight for accounts you've consented to. We show metadata only — never message contents."
-                    : "Upgrade to Pro to monitor activity for these accounts. Without Pro, your account remains linked for inform-path purposes only."}
+                    ? "Identity-level activity for accounts you've consented to. Passport tracks where they sign in and what they do at the Passport layer; individual apps (HQ, etc.) hold their own data — we link to them where relevant."
+                    : "Upgrade to Pro to see Passport-level activity for these accounts. Without Pro, your account remains linked for inform-path purposes only."}
               </p>
             </div>
 
@@ -107,8 +107,9 @@ export default async function ParentDashboardPage() {
                   Upgrade to Pro to enable monitoring
                 </div>
                 <p style={{ ...TYPE.body, fontSize: '0.88rem', color: 'var(--ink-soft)', margin: 0, lineHeight: 1.55 }}>
-                  $5/mo. See your linked accounts&apos; activity (RSVPs, connections, photos), get
-                  alerted on adult connections outside their Circle, and gain all your own Pro perks.
+                  $5/mo. See identity-level activity for your linked accounts: where they&apos;re using
+                  their Passport, badges earned, store check-ins, and account alerts. Plus all your own
+                  Pro perks.
                 </p>
                 <a
                   href="/billing/subscribe?tier=pro&return=/parent-dashboard"
@@ -159,14 +160,15 @@ export default async function ParentDashboardPage() {
               color: 'var(--ink-faint)',
               lineHeight: 1.55,
             }}>
-              <strong style={{ color: 'var(--ink-soft)' }}>About this dashboard.</strong> Afterroar shows
-              event metadata only — the people your kid connects with, the events they RSVP to, the
-              photos they upload. We never show message contents to you. If your kid is in trouble,
-              you have an inform path through this dashboard and through us at{' '}
+              <strong style={{ color: 'var(--ink-soft)' }}>About this dashboard.</strong> Afterroar is
+              the identity layer; the apps your kid uses (Game Night HQ, third-party apps, individual
+              stores) are separate services with their own data. Passport shows where they&apos;re
+              signed in and what they do at the identity layer. For oversight inside a specific app,
+              engage with that app directly. If you need to reach us:{' '}
               <a href="mailto:afterroar@fulluproar.com" style={{ color: 'var(--orange)' }}>
                 afterroar@fulluproar.com
               </a>
-              . Read more on the{' '}
+              . Full explainer on the{' '}
               <a href="/parents" style={{ color: 'var(--orange)' }}>
                 parent help page
               </a>
