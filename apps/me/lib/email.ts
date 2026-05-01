@@ -17,6 +17,35 @@ interface EmailParams {
   text?: string;
 }
 
+/**
+ * Retry attempts for transient network failures. Vercel cold starts
+ * occasionally race the TLS handshake on outbound connections, surfacing
+ * as `TypeError: fetch failed` with cause `ECONNRESET: socket
+ * disconnected before secure TLS connection was established`. Almost
+ * always succeeds on the second attempt — the connection pool is warm.
+ *
+ * Schedule: try → wait 250ms → retry → wait 1000ms → retry → fail.
+ */
+const SEND_ATTEMPTS = 3;
+const RETRY_BACKOFF_MS = [0, 250, 1000];
+
+function isTransientNetworkError(err: unknown): boolean {
+  if (!(err instanceof Error)) return false;
+  // TypeError: fetch failed wraps the underlying network error in `cause`
+  const cause = (err as Error & { cause?: unknown }).cause;
+  if (cause && typeof cause === "object") {
+    const code = (cause as { code?: string }).code;
+    if (code === "ECONNRESET" || code === "ETIMEDOUT" || code === "ECONNREFUSED" || code === "EAI_AGAIN") {
+      return true;
+    }
+  }
+  // Some runtimes surface the message directly without nesting
+  if (err.message?.includes("fetch failed") || err.message?.includes("ECONNRESET")) {
+    return true;
+  }
+  return false;
+}
+
 export async function sendEmail(params: EmailParams): Promise<boolean> {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
@@ -30,32 +59,63 @@ export async function sendEmail(params: EmailParams): Promise<boolean> {
     return false;
   }
 
-  try {
-    const res = await fetch(RESEND_API_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        from: params.from || process.env.EMAIL_FROM || "Afterroar <noreply@afterroar.me>",
-        to: params.to,
-        subject: params.subject,
-        html: params.html,
-        ...(params.text ? { text: params.text } : {}),
-      }),
-    });
+  const body = JSON.stringify({
+    from: params.from || process.env.EMAIL_FROM || "Afterroar <noreply@afterroar.me>",
+    to: params.to,
+    subject: params.subject,
+    html: params.html,
+    ...(params.text ? { text: params.text } : {}),
+  });
 
-    if (!res.ok) {
-      const body = await res.text().catch(() => "");
-      console.error(`[Email] Resend ${res.status}:`, body);
-      return false;
+  for (let attempt = 0; attempt < SEND_ATTEMPTS; attempt++) {
+    if (RETRY_BACKOFF_MS[attempt] > 0) {
+      await new Promise((r) => setTimeout(r, RETRY_BACKOFF_MS[attempt]));
     }
-    return true;
-  } catch (err) {
-    console.error("[Email] Send failed:", err);
-    return false;
+    try {
+      const res = await fetch(RESEND_API_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body,
+      });
+
+      if (!res.ok) {
+        const errBody = await res.text().catch(() => "");
+        // 4xx errors are deterministic — Resend rejected the payload.
+        // Don't burn retries on those. 5xx might be transient.
+        if (res.status >= 400 && res.status < 500) {
+          console.error(`[Email] Resend ${res.status} (no retry):`, errBody);
+          return false;
+        }
+        console.error(
+          `[Email] Resend ${res.status} on attempt ${attempt + 1}/${SEND_ATTEMPTS}:`,
+          errBody,
+        );
+        // Fall through to retry loop
+        continue;
+      }
+      if (attempt > 0) {
+        console.log(`[Email] Sent on retry attempt ${attempt + 1} → ${params.to}`);
+      }
+      return true;
+    } catch (err) {
+      const transient = isTransientNetworkError(err);
+      console.error(
+        `[Email] Send failed on attempt ${attempt + 1}/${SEND_ATTEMPTS} (${transient ? "transient, will retry" : "permanent, giving up"}):`,
+        err,
+      );
+      if (!transient) {
+        // Don't retry on TypeErrors that aren't network-level (bad URL,
+        // malformed body, etc.) — those won't get better.
+        return false;
+      }
+    }
   }
+
+  console.error(`[Email] Exhausted ${SEND_ATTEMPTS} attempts → ${params.to}`);
+  return false;
 }
 
 function stripHtml(html: string): string {

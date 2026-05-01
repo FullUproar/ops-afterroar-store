@@ -197,10 +197,32 @@ export async function POST(request: NextRequest) {
 
   const verifyUrl = buildVerifyUrl(token, email);
   const tpl = verifyEmailTemplate(verifyUrl, user.displayName);
-  // Fire-and-forget: response doesn't depend on email delivery.
-  sendEmail({ to: email, ...tpl }).catch((err) =>
-    console.error("[signup] email send failed", err),
-  );
+  // sendEmail is now retry-aware (3 attempts on transient ECONNRESET /
+  // TLS handshake races). We await it so we can surface honest feedback
+  // to the user. Trade-off: signup response takes up to ~1.5s in the
+  // worst-case retry scenario instead of ~200ms. Acceptable: the user
+  // is going to wait for the email anyway, and "Check your inbox" is
+  // a lie when the send actually failed.
+  const sent = await sendEmail({ to: email, ...tpl });
+
+  if (!sent) {
+    // The User row exists and the verification token is in the DB, so
+    // the user can request a fresh email later. Surface the failure
+    // honestly so they don't sit there waiting for an email that's
+    // never coming.
+    return NextResponse.json(
+      {
+        ok: false,
+        error:
+          "We couldn't send your verification email right now. The issue is on our side — please try signing up again in a moment, or contact afterroar@fulluproar.com if it persists.",
+        // Recovery hint: we keep the User row + token so a retry POST
+        // with the same email will resend rather than re-create.
+        retryable: true,
+        ...(process.env.NODE_ENV !== "production" ? { dev_verify_url: verifyUrl } : {}),
+      },
+      { status: 502 }, // Bad Gateway — upstream (Resend/network) failed
+    );
+  }
 
   return NextResponse.json({
     ok: true,
