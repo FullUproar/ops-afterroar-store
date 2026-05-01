@@ -8,18 +8,20 @@ import { signIn } from "next-auth/react";
 
 function SignupContent() {
   const router = useRouter();
-  // Age-gate guard: if the user lands here without going through the
-  // neutral age screen, bounce them. The server's signup endpoint also
-  // refuses to create the account without a valid age cookie, so this
-  // is just a UX shortcut to avoid filling the form pointlessly.
+  // Distillery-model age gate. The default signup flow is a 18+
+  // self-attestation checkbox, NOT a forced DOB screen. This gives
+  // honest adults a frictionless path AND avoids the awkward "lie about
+  // your birthday to enter" dynamic for honest 16-year-olds. Users who
+  // are actually under 18 click the "I am under 18" link, which routes
+  // them to /signup/age (DOB picker → blocked or parental-consent flow).
+  //
+  // We still honor the under-13 sticky cookie (set if a previous attempt
+  // entered a sub-13 DOB) and the teen cookie (entered DOB but didn't
+  // complete parental consent yet).
   useEffect(() => {
     fetch('/api/auth/age-gate/check')
       .then((r) => r.json())
       .then((d) => {
-        if (!d.cohort) {
-          router.replace('/signup/age');
-          return;
-        }
         if (d.cohort === 'under13') router.replace('/signup/blocked');
         if (d.cohort === 'teen') router.replace('/signup/teen');
       })
@@ -32,6 +34,7 @@ function SignupContent() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
+  const [confirmedAdult, setConfirmedAdult] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
@@ -41,6 +44,10 @@ function SignupContent() {
     if (submitting) return;
     setError(null);
 
+    if (!confirmedAdult) {
+      setError("Please confirm you are 18 or older.");
+      return;
+    }
     if (!email.includes("@")) {
       setError("Enter a valid email");
       return;
@@ -59,6 +66,7 @@ function SignupContent() {
           email: email.trim(),
           password,
           displayName: displayName.trim() || undefined,
+          confirmedAdult: true,
         }),
       });
       const data = await res.json();
@@ -72,6 +80,19 @@ function SignupContent() {
       setError("Could not reach the server");
       setSubmitting(false);
     }
+  }
+
+  async function startGoogleSignup() {
+    if (!confirmedAdult) {
+      setError("Please confirm you are 18 or older first.");
+      return;
+    }
+    // Drop the attestation cookie before redirecting to Google so the
+    // signIn callback can verify the user clicked the checkbox before
+    // initiating OAuth. Without this, the callback would have no way
+    // to know the attestation happened on the client.
+    await fetch('/api/auth/age-gate/attest-adult', { method: 'POST' });
+    signIn('google', { callbackUrl });
   }
 
   if (done) {
@@ -171,9 +192,53 @@ function SignupContent() {
               </div>
             )}
 
+            {/* 18+ self-attestation. Required to enable both OAuth and
+                email/password buttons. Honest under-18 users click the
+                "I am under 18" link below to enter the parental-consent
+                flow. */}
+            <label style={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: '0.6rem',
+              padding: '0.85rem 1rem',
+              background: confirmedAdult ? 'rgba(255, 130, 0, 0.06)' : 'var(--panel-mute)',
+              border: `1.5px solid ${confirmedAdult ? 'var(--orange)' : 'var(--rule)'}`,
+              cursor: 'pointer',
+              ...TYPE.body,
+              fontSize: '0.88rem',
+              color: 'var(--cream)',
+              lineHeight: 1.45,
+            }}>
+              <input
+                type="checkbox"
+                checked={confirmedAdult}
+                onChange={(e) => setConfirmedAdult(e.target.checked)}
+                style={{ marginTop: '0.2rem', accentColor: 'var(--orange)' }}
+              />
+              <span>
+                I confirm I am <strong>18 or older</strong> and agree to the{' '}
+                <a href="/terms" style={{ color: 'var(--orange)' }} target="_blank" rel="noopener">Terms</a>{' '}
+                and{' '}
+                <a href="/privacy" style={{ color: 'var(--orange)' }} target="_blank" rel="noopener">Privacy Policy</a>.
+              </span>
+            </label>
+            <p style={{
+              ...TYPE.body,
+              fontSize: '0.78rem',
+              color: 'var(--ink-faint)',
+              textAlign: 'center',
+              margin: '-0.5rem 0 0',
+              lineHeight: 1.5,
+            }}>
+              Under 18?{' '}
+              <a href="/signup/age" style={{ color: 'var(--orange)' }}>
+                We have a different path for you →
+              </a>
+            </p>
+
             <button
-              onClick={() => signIn("google", { callbackUrl })}
-              disabled={submitting}
+              onClick={startGoogleSignup}
+              disabled={submitting || !confirmedAdult}
               style={{
                 display: "flex",
                 alignItems: "center",
@@ -186,8 +251,8 @@ function SignupContent() {
                 color: "var(--cream)",
                 ...TYPE.display,
                 fontSize: "0.95rem",
-                cursor: submitting ? "not-allowed" : "pointer",
-                opacity: submitting ? 0.5 : 1,
+                cursor: submitting || !confirmedAdult ? "not-allowed" : "pointer",
+                opacity: submitting || !confirmedAdult ? 0.5 : 1,
                 transition: "border-color 0.2s ease",
               }}
             >
@@ -229,7 +294,7 @@ function SignupContent() {
 
               <button
                 type="submit"
-                disabled={submitting}
+                disabled={submitting || !confirmedAdult}
                 style={{
                   width: "100%",
                   padding: "0.9rem 1.25rem",
@@ -239,8 +304,8 @@ function SignupContent() {
                   ...TYPE.display,
                   fontSize: "0.95rem",
                   fontWeight: 700,
-                  cursor: submitting ? "not-allowed" : "pointer",
-                  opacity: submitting ? 0.6 : 1,
+                  cursor: submitting || !confirmedAdult ? "not-allowed" : "pointer",
+                  opacity: submitting || !confirmedAdult ? 0.6 : 1,
                   marginTop: "0.5rem",
                 }}
               >
@@ -276,11 +341,6 @@ function SignupContent() {
               </a>
             </p>
 
-            <p style={{ ...TYPE.body, fontSize: "0.82rem", color: "var(--ink-faint)", lineHeight: 1.55, margin: 0, textAlign: "center" }}>
-              By signing up, you agree to our{" "}
-              <a href="/terms" style={{ color: "var(--orange)" }}>Terms</a> and{" "}
-              <a href="/privacy" style={{ color: "var(--orange)" }}>Privacy Policy</a>.
-            </p>
           </div>
         </PlayerCard>
       </Workbench>

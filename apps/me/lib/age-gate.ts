@@ -16,6 +16,13 @@ import { cookies } from 'next/headers';
 
 export const COOKIE_AGE_GATE = 'afterroar_age_gate';
 export const COOKIE_UNDER_13_BLOCK = 'afterroar_no_signup';
+/**
+ * Set when the user clicked "I confirm I'm 18 or older" on /signup. Used
+ * by the OAuth signIn callback to allow Google signups for users who
+ * never went through the DOB screen. Short-lived (10 minutes); just
+ * enough to survive the round-trip to Google.
+ */
+export const COOKIE_ADULT_ATTESTATION = 'afterroar_adult_attest';
 
 const ONE_YEAR = 60 * 60 * 24 * 365;
 const ONE_HOUR = 60 * 60;
@@ -96,6 +103,15 @@ export async function isUnder13Blocked(): Promise<boolean> {
 }
 
 /**
+ * Read the adult-attestation cookie. Indicates the user clicked the
+ * 18+ confirmation checkbox on /signup before initiating OAuth.
+ */
+export async function hasAdultAttestation(): Promise<boolean> {
+  const store = await cookies();
+  return store.get(COOKIE_ADULT_ATTESTATION)?.value === '1';
+}
+
+/**
  * Build the value for the age-gate cookie. Caller sets it via
  * `cookies().set(COOKIE_AGE_GATE, ...)`. Uses base64url-encoded JSON.
  *
@@ -122,6 +138,16 @@ export const under13CookieOptions = {
   sameSite: 'lax' as const,
   path: '/',
   maxAge: ONE_YEAR,
+};
+
+export const adultAttestationCookieOptions = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: 'lax' as const,
+  path: '/',
+  // 10 minutes: long enough for an OAuth round-trip, short enough that
+  // a stale attestation can't be reused days later.
+  maxAge: 60 * 10,
 };
 
 /**

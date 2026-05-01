@@ -6,7 +6,7 @@ import { CustomPrismaAdapter } from '@/lib/auth-adapter';
 import { prisma } from '@/lib/prisma';
 import { assignPassportCode } from '@/lib/passport-code';
 import { pushVerifiedCountToSmiirl } from '@/lib/smiirl';
-import { readAgeGateCookie, isUnder13Blocked } from '@/lib/age-gate';
+import { readAgeGateCookie, isUnder13Blocked, hasAdultAttestation } from '@/lib/age-gate';
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: CustomPrismaAdapter(prisma),
@@ -72,12 +72,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   },
   callbacks: {
     /**
-     * Age-gate enforcement on OAuth sign-up.
+     * Age-gate enforcement on OAuth sign-up (distillery model).
      *
-     * Existing users (have a User row already) bypass the gate — they're
-     * signing in, not signing up. New users (no row yet) must have a
-     * valid adult age-gate cookie or we refuse the sign-in. Teens get
-     * pushed to /signup/teen; <13-blocked devices get a flat refusal.
+     * Existing users (have a User row already) bypass the gate; they're
+     * signing in, not signing up. New users (no row yet) must have
+     * either:
+     *   - the short-lived adult-attestation cookie (set by /signup when
+     *     the user clicks the 18+ checkbox before clicking Google), OR
+     *   - an "adult" age-gate cookie (the user came through /signup/age
+     *     and entered a DOB making them 18+)
+     *
+     * Teens get pushed to /signup/teen. <13-blocked devices refused.
+     * Anyone without any attestation gets sent to /signup so they can
+     * check the box first.
      *
      * Credentials sign-ins always go through /api/auth/signup first, so
      * the age gate is enforced there; here we just need to handle OAuth.
@@ -91,15 +98,20 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       });
       if (existing) return true; // Existing user signing in; skip age gate.
 
-      // New OAuth signup. Require age cookie.
+      // New OAuth signup.
       if (await isUnder13Blocked()) {
         return '/signup/blocked';
       }
       const ageCookie = await readAgeGateCookie();
-      if (!ageCookie) return '/signup/age';
-      if (ageCookie.cohort === 'under13') return '/signup/blocked';
-      if (ageCookie.cohort === 'teen') return '/signup/teen';
-      return true;
+      if (ageCookie?.cohort === 'under13') return '/signup/blocked';
+      if (ageCookie?.cohort === 'teen') return '/signup/teen';
+      if (ageCookie?.cohort === 'adult') return true;
+      // No DOB on file. Accept the lighter adult-attestation cookie
+      // (the 18+ checkbox click on /signup) for the distillery-style flow.
+      if (await hasAdultAttestation()) return true;
+      // No attestation at all. Bounce to /signup so the user can check
+      // the box, or use the under-18 link for the DOB-based path.
+      return '/signup';
     },
     async jwt({ token, user }) {
       if (user) {
@@ -128,10 +140,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         console.error('[auth] Failed to set passportCode:', err);
       });
 
-      // Persist DOB from the age-gate cookie. signIn() already enforced
-      // that this is an adult cookie; we just write the date through.
-      // If the cookie is somehow missing (shouldn't happen per signIn),
-      // we leave dateOfBirth null and a daily audit job can flag it.
+      // Persist DOB IF the user came through the DOB-based path. Adults
+      // who used the lighter checkbox attestation never give us a DOB,
+      // which is intentional under the distillery model: we only collect
+      // what we need and only when we need it.
       try {
         const ageCookie = await readAgeGateCookie();
         if (ageCookie?.cohort === 'adult') {
@@ -143,9 +155,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
               defaultVisibility: 'public',
             },
           });
+        } else {
+          // Adult attestation only; ensure isMinor + visibility defaults
+          // are set correctly without writing a fake DOB.
+          await prisma.user.update({
+            where: { id: user.id },
+            data: { isMinor: false, defaultVisibility: 'public' },
+          });
         }
       } catch (err) {
-        console.error('[auth] Failed to persist DOB on createUser:', err);
+        console.error('[auth] Failed to persist age fields on createUser:', err);
       }
 
       try {

@@ -40,7 +40,12 @@ function buildVerifyUrl(token: string, email: string): string {
 }
 
 export async function POST(request: NextRequest) {
-  let body: { email?: string; password?: string; displayName?: string };
+  let body: {
+    email?: string;
+    password?: string;
+    displayName?: string;
+    confirmedAdult?: boolean;
+  };
   try {
     body = await request.json();
   } catch {
@@ -53,6 +58,7 @@ export async function POST(request: NextRequest) {
     body.displayName && String(body.displayName).trim().length > 0
       ? String(body.displayName).trim()
       : null;
+  const confirmedAdult = body.confirmedAdult === true;
 
   if (!email || !email.includes("@")) {
     return NextResponse.json({ error: "Valid email is required" }, { status: 400 });
@@ -64,10 +70,13 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Age-gate enforcement. Adult signups (this endpoint) require the
-  // age-gate cookie set to "adult". Teens go through the parental-consent
-  // flow at /api/auth/parental-consent/request, which has its own gate.
-  // <13 users are blocked here even if they somehow bypassed the cookie.
+  // Age-gate enforcement (distillery model). The default adult signup
+  // path requires either:
+  //   - confirmedAdult: true in the body (the 18+ checkbox on /signup), OR
+  //   - an "adult" age-gate cookie (the user came through /signup/age
+  //     and entered a DOB making them 18+)
+  // Teens go through /api/auth/parental-consent/request and never hit
+  // this endpoint. <13 users are blocked even if they somehow get here.
   if (await isUnder13Blocked()) {
     return NextResponse.json(
       { error: "This account cannot be created on this device." },
@@ -75,24 +84,27 @@ export async function POST(request: NextRequest) {
     );
   }
   const ageCookie = await readAgeGateCookie();
-  if (!ageCookie) {
+  let dob: Date | null = null;
+  if (ageCookie) {
+    if (ageCookie.cohort !== "adult") {
+      return NextResponse.json(
+        { error: "This signup path is for adults only." },
+        { status: 403 },
+      );
+    }
+    // Defense in depth: re-validate the DOB classifies as adult right now.
+    const candidate = new Date(ageCookie.dob);
+    const reclassified = classifyAge(candidate);
+    if (reclassified.cohort !== "adult") {
+      return NextResponse.json(
+        { error: "Age verification stale; please start over." },
+        { status: 400 },
+      );
+    }
+    dob = candidate;
+  } else if (!confirmedAdult) {
     return NextResponse.json(
-      { error: "Date of birth required. Please start at /signup/age." },
-      { status: 400 },
-    );
-  }
-  if (ageCookie.cohort !== "adult") {
-    return NextResponse.json(
-      { error: "This signup path is for adults only." },
-      { status: 403 },
-    );
-  }
-  // Defense in depth: re-validate the DOB classifies as adult right now.
-  const dob = new Date(ageCookie.dob);
-  const reclassified = classifyAge(dob);
-  if (reclassified.cohort !== "adult") {
-    return NextResponse.json(
-      { error: "Age verification stale; please start over." },
+      { error: "Please confirm you are 18 or older to create an account." },
       { status: 400 },
     );
   }
@@ -140,7 +152,10 @@ export async function POST(request: NextRequest) {
         data: {
           passwordHash,
           ...(displayName ? { displayName } : {}),
-          dateOfBirth: dob,
+          // Only set DOB if we actually have one from the age-gate cookie.
+          // Self-attestation users have no DOB on file, which is intentional:
+          // we only collect what we need.
+          ...(dob ? { dateOfBirth: dob } : {}),
           isMinor: false,
         },
       })
@@ -149,7 +164,7 @@ export async function POST(request: NextRequest) {
           email,
           passwordHash,
           displayName,
-          dateOfBirth: dob,
+          ...(dob ? { dateOfBirth: dob } : {}),
           isMinor: false,
           // Adults default to public visibility; minors default to "circle"
           // (handled in the parental-consent approval path).
