@@ -21,7 +21,7 @@ export default function PrivacyPage() {
         </p>
         <h1 style={{ ...TYPE.display, fontSize: 'clamp(2rem, 6vw, 3rem)', color: 'var(--cream)', margin: '0 0 0.4rem', lineHeight: 0.95 }}>Privacy Policy</h1>
         <p style={{ ...TYPE.mono, color: 'var(--ink-faint)', marginBottom: '1.5rem', fontSize: '0.72rem', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
-          Last updated: April 14, 2026
+          Last updated: May 1, 2026
         </p>
 
         <h2 style={h2}>The short version</h2>
@@ -30,12 +30,25 @@ export default function PrivacyPage() {
         <h2 style={h2}>What we collect</h2>
         <ul style={ul}>
           <li><strong>Identity:</strong> email, display name, avatar (from Google sign-in).</li>
+          <li><strong>Date of birth:</strong> collected once at signup to confirm you&apos;re old enough to use Afterroar and to apply age-appropriate privacy defaults. We store the date itself, not your age (which we compute as needed).</li>
           <li><strong>Passport code:</strong> a unique 8-character identifier for QR scanning at stores.</li>
           <li><strong>Game library:</strong> games you declare you own. Added manually or auto-added from consented purchases.</li>
           <li><strong>Loyalty points:</strong> points earned at participating stores. Tracked per-store with a running balance.</li>
           <li><strong>Activity history:</strong> check-ins at stores, event attendance, tournament results. Created when you actively participate.</li>
           <li><strong>Consent grants:</strong> which types of communication you&apos;ve opted into or out of, per category, with timestamps.</li>
+          <li><strong>For minor accounts (13–17):</strong> the parent or legal guardian&apos;s identifier and the date of consent. Date of birth on minor accounts is used only to compute the date the account graduates to adult privacy defaults.</li>
         </ul>
+
+        <h2 style={h2}>Age and minors</h2>
+        <p style={p}>
+          Afterroar requires users to be at least 18, or 13–17 with active parental or legal-guardian consent. Children under 13 cannot create a Passport. We collect date of birth at signup using a neutral age screen (no defaults, no copy implying a minimum age), and we use a session cookie to prevent retry-with-different-age attempts after an under-13 entry, in line with FTC guidance under the Children&apos;s Online Privacy Protection Act.
+        </p>
+        <p style={p}>
+          Minor accounts (13–17) inherit the most restrictive privacy settings by default: profile visibility is limited to approved circles, direct messages from adults outside the approved circle are blocked, and public game-night discovery is restricted to events hosted by verified venues and tagged appropriate for the minor&apos;s age.
+        </p>
+        <p style={p}>
+          We do not collect biometric data (face geometry, voiceprints, fingerprints) from any user, regardless of age. Identity verification for adult Pro and Connect tiers is handled by our verification partner under their own terms; the partner does not return biometric identifiers to Afterroar.
+        </p>
 
         <h2 style={h2}>How we use it</h2>
         <ul style={ul}>
