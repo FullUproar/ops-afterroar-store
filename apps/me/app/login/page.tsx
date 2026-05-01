@@ -196,7 +196,25 @@ function LoginContent() {
                 onFocus={(e) => (e.currentTarget.style.borderColor = 'var(--orange)')}
                 onBlur={(e) => (e.currentTarget.style.borderColor = 'var(--rule)')}
               />
-              <div style={{ textAlign: 'right', margin: '-0.25rem 0 0' }}>
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                margin: '-0.25rem 0 0',
+                gap: '0.5rem',
+                flexWrap: 'wrap',
+              }}>
+                <a
+                  href={`/email-signin${email ? `?email=${encodeURIComponent(email)}` : ''}`}
+                  style={{
+                    ...TYPE.body,
+                    fontSize: '0.78rem',
+                    color: 'var(--ink-soft)',
+                    textDecoration: 'underline',
+                  }}
+                >
+                  Email me a link instead
+                </a>
                 <a
                   href={`/forgot-password${email ? `?email=${encodeURIComponent(email)}` : ''}`}
                   style={{

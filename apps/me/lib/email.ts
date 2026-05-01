@@ -227,6 +227,55 @@ If someone is trying to access your account without your permission, contact us 
   return { subject, html, text };
 }
 
+interface MagicLinkParams {
+  signinUrl: string;
+  email: string;
+  expiresMinutes: number;
+}
+
+export function magicLinkTemplate(params: MagicLinkParams): {
+  subject: string;
+  html: string;
+  text: string;
+} {
+  const { signinUrl, email, expiresMinutes } = params;
+  const subject = "Your Afterroar sign-in link";
+
+  const text = `Click this link to sign in to Afterroar as ${email}:
+
+${signinUrl}
+
+This link expires in ${expiresMinutes} minutes and can only be used once. If you didn't request it, ignore this email — no one can access your account without it.
+
+— Afterroar`;
+
+  const html = `
+<!DOCTYPE html>
+<html>
+  <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #1a1a1a; max-width: 540px; margin: 0 auto; padding: 32px 24px;">
+    <h1 style="font-size: 22px; font-weight: 700; margin: 0 0 16px;">Sign in to Afterroar</h1>
+    <p style="font-size: 15px; line-height: 1.5; margin: 0 0 16px;">
+      Click the button below to sign in as <strong>${escapeHtml(email)}</strong>.
+    </p>
+    <p style="margin: 0 0 32px;">
+      <a href="${signinUrl}"
+         style="display: inline-block; padding: 12px 24px; background: #ff6b35; color: #fff; text-decoration: none; font-weight: 600; border-radius: 4px;">
+        Sign in
+      </a>
+    </p>
+    <p style="font-size: 13px; color: #666; line-height: 1.5; margin: 0 0 8px;">
+      Or copy this link into your browser:<br>
+      <span style="word-break: break-all;">${signinUrl}</span>
+    </p>
+    <p style="font-size: 12px; color: #999; line-height: 1.5; margin: 24px 0 0;">
+      This link expires in ${expiresMinutes} minutes and can only be used once. If you didn't request it, ignore this email — no one can access your account without it.
+    </p>
+  </body>
+</html>`.trim();
+
+  return { subject, html, text };
+}
+
 function escapeHtml(s: string): string {
   return s
     .replace(/&/g, "&amp;")

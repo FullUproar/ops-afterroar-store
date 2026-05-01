@@ -72,6 +72,59 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         };
       },
     }),
+    Credentials({
+      // Magic-link sign-in. The user requests a one-time link via
+      // /api/auth/email-signin (which generates a `signin:`-prefixed
+      // token in VerificationToken). Clicking the link lands on
+      // /signin-with-link, which calls signIn('magic-link', {email, token}).
+      // This authorize() consumes the token and returns the user.
+      //
+      // No password required. Only works for users who already have a
+      // verified email (anti-takeover: if the email isn't verified, an
+      // attacker who controls a fake email can't claim the account).
+      id: 'magic-link',
+      name: 'Email Link',
+      credentials: {
+        email: { label: 'Email', type: 'email' },
+        token: { label: 'Token', type: 'text' },
+      },
+      async authorize(credentials) {
+        const email = String(credentials?.email ?? '').trim().toLowerCase();
+        const rawToken = String(credentials?.token ?? '');
+        if (!email || !rawToken) return null;
+
+        const stored = await prisma.verificationToken.findUnique({
+          where: { token: 'signin:' + rawToken },
+        });
+        if (!stored) return null;
+        if (stored.identifier !== email) return null;
+        if (stored.expires < new Date()) {
+          // Garbage-collect expired token; return null so client sees
+          // an "expired" error path.
+          await prisma.verificationToken.delete({ where: { token: stored.token } }).catch(() => {});
+          throw new Error('MagicLinkExpired');
+        }
+
+        const user = await prisma.user.findUnique({ where: { email } });
+        if (!user) return null;
+        if (!user.emailVerified) {
+          // Magic link can't grant access to an unverified account. The
+          // first verification flow (signup → verify-email link) needs to
+          // happen first.
+          throw new Error('EmailNotVerified');
+        }
+
+        // Single-use: delete on consume.
+        await prisma.verificationToken.delete({ where: { token: stored.token } }).catch(() => {});
+
+        return {
+          id: user.id,
+          email: user.email,
+          name: user.displayName ?? null,
+          image: user.avatarUrl ?? null,
+        };
+      },
+    }),
   ],
   session: {
     strategy: 'jwt',
