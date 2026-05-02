@@ -12,84 +12,85 @@ datasource db {
 // Only fields Store Ops needs are declared here.
 // ============================================================
 model User {
-  id              String    @id @default(cuid())
-  email           String    @unique
-  displayName     String?
-  username        String?   @unique
-  avatarUrl       String?
-  passwordHash    String?
-  passportCode    String?   @unique @db.VarChar(8)
-  membershipTier  String    @default("FREE")
-  gameLibrary     String?
+  id                String    @id @default(cuid())
+  email             String    @unique
+  displayName       String?
+  username          String?   @unique
+  avatarUrl         String?
+  passwordHash      String?
+  passportCode      String?   @unique @db.VarChar(8)
+  membershipTier    String    @default("FREE")
+  gameLibrary       String?
   /// Standard NextAuth/email-verification timestamp. Set when the user clicks
   /// the verification link, OR when an OAuth provider that asserts a verified
   /// email (Google with email_verified=true) signs them in.
-  emailVerified   DateTime?
+  emailVerified     DateTime?
   /// KYC-grade identity verification (Persona, ID.me) — separate from email.
-  identityVerified Boolean  @default(false)
-  reputationScore Int       @default(100)
-  isFrozen        Boolean   @default(false)
-  marketingConsent Boolean  @default(false)
+  identityVerified  Boolean   @default(false)
+  reputationScore   Int       @default(100)
+  isFrozen          Boolean   @default(false)
+  marketingConsent  Boolean   @default(false)
   /// Date of birth. Required for new signups (collected via neutral age screen).
   /// Used to gate <13 (block), 13-17 (parental consent path), 18+ (standard).
   /// Nullable to allow legacy users created before age-gating shipped.
-  dateOfBirth     DateTime?
+  dateOfBirth       DateTime?
   /// Denormalized snapshot of (dateOfBirth → age < 18). Set at signup, flipped
   /// to false by daily cron on 18th birthday. Avoids recomputing from DOB on
   /// every visibility/discovery query. Source of truth is dateOfBirth.
-  isMinor         Boolean   @default(false)
+  isMinor           Boolean   @default(false)
   /// Default profile visibility for the user. "circle" is the most restrictive
   /// (visible only to approved Circle members). Minor accounts default to
   /// "circle" per privacy-by-default policy. Adults default to "public".
-  defaultVisibility String   @default("public")
+  defaultVisibility String    @default("public")
   /// Set on minor accounts: links to the verified parent who consented to
   /// the account. Null for adults. If parent deletes their account, the
   /// minor's account cascades to deletion. If parent revokes consent in
   /// settings, the minor's account deactivates (accountStatus flip).
-  parentUserId    String?
+  parentUserId      String?
   /// Timestamp when the parental consent flow completed for this minor account
   /// (parent verified + consent fee paid OR Pro active + attestation signed).
   /// Null until activation; used to keep an audit trail of when consent was
   /// given.
-  parentVerifiedAt DateTime?
+  parentVerifiedAt  DateTime?
   /// Monitoring opt-in state. When true, the parent can see this minor
   /// account's activity (RSVPs, connections, photos, alerts) on their
   /// /parent-dashboard. Requires the parent to be on Pro tier — toggling
   /// off Pro turns this off. Kid sees a "Supervised by [parent]" badge on
   /// their own profile when this is true (transparency, not stealth).
   /// Always false on adult accounts.
-  monitoringEnabled Boolean @default(false)
+  monitoringEnabled Boolean   @default(false)
   /// Lifecycle: "active" | "pending_parent" | "paused" | "suspended". Minor
   /// accounts start "pending_parent" and flip to "active" only after parent
   /// completes consent. If parent's Pro lapses, kid flips to "paused" until
   /// renewal.
-  accountStatus   String    @default("active")
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @default(now()) @updatedAt
+  accountStatus     String    @default("active")
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @default(now()) @updatedAt
 
-  parent          User?      @relation("ParentChild", fields: [parentUserId], references: [id])
-  children        User[]     @relation("ParentChild")
+  parent   User?  @relation("ParentChild", fields: [parentUserId], references: [id])
+  children User[] @relation("ParentChild")
 
-  pos_staff    PosStaff[]
-  accounts     Account[]
-  consents     UserConsent[]
-  pointsLedger PointsLedger[]
-  activities   UserActivity[]
-  gameLoans    GameLoan[]
-  wishlistItems WishlistItem[]
-  createdTags  GameTag[]
-  badges       UserBadge[]
-  entityMemberships EntityMember[]
-  entityConsents    EntityConsent[]
-  entityClaims      EntityClaim[]
-  apiKeys      ApiKey[]
+  pos_staff               PosStaff[]
+  accounts                Account[]
+  consents                UserConsent[]
+  pointsLedger            PointsLedger[]
+  activities              UserActivity[]
+  playRecords             PlayRecord[]          @relation("PlayRecords")
+  gameLoans               GameLoan[]
+  wishlistItems           WishlistItem[]
+  createdTags             GameTag[]
+  badges                  UserBadge[]
+  entityMemberships       EntityMember[]
+  entityConsents          EntityConsent[]
+  entityClaims            EntityClaim[]
+  apiKeys                 ApiKey[]
   paired_register_devices RegisterDevice[]
   generated_pairing_codes RegisterPairingCode[]
-  parentConsentRequests MinorConsentRequest[] @relation("MinorRequester")
-  parentConsentApprovals MinorConsentRequest[] @relation("ParentApprover")
-  parentAlerts          MonitoredAlert[]      @relation("ParentAlerts")
-  childAlerts           MonitoredAlert[]      @relation("ChildAlerts")
-  adminAuditActions     AdminAuditLog[]       @relation("AdminAuditActions")
+  parentConsentRequests   MinorConsentRequest[] @relation("MinorRequester")
+  parentConsentApprovals  MinorConsentRequest[] @relation("ParentApprover")
+  parentAlerts            MonitoredAlert[]      @relation("ParentAlerts")
+  childAlerts             MonitoredAlert[]      @relation("ChildAlerts")
+  adminAuditActions       AdminAuditLog[]       @relation("AdminAuditActions")
 
   @@index([parentUserId])
   @@index([isMinor])
@@ -107,15 +108,15 @@ model User {
 ///   1) Daily cron emails anyone whose notifyAfter <= today: "you can sign up now"
 ///   2) On launch of <18 support: blast everyone with "we're ready for you"
 model MinorWaitlist {
-  id            String   @id @default(cuid())
-  email         String
-  parentEmail   String?
-  notifyAfter   DateTime
-  attemptedAt   DateTime @default(now())
-  notifiedAt    DateTime?
+  id              String    @id @default(cuid())
+  email           String
+  parentEmail     String?
+  notifyAfter     DateTime
+  attemptedAt     DateTime  @default(now())
+  notifiedAt      DateTime?
   /// Set when this person eventually does sign up; lets us prove conversion.
   convertedUserId String?
-  source        String   @default("signup")
+  source          String    @default("signup")
 
   @@index([email])
   @@index([notifyAfter])
@@ -138,38 +139,38 @@ model MinorWaitlist {
 /// (which bundles the consent fee in the first month). Both unlock kid
 /// activation; only Pro unlocks the parent monitoring dashboard.
 model MinorConsentRequest {
-  id              String    @id @default(cuid())
+  id                 String    @id @default(cuid())
   /// Token for the parent's magic link. Random hex, ~32 chars.
-  token           String    @unique
+  token              String    @unique
   /// The kid's email (the account-to-be).
-  childEmail      String
+  childEmail         String
   /// The kid's stated display name (for the parent's "your kid wants to sign up" email).
-  childDisplayName String?
+  childDisplayName   String?
   /// The kid's stated DOB. Cleared when the request completes or expires.
-  childDateOfBirth DateTime?
+  childDateOfBirth   DateTime?
   /// The parent's email — where the magic link is sent.
-  parentEmail     String
+  parentEmail        String
   /// Once the kid signs in to claim their pending account, this is set.
-  childUserId     String?
-  child           User?     @relation("MinorRequester", fields: [childUserId], references: [id])
+  childUserId        String?
+  child              User?     @relation("MinorRequester", fields: [childUserId], references: [id])
   /// Once the parent completes verification, this is set.
-  parentUserId    String?
-  parent          User?     @relation("ParentApprover", fields: [parentUserId], references: [id])
+  parentUserId       String?
+  parent             User?     @relation("ParentApprover", fields: [parentUserId], references: [id])
   /// Lifecycle state.
-  status          String    @default("pending")
+  status             String    @default("pending")
   /// Free-text from the parent's attestation step (not legally required, but
   /// kept for audit if a guardianship dispute arises).
-  attestationText String?
+  attestationText    String?
   /// Set when the parent pays the one-time $5 consent fee. Mutually
   /// exclusive with the Pro path (Pro parents bundle the fee into their
   /// first month and don't need this set).
-  consentFeePaidAt DateTime?
+  consentFeePaidAt   DateTime?
   /// Whether the parent chose the Pro path during this consent flow.
   /// Used to set User.monitoringEnabled on the kid at activation time.
-  parentChoseProPath Boolean @default(false)
-  createdAt       DateTime  @default(now())
-  expiresAt       DateTime
-  completedAt     DateTime?
+  parentChoseProPath Boolean   @default(false)
+  createdAt          DateTime  @default(now())
+  expiresAt          DateTime
+  completedAt        DateTime?
 
   @@index([childEmail])
   @@index([parentEmail])
@@ -210,7 +211,7 @@ model AdminAuditLog {
   userAgent   String?
   createdAt   DateTime @default(now())
 
-  admin       User     @relation("AdminAuditActions", fields: [adminUserId], references: [id], onDelete: Cascade)
+  admin User @relation("AdminAuditActions", fields: [adminUserId], references: [id], onDelete: Cascade)
 
   @@index([adminUserId, createdAt])
   @@index([action, createdAt])
@@ -240,8 +241,8 @@ model MonitoredAlert {
   readAt       DateTime?
   createdAt    DateTime  @default(now())
 
-  parent       User      @relation("ParentAlerts", fields: [parentUserId], references: [id], onDelete: Cascade)
-  child        User      @relation("ChildAlerts", fields: [childUserId], references: [id], onDelete: Cascade)
+  parent User @relation("ParentAlerts", fields: [parentUserId], references: [id], onDelete: Cascade)
+  child  User @relation("ChildAlerts", fields: [childUserId], references: [id], onDelete: Cascade)
 
   @@index([parentUserId, readAt])
   @@index([childUserId])
@@ -309,31 +310,31 @@ model AfterroarEntity {
 /// strings sent via email; rotated on each new claim attempt for the same
 /// entity to invalidate old links.
 model EntityClaim {
-  id           String   @id @default(cuid())
-  entityId     String
+  id             String    @id @default(cuid())
+  entityId       String
   /// User initiating the claim (must be signed in to Passport).
   claimantUserId String
   /// Email the verification link was sent to. May differ from the user's
   /// primary email — e.g. owner uses owner@thestore.com to receive the link
   /// but is logged in as their personal Passport account.
-  contactEmail String
-  contactName  String?
-  contactPhone String?
+  contactEmail   String
+  contactName    String?
+  contactPhone   String?
   /// Verification token (64 hex chars). Hashed at rest would be better for
   /// breach posture — leaving in plaintext for v1 to keep the link-redemption
   /// flow simple. Tokens expire 72h after creation; old tokens for the same
   /// entity are deleted when a new claim is initiated.
-  token        String   @unique
+  token          String    @unique
   /// "pending" → "verified" → "rejected" / "expired".
-  status       String   @default("pending")
-  expiresAt    DateTime
-  verifiedAt   DateTime?
+  status         String    @default("pending")
+  expiresAt      DateTime
+  verifiedAt     DateTime?
   /// Free-form proof the claimant supplied (URLs, FEIN last 4, etc).
   /// Auto-verified if contactEmail's domain matches entity.websiteUrl.
-  evidence     Json?    @default("{}")
-  notes        String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @default(now()) @updatedAt
+  evidence       Json?     @default("{}")
+  notes          String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @default(now()) @updatedAt
 
   entity AfterroarEntity @relation(fields: [entityId], references: [id], onDelete: Cascade)
   user   User            @relation(fields: [claimantUserId], references: [id], onDelete: Cascade)
@@ -361,14 +362,14 @@ model EntityMember {
 }
 
 model EntityConsent {
-  id         String    @id @default(cuid())
-  userId     String
-  entityId   String
-  scopes     String[]
-  grantedAt  DateTime  @default(now())
-  revokedAt  DateTime?
-  expiresAt  DateTime?
-  source     String?
+  id        String    @id @default(cuid())
+  userId    String
+  entityId  String
+  scopes    String[]
+  grantedAt DateTime  @default(now())
+  revokedAt DateTime?
+  expiresAt DateTime?
+  source    String?
 
   user   User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   entity AfterroarEntity @relation(fields: [entityId], references: [id], onDelete: Cascade)
@@ -530,18 +531,18 @@ model GameTag {
 // "Who has my copy of Terraforming Mars?"
 // ============================================================
 model GameLoan {
-  id           String    @id @default(cuid())
-  userId       String
-  gameTitle    String
-  bggId        Int?
-  borrowerName String
+  id              String    @id @default(cuid())
+  userId          String
+  gameTitle       String
+  bggId           Int?
+  borrowerName    String
   borrowerContact String?
-  lentAt       DateTime  @default(now())
-  dueDate      DateTime?
-  returnedAt   DateTime?
-  condition    String?
-  notes        String?
-  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lentAt          DateTime  @default(now())
+  dueDate         DateTime?
+  returnedAt      DateTime?
+  condition       String?
+  notes           String?
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([userId, returnedAt])
@@ -628,6 +629,67 @@ model UserActivity {
 }
 
 // ============================================================
+// PLAY RECORD — Canonical, portable per-player event history.
+// Written by HQ (and future apps) via Connect API on match-lock.
+// Read by Passport for the "competitive resume" surface and by
+// other apps via the Connect API. The record survives even if
+// HQ-side detail data is purged.
+//
+// Per the 2026-05-02 architecture lock:
+//  - HQ owns operational state (Event, Round, Match) — the during-
+//    event experience.
+//  - Passport owns the portable record — what travels with the
+//    player across apps and over time.
+//
+// "verified" = the host of the event has confirmed; "self_reported"
+//   = the player added it themselves and the TO hasn't validated.
+//   The UI must distinguish these so the resume claim isn't fraud
+//   bait (per the 2026-05-02 honest-marketing decision).
+// ============================================================
+model PlayRecord {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation("PlayRecords", fields: [userId], references: [id], onDelete: Cascade)
+
+  // The remote event identity. eventId is HQ's GameNight.id (or
+  // any future app that issues records). sourceApp lets us
+  // distinguish "hq" vs "store_ops" vs "external_partner" without
+  // collisions.
+  sourceApp String   @default("hq")
+  eventId   String // FK target lives in another DB — not enforced at SQL level
+  eventName String // denormalized for display without round-trip
+  eventDate DateTime
+  venueId   String?
+  venueName String?
+
+  // What was played. Denormalized.
+  gameTitle   String?
+  bggId       Int?
+  matchId     String? // HQ's Match.id — for back-reference
+  roundNumber Int?
+
+  // Result. Same shape as MatchParticipation on HQ.
+  placement Int?
+  score     Float?
+  result    String? // 'win' | 'loss' | 'draw' | 'bye' | 'no_show'
+
+  // Provenance. Critical for honest resume claims.
+  source           String    @default("verified")
+  // 'verified'      — host confirmed the result
+  // 'self_reported' — player entered, no host validation
+  // 'corroborated'  — other player(s) at the table agreed but no host validation
+  verifiedByUserId String?
+  verifiedAt       DateTime?
+
+  recordedAt DateTime @default(now())
+
+  @@index([userId, recordedAt])
+  @@index([userId, sourceApp, eventId])
+  @@index([eventId])
+  @@index([source])
+}
+
+// ============================================================
 // VENUE — The federated store directory. Read view of the table
 // owned by full-uproar-site. Used for /stores on afterroar.me.
 // ============================================================
@@ -710,53 +772,53 @@ model PosStore {
   created_at DateTime @default(now()) @db.Timestamptz()
   updated_at DateTime @default(now()) @db.Timestamptz()
 
-  staff           PosStaff[]
-  locations       PosLocation[]
-  customers       PosCustomer[]
-  inventory_items PosInventoryItem[]
-  events          PosEvent[]
-  ledger_entries  PosLedgerEntry[]
-  trade_ins       PosTradeIn[]
-  returns         PosReturn[]
-  import_jobs     PosImportJob[]
-  certifications  PosCertification[]
-  promotions      PosPromotion[]
-  loyalty_entries PosLoyaltyEntry[]
-  preorders       PosPreorder[]
-  gift_cards      PosGiftCard[]
-  suppliers       PosSupplier[]
-  game_checkouts  PosGameCheckout[]
-  purchase_orders PosPurchaseOrder[]
-  stock_counts    PosStockCount[]
-  tournaments     PosTournament[]
-  catalog_pricing PosCatalogPricing[]
-  orders          PosOrder[]
-  operational_logs PosOperationalLog[]
-  mobile_sessions      PosMobileSession[]
-  access_code_attempts PosAccessCodeAttempt[]
-  customer_notes       PosCustomerNote[]
-  allocation_pools     PosAllocationPool[]
-  tabs                 PosTab[]
-  consignment_items    PosConsignmentItem[]
-  inventory_holds      PosInventoryHold[]
-  menu_items           PosMenuItem[]
-  menu_modifiers       PosMenuModifier[]
-  hq_outbox            PosHqOutbox[]
-  shipping_labels      PosShippingLabel[]
-  packaging_types      PosPackagingType[]
-  register_events      RegisterEvent[]
-  hosted_network_tournaments  PosNetworkTournament[]
-  network_tournament_entries  PosNetworkTournamentStore[]
-  network_player_ratings      PosNetworkPlayerRating[]
-  vendor_items                PosVendorItem[]
-  cost_history                PosCostHistory[]
-  break_recipes               PosBreakRecipe[]
-  break_events                PosBreakEvent[]
-  register_devices            RegisterDevice[]
-  game_reservations           PosGameReservation[]
-  event_tickets               PosEventTicket[]
-  integration_statuses        PosIntegrationStatus[]
-  pull_lists                  PosPullList[]
+  staff                      PosStaff[]
+  locations                  PosLocation[]
+  customers                  PosCustomer[]
+  inventory_items            PosInventoryItem[]
+  events                     PosEvent[]
+  ledger_entries             PosLedgerEntry[]
+  trade_ins                  PosTradeIn[]
+  returns                    PosReturn[]
+  import_jobs                PosImportJob[]
+  certifications             PosCertification[]
+  promotions                 PosPromotion[]
+  loyalty_entries            PosLoyaltyEntry[]
+  preorders                  PosPreorder[]
+  gift_cards                 PosGiftCard[]
+  suppliers                  PosSupplier[]
+  game_checkouts             PosGameCheckout[]
+  purchase_orders            PosPurchaseOrder[]
+  stock_counts               PosStockCount[]
+  tournaments                PosTournament[]
+  catalog_pricing            PosCatalogPricing[]
+  orders                     PosOrder[]
+  operational_logs           PosOperationalLog[]
+  mobile_sessions            PosMobileSession[]
+  access_code_attempts       PosAccessCodeAttempt[]
+  customer_notes             PosCustomerNote[]
+  allocation_pools           PosAllocationPool[]
+  tabs                       PosTab[]
+  consignment_items          PosConsignmentItem[]
+  inventory_holds            PosInventoryHold[]
+  menu_items                 PosMenuItem[]
+  menu_modifiers             PosMenuModifier[]
+  hq_outbox                  PosHqOutbox[]
+  shipping_labels            PosShippingLabel[]
+  packaging_types            PosPackagingType[]
+  register_events            RegisterEvent[]
+  hosted_network_tournaments PosNetworkTournament[]
+  network_tournament_entries PosNetworkTournamentStore[]
+  network_player_ratings     PosNetworkPlayerRating[]
+  vendor_items               PosVendorItem[]
+  cost_history               PosCostHistory[]
+  break_recipes              PosBreakRecipe[]
+  break_events               PosBreakEvent[]
+  register_devices           RegisterDevice[]
+  game_reservations          PosGameReservation[]
+  event_tickets              PosEventTicket[]
+  integration_statuses       PosIntegrationStatus[]
+  pull_lists                 PosPullList[]
 
   @@map("pos_stores")
 }
@@ -796,7 +858,7 @@ model PosConsignmentItem {
   consignor_id           String
   inventory_item_id      String?
   asking_price_cents     Int
-  commission_percent     Decimal   @db.Decimal(5, 2) @default(15.00)
+  commission_percent     Decimal   @default(15.00) @db.Decimal(5, 2)
   status                 String    @default("active") // active | sold | returned | expired
   listed_at              DateTime  @default(now()) @db.Timestamptz()
   sold_at                DateTime? @db.Timestamptz()
@@ -804,9 +866,9 @@ model PosConsignmentItem {
   payout_ledger_entry_id String?
   notes                  String?
 
-  store              PosStore          @relation(fields: [store_id], references: [id], onDelete: Cascade)
-  consignor          PosCustomer       @relation(fields: [consignor_id], references: [id])
-  inventory_item     PosInventoryItem? @relation(fields: [inventory_item_id], references: [id])
+  store          PosStore          @relation(fields: [store_id], references: [id], onDelete: Cascade)
+  consignor      PosCustomer       @relation(fields: [consignor_id], references: [id])
+  inventory_item PosInventoryItem? @relation(fields: [inventory_item_id], references: [id])
 
   @@index([store_id])
   @@index([consignor_id])
@@ -819,29 +881,29 @@ model PosConsignmentItem {
 // ============================================================
 
 model PosTab {
-  id                String    @id @default(cuid())
-  store_id          String
-  customer_id       String?
-  staff_id          String?
-  event_id          String?
-  table_label       String?
-  status            String    @default("open") // open | closed | voided
-  subtotal_cents    Int       @default(0)
-  tax_cents         Int       @default(0)
-  total_cents       Int       @default(0)
-  ledger_entry_id   String?
-  notes             String?
-  table_fee_type    String?   // flat | hourly | free_with_purchase
-  table_fee_cents   Int       @default(0)
-  table_fee_waived  Boolean   @default(false)
-  age_verified      Boolean   @default(false)
-  parent_tab_id     String?
-  transferred_from  String?
-  hold_type         String?   @default("cafe") // cafe | retail_park
+  id                 String    @id @default(cuid())
+  store_id           String
+  customer_id        String?
+  staff_id           String?
+  event_id           String?
+  table_label        String?
+  status             String    @default("open") // open | closed | voided
+  subtotal_cents     Int       @default(0)
+  tax_cents          Int       @default(0)
+  total_cents        Int       @default(0)
+  ledger_entry_id    String?
+  notes              String?
+  table_fee_type     String? // flat | hourly | free_with_purchase
+  table_fee_cents    Int       @default(0)
+  table_fee_waived   Boolean   @default(false)
+  age_verified       Boolean   @default(false)
+  parent_tab_id      String?
+  transferred_from   String?
+  hold_type          String?   @default("cafe") // cafe | retail_park
   parked_by_staff_id String?
-  parked_at         DateTime? @db.Timestamptz()
-  opened_at         DateTime  @default(now()) @db.Timestamptz()
-  closed_at         DateTime? @db.Timestamptz()
+  parked_at          DateTime? @db.Timestamptz()
+  opened_at          DateTime  @default(now()) @db.Timestamptz()
+  closed_at          DateTime? @db.Timestamptz()
 
   store    PosStore     @relation(fields: [store_id], references: [id], onDelete: Cascade)
   customer PosCustomer? @relation(fields: [customer_id], references: [id])
@@ -874,8 +936,8 @@ model PosTabItem {
   created_at        DateTime  @default(now()) @db.Timestamptz()
   served_at         DateTime? @db.Timestamptz()
 
-  tab       PosTab        @relation(fields: [tab_id], references: [id], onDelete: Cascade)
-  menu_item PosMenuItem?  @relation(fields: [menu_item_id], references: [id])
+  tab       PosTab       @relation(fields: [tab_id], references: [id], onDelete: Cascade)
+  menu_item PosMenuItem? @relation(fields: [menu_item_id], references: [id])
 
   @@index([tab_id])
   @@index([menu_item_id])
@@ -883,28 +945,28 @@ model PosTabItem {
 }
 
 model PosMenuItem {
-  id             String   @id @default(cuid())
+  id             String    @id @default(cuid())
   store_id       String
   name           String
-  category       String   @default("other") // drink | food | snack | alcohol | other
-  price_cents    Int      @default(0)
+  category       String    @default("other") // drink | food | snack | alcohol | other
+  price_cents    Int       @default(0)
   description    String?
-  available      Boolean  @default(true)
+  available      Boolean   @default(true)
   /// "86" list — temporary daily sold-out flag. Distinct from `available`,
   /// which is the permanent on/off menu state. When set, the item is hidden
   /// from the register today; cleared by midnight cron OR manual reset.
   sold_out_at    DateTime? @db.Timestamptz()
-  sort_order     Int      @default(0)
-  age_restricted Boolean  @default(false)
+  sort_order     Int       @default(0)
+  age_restricted Boolean   @default(false)
   /// Approximate prep time in seconds for the kitchen/barista. Optional.
   prep_seconds   Int?
   /// Free-form allergen flags and nutrition facts. Stored as JSON so adding
   /// new dietary flags doesn't require a migration. Common keys today:
   /// allergens (string[]), is_vegan, is_vegetarian, is_gluten_free, calories.
-  dietary_info   Json     @default("{}")
-  created_at     DateTime @default(now()) @db.Timestamptz()
+  dietary_info   Json      @default("{}")
+  created_at     DateTime  @default(now()) @db.Timestamptz()
 
-  store     PosStore       @relation(fields: [store_id], references: [id], onDelete: Cascade)
+  store     PosStore        @relation(fields: [store_id], references: [id], onDelete: Cascade)
   recipes   PosMenuRecipe[]
   tab_items PosTabItem[]
 
@@ -957,20 +1019,20 @@ model PosMenuModifier {
 // ============================================================
 
 model PosMobileSession {
-  id             String    @id @default(cuid())
+  id             String   @id @default(cuid())
   store_id       String
   staff_id       String?
   device_name    String?
-  paired_at      DateTime  @default(now()) @db.Timestamptz()
-  expires_at     DateTime  @db.Timestamptz()
-  last_active_at DateTime  @default(now()) @db.Timestamptz()
-  tx_count       Int       @default(0)
-  tx_total_cents Int       @default(0)
-  revoked        Boolean   @default(false)
+  paired_at      DateTime @default(now()) @db.Timestamptz()
+  expires_at     DateTime @db.Timestamptz()
+  last_active_at DateTime @default(now()) @db.Timestamptz()
+  tx_count       Int      @default(0)
+  tx_total_cents Int      @default(0)
+  revoked        Boolean  @default(false)
   ip_address     String?
   user_agent     String?
 
-  store PosStore @relation(fields: [store_id], references: [id], onDelete: Cascade)
+  store PosStore  @relation(fields: [store_id], references: [id], onDelete: Cascade)
   staff PosStaff? @relation(fields: [staff_id], references: [id])
 
   @@index([store_id])
@@ -1020,8 +1082,8 @@ model PosOperationalLog {
 model PosLocation {
   id         String   @id @default(cuid())
   store_id   String
-  name       String             // "Minneapolis Store", "Warehouse", "Display Case A"
-  code       String?            // Short code: "MSP", "WH", "DC-A"
+  name       String // "Minneapolis Store", "Warehouse", "Display Case A"
+  code       String? // Short code: "MSP", "WH", "DC-A"
   type       String   @default("store") // "store", "warehouse", "display", "online"
   address    Json?
   phone      String?
@@ -1030,10 +1092,10 @@ model PosLocation {
   created_at DateTime @default(now()) @db.Timestamptz()
   updated_at DateTime @default(now()) @db.Timestamptz()
 
-  store            PosStore              @relation(fields: [store_id], references: [id], onDelete: Cascade)
+  store            PosStore            @relation(fields: [store_id], references: [id], onDelete: Cascade)
   inventory_levels PosInventoryLevel[]
-  transfers_from   PosTransfer[]         @relation("TransferFrom")
-  transfers_to     PosTransfer[]         @relation("TransferTo")
+  transfers_from   PosTransfer[]       @relation("TransferFrom")
+  transfers_to     PosTransfer[]       @relation("TransferTo")
   preorders        PosPreorder[]
 
   @@unique([store_id, code])
@@ -1067,16 +1129,16 @@ model PosInventoryLevel {
 // POS TRANSFERS (move stock between locations)
 // ============================================================
 model PosTransfer {
-  id                String    @id @default(cuid())
-  store_id          String
-  from_location_id  String
-  to_location_id    String
-  staff_id          String?
-  status            String    @default("pending") // pending, in_transit, completed, cancelled
-  notes             String?
-  items             Json      @default("[]") // [{inventory_item_id, quantity}]
-  created_at        DateTime  @default(now()) @db.Timestamptz()
-  completed_at      DateTime? @db.Timestamptz()
+  id               String    @id @default(cuid())
+  store_id         String
+  from_location_id String
+  to_location_id   String
+  staff_id         String?
+  status           String    @default("pending") // pending, in_transit, completed, cancelled
+  notes            String?
+  items            Json      @default("[]") // [{inventory_item_id, quantity}]
+  created_at       DateTime  @default(now()) @db.Timestamptz()
+  completed_at     DateTime? @db.Timestamptz()
 
   from_location PosLocation @relation("TransferFrom", fields: [from_location_id], references: [id])
   to_location   PosLocation @relation("TransferTo", fields: [to_location_id], references: [id])
@@ -1107,7 +1169,7 @@ model PosPreorder {
   updated_at        DateTime  @default(now()) @db.Timestamptz()
 
   pool_id                 String?
-  waitlisted              Boolean  @default(false)
+  waitlisted              Boolean @default(false)
   deposit_ledger_entry_id String?
 
   store    PosStore           @relation(fields: [store_id], references: [id], onDelete: Cascade)
@@ -1146,12 +1208,12 @@ model PosAllocationPool {
 // POS STAFF (bridge: user_id → User.id)
 // ============================================================
 model PosStaff {
-  id         String   @id @default(cuid())
-  user_id    String
-  store_id   String
-  role       String   @default("cashier")
-  name       String
-  active     Boolean  @default(true)
+  id                 String    @id @default(cuid())
+  user_id            String
+  store_id           String
+  role               String    @default("cashier")
+  name               String
+  active             Boolean   @default(true)
   pin_hash           String?
   badge_code         String?
   invite_token       String?
@@ -1159,18 +1221,18 @@ model PosStaff {
   invite_accepted_at DateTime? @db.Timestamptz()
   created_at         DateTime  @default(now()) @db.Timestamptz()
 
-  user           User             @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  store          PosStore         @relation(fields: [store_id], references: [id], onDelete: Cascade)
-  ledger_entries PosLedgerEntry[]
-  trade_ins       PosTradeIn[]
-  returns         PosReturn[]
-  import_jobs     PosImportJob[]
-  certifications  PosCertification[]
-  time_entries    PosTimeEntry[]
-  game_checkouts  PosGameCheckout[]
-  stock_counts     PosStockCount[]
-  mobile_sessions  PosMobileSession[]
-  inventory_holds  PosInventoryHold[]
+  user              User                 @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  store             PosStore             @relation(fields: [store_id], references: [id], onDelete: Cascade)
+  ledger_entries    PosLedgerEntry[]
+  trade_ins         PosTradeIn[]
+  returns           PosReturn[]
+  import_jobs       PosImportJob[]
+  certifications    PosCertification[]
+  time_entries      PosTimeEntry[]
+  game_checkouts    PosGameCheckout[]
+  stock_counts      PosStockCount[]
+  mobile_sessions   PosMobileSession[]
+  inventory_holds   PosInventoryHold[]
   game_reservations PosGameReservation[]
   redeemed_tickets  PosEventTicket[]
 
@@ -1191,7 +1253,7 @@ model PosTimeEntry {
   notes             String?
   clock_in_lat      Float?
   clock_in_lng      Float?
-  clock_in_location String?   // 'on_site' | 'remote' | 'no_gps'
+  clock_in_location String? // 'on_site' | 'remote' | 'no_gps'
   created_at        DateTime  @default(now()) @db.Timestamptz()
 
   staff PosStaff @relation(fields: [staff_id], references: [id])
@@ -1206,21 +1268,21 @@ model PosTimeEntry {
 // POS CUSTOMERS
 // ============================================================
 model PosCustomer {
-  id                   String   @id @default(cuid())
+  id                   String    @id @default(cuid())
   store_id             String
   name                 String
   email                String?
   phone                String?
-  credit_balance_cents Int      @default(0)
-  loyalty_points       Int      @default(0)
+  credit_balance_cents Int       @default(0)
+  loyalty_points       Int       @default(0)
   notes                String?
   afterroar_user_id    String?
   deleted_at           DateTime? @db.Timestamptz()
-  deletion_requested   Boolean  @default(false)
-  created_at           DateTime @default(now()) @db.Timestamptz()
-  updated_at           DateTime @default(now()) @db.Timestamptz()
+  deletion_requested   Boolean   @default(false)
+  created_at           DateTime  @default(now()) @db.Timestamptz()
+  updated_at           DateTime  @default(now()) @db.Timestamptz()
 
-  store              PosStore               @relation(fields: [store_id], references: [id], onDelete: Cascade)
+  store              PosStore              @relation(fields: [store_id], references: [id], onDelete: Cascade)
   ledger_entries     PosLedgerEntry[]
   trade_ins          PosTradeIn[]
   returns            PosReturn[]
@@ -1230,7 +1292,7 @@ model PosCustomer {
   game_checkouts     PosGameCheckout[]
   tournament_players PosTournamentPlayer[]
   orders             PosOrder[]
-  tags               String[]             @default([])
+  tags               String[]              @default([])
   customer_notes     PosCustomerNote[]
   tabs               PosTab[]
   consignment_items  PosConsignmentItem[]
@@ -1262,20 +1324,20 @@ model PosCustomerNote {
 // POS PROMOTIONS / SALE PRICING
 // ============================================================
 model PosPromotion {
-  id             String    @id @default(cuid())
-  store_id       String
-  name           String
-  type           String
-  value          Int
-  scope          String
-  scope_value    String?
-  starts_at      DateTime? @db.Timestamptz()
-  ends_at        DateTime? @db.Timestamptz()
-  active         Boolean   @default(true)
-  priority       Int       @default(0)
-  metadata       Json      @default("{}")
-  created_at     DateTime  @default(now()) @db.Timestamptz()
-  updated_at     DateTime  @default(now()) @db.Timestamptz()
+  id          String    @id @default(cuid())
+  store_id    String
+  name        String
+  type        String
+  value       Int
+  scope       String
+  scope_value String?
+  starts_at   DateTime? @db.Timestamptz()
+  ends_at     DateTime? @db.Timestamptz()
+  active      Boolean   @default(true)
+  priority    Int       @default(0)
+  metadata    Json      @default("{}")
+  created_at  DateTime  @default(now()) @db.Timestamptz()
+  updated_at  DateTime  @default(now()) @db.Timestamptz()
 
   store PosStore @relation(fields: [store_id], references: [id], onDelete: Cascade)
 
@@ -1288,16 +1350,16 @@ model PosPromotion {
 // POS LOYALTY POINTS LEDGER
 // ============================================================
 model PosLoyaltyEntry {
-  id           String   @id @default(cuid())
-  store_id     String
-  customer_id  String
-  type         String            // earn_purchase, earn_trade_in, earn_event, redeem, adjust
-  points       Int               // positive = earn, negative = redeem
-  balance_after Int              // running balance after this transaction
-  description  String?
-  reference_id String?           // ledger_entry_id, trade_in_id, event_id, etc.
-  metadata     Json     @default("{}")
-  created_at   DateTime @default(now()) @db.Timestamptz()
+  id            String   @id @default(cuid())
+  store_id      String
+  customer_id   String
+  type          String // earn_purchase, earn_trade_in, earn_event, redeem, adjust
+  points        Int // positive = earn, negative = redeem
+  balance_after Int // running balance after this transaction
+  description   String?
+  reference_id  String? // ledger_entry_id, trade_in_id, event_id, etc.
+  metadata      Json     @default("{}")
+  created_at    DateTime @default(now()) @db.Timestamptz()
 
   store    PosStore    @relation(fields: [store_id], references: [id], onDelete: Cascade)
   customer PosCustomer @relation(fields: [customer_id], references: [id])
@@ -1312,79 +1374,79 @@ model PosLoyaltyEntry {
 // POS INVENTORY
 // ============================================================
 model PosInventoryItem {
-  id                  String   @id @default(cuid())
-  store_id            String
-  name                String
-  category            String
-  sku                 String?
-  barcode             String?
+  id                        String   @id @default(cuid())
+  store_id                  String
+  name                      String
+  category                  String
+  sku                       String?
+  barcode                   String?
   /// Alternate barcodes (publisher reprints with new UPCs, manufacturer pack
   /// codes, in-house labels). Lookups should query both `barcode` and this
   /// array. The primary `barcode` is kept for the existing index + display.
-  barcodes            String[] @default([])
-  price_cents         Int      @default(0)
-  cost_cents          Int      @default(0)
+  barcodes                  String[] @default([])
+  price_cents               Int      @default(0)
+  cost_cents                Int      @default(0)
   /// Highest cost ever paid (or first cost — see metadata). Set on the first
   /// non-zero cost write and never overwritten thereafter. Used to show
   /// historical pricing context on the item edit form. Nullable so legacy
   /// rows that have never had a cost write stay null.
-  first_cost_cents    Int?
+  first_cost_cents          Int?
   /// Most recently paid cost. Updated on every cost write. Mirrors `cost_cents`
   /// today but kept separate so we can wire `cost_cents` to the *current
   /// average cost* later without losing the most-recent-purchase signal.
-  last_cost_cents     Int?
-  quantity            Int      @default(0)
-  low_stock_threshold Int      @default(5)
-  attributes          Json     @default("{}")
-  image_url           String?
-  external_id         String?
-  supplier_id         String?
-  lead_time_days      Int?
-  reorder_point       Int?
-  safety_stock        Int      @default(0)
-  active              Boolean  @default(true)
-  lendable            Boolean  @default(false)
-  online_allocation   Int      @default(0)   // qty allocated for online sale (pushed to Shopify)
-  shopify_variant_id  String?                // Shopify variant ID for sync
-  shopify_inventory_item_id String?          // Shopify inventory item ID for level sync
-  created_at          DateTime @default(now()) @db.Timestamptz()
-  updated_at          DateTime @default(now()) @db.Timestamptz()
+  last_cost_cents           Int?
+  quantity                  Int      @default(0)
+  low_stock_threshold       Int      @default(5)
+  attributes                Json     @default("{}")
+  image_url                 String?
+  external_id               String?
+  supplier_id               String?
+  lead_time_days            Int?
+  reorder_point             Int?
+  safety_stock              Int      @default(0)
+  active                    Boolean  @default(true)
+  lendable                  Boolean  @default(false)
+  online_allocation         Int      @default(0) // qty allocated for online sale (pushed to Shopify)
+  shopify_variant_id        String? // Shopify variant ID for sync
+  shopify_inventory_item_id String? // Shopify inventory item ID for level sync
+  created_at                DateTime @default(now()) @db.Timestamptz()
+  updated_at                DateTime @default(now()) @db.Timestamptz()
 
-  catalog_product_id  String?
-  shared_to_catalog   Boolean  @default(false)
+  catalog_product_id String?
+  shared_to_catalog  Boolean @default(false)
 
   /// Variant parent. When set, this row is a child variant of `parent_id`
   /// (e.g. "Pandemic Legacy Season 1 — Red Box"). Both parent and children
   /// can be sold; the relationship is for grouping in the catalog UI and
   /// sharing core metadata. Self-referential — null for stand-alone items.
-  parent_id           String?
+  parent_id     String?
   /// Display label for the variant pick on the register (e.g. "Cover A",
   /// "Foil", "Season 1"). Free text, store-defined.
-  variant_label       String?
+  variant_label String?
 
-  weight_oz           Int?
-  length_in           Decimal? @db.Decimal(5, 1)
-  width_in            Decimal? @db.Decimal(5, 1)
-  height_in           Decimal? @db.Decimal(5, 1)
-  ships_separately    Boolean  @default(false)
+  weight_oz        Int?
+  length_in        Decimal? @db.Decimal(5, 1)
+  width_in         Decimal? @db.Decimal(5, 1)
+  height_in        Decimal? @db.Decimal(5, 1)
+  ships_separately Boolean  @default(false)
 
-  ebay_listing_id     String?
-  ebay_offer_id       String?
-  listed_on_ebay      Boolean  @default(false)
+  ebay_listing_id String?
+  ebay_offer_id   String?
+  listed_on_ebay  Boolean @default(false)
 
   cardtrader_product_id String?
-  listed_on_cardtrader  Boolean  @default(false)
+  listed_on_cardtrader  Boolean @default(false)
 
   manapool_listing_id String?
-  listed_on_manapool  Boolean  @default(false)
+  listed_on_manapool  Boolean @default(false)
 
-  oracle_id           String?
+  oracle_id String?
 
-  store           PosStore           @relation(fields: [store_id], references: [id], onDelete: Cascade)
-  supplier        PosSupplier?       @relation(fields: [supplier_id], references: [id])
-  catalog_product PosCatalogProduct? @relation(fields: [catalog_product_id], references: [id])
-  parent          PosInventoryItem?  @relation("InventoryVariants", fields: [parent_id], references: [id], onDelete: SetNull)
-  variants        PosInventoryItem[] @relation("InventoryVariants")
+  store                PosStore               @relation(fields: [store_id], references: [id], onDelete: Cascade)
+  supplier             PosSupplier?           @relation(fields: [supplier_id], references: [id])
+  catalog_product      PosCatalogProduct?     @relation(fields: [catalog_product_id], references: [id])
+  parent               PosInventoryItem?      @relation("InventoryVariants", fields: [parent_id], references: [id], onDelete: SetNull)
+  variants             PosInventoryItem[]     @relation("InventoryVariants")
   trade_in_items       PosTradeInItem[]
   return_items         PosReturnItem[]
   inventory_levels     PosInventoryLevel[]
@@ -1396,9 +1458,9 @@ model PosInventoryItem {
   holds                PosInventoryHold[]
   cost_history         PosCostHistory[]
   vendor_links         PosVendorItem[]
-  break_recipes_parent PosBreakRecipe[]      @relation("BreakRecipeParent")
-  break_recipes_child  PosBreakRecipe[]      @relation("BreakRecipeChild")
-  break_events_parent  PosBreakEvent[]       @relation("BreakEventParent")
+  break_recipes_parent PosBreakRecipe[]       @relation("BreakRecipeParent")
+  break_recipes_child  PosBreakRecipe[]       @relation("BreakRecipeChild")
+  break_events_parent  PosBreakEvent[]        @relation("BreakEventParent")
   game_reservations    PosGameReservation[]
   menu_recipes         PosMenuRecipe[]
   pull_list_items      PosPullListItem[]
@@ -1430,33 +1492,33 @@ model PosInventoryItem {
 // pending allocations. Today, the shop creates them manually on receive.
 // ============================================================
 model PosPullList {
-  id                 String   @id @default(cuid())
-  store_id           String
-  customer_id        String
+  id             String    @id @default(cuid())
+  store_id       String
+  customer_id    String
   /// Free-text series identifier — store-defined (e.g. "Saga", "The Department of Truth").
   /// Future: replace with PosCatalogProduct relation when ComicVine ingest exists.
-  series_title       String
+  series_title   String
   /// Optional publisher filter (so "Saga" subscribers don't get an unrelated
   /// indie book that happens to share the title).
-  publisher          String?
+  publisher      String?
   /// Customer wants variant covers? (Cover B, ratio variants, etc.)
-  wants_variants     Boolean  @default(false)
+  wants_variants Boolean   @default(false)
   /// Hold capacity per issue (usually 1, but some collectors want 2 for
   /// reading-copy + bag-and-board copy).
-  qty_per_issue      Int      @default(1)
+  qty_per_issue  Int       @default(1)
   /// Notes from the cashier — "wants signed if available", "skip if Hickman", etc.
-  notes              String?
+  notes          String?
   /// status: active | paused | cancelled
-  status             String   @default("active")
-  paused_at          DateTime? @db.Timestamptz()
-  cancelled_at       DateTime? @db.Timestamptz()
+  status         String    @default("active")
+  paused_at      DateTime? @db.Timestamptz()
+  cancelled_at   DateTime? @db.Timestamptz()
   /// When the customer last picked up an issue.
-  last_pickup_at     DateTime? @db.Timestamptz()
-  created_at         DateTime  @default(now()) @db.Timestamptz()
-  updated_at         DateTime  @default(now()) @updatedAt @db.Timestamptz()
+  last_pickup_at DateTime? @db.Timestamptz()
+  created_at     DateTime  @default(now()) @db.Timestamptz()
+  updated_at     DateTime  @default(now()) @updatedAt @db.Timestamptz()
 
-  store    PosStore         @relation(fields: [store_id], references: [id], onDelete: Cascade)
-  customer PosCustomer      @relation(fields: [customer_id], references: [id])
+  store    PosStore          @relation(fields: [store_id], references: [id], onDelete: Cascade)
+  customer PosCustomer       @relation(fields: [customer_id], references: [id])
   items    PosPullListItem[]
 
   @@index([store_id, status])
@@ -1466,24 +1528,24 @@ model PosPullList {
 }
 
 model PosPullListItem {
-  id                 String   @id @default(cuid())
-  pull_list_id       String
+  id                String    @id @default(cuid())
+  pull_list_id      String
   /// Optional link to the actual inventory item. Set on fulfill so the
   /// pickup converts cleanly to a sale.
-  inventory_item_id  String?
-  issue_number       String
-  variant_label      String?
+  inventory_item_id String?
+  issue_number      String
+  variant_label     String?
   /// status: pending | held | fulfilled | skipped | expired
-  status             String   @default("pending")
-  notified_at        DateTime? @db.Timestamptz()
-  held_at            DateTime? @db.Timestamptz()
+  status            String    @default("pending")
+  notified_at       DateTime? @db.Timestamptz()
+  held_at           DateTime? @db.Timestamptz()
   fulfilled_at      DateTime? @db.Timestamptz()
   ledger_entry_id   String?
   /// When the item auto-expires if not picked up. Default ~90 days.
-  expires_at         DateTime? @db.Timestamptz()
-  notes              String?
-  created_at         DateTime  @default(now()) @db.Timestamptz()
-  updated_at         DateTime  @default(now()) @updatedAt @db.Timestamptz()
+  expires_at        DateTime? @db.Timestamptz()
+  notes             String?
+  created_at        DateTime  @default(now()) @db.Timestamptz()
+  updated_at        DateTime  @default(now()) @updatedAt @db.Timestamptz()
 
   pull_list      PosPullList       @relation(fields: [pull_list_id], references: [id], onDelete: Cascade)
   inventory_item PosInventoryItem? @relation(fields: [inventory_item_id], references: [id])
@@ -1530,22 +1592,22 @@ model PosIntegrationStatus {
 }
 
 model PosInventoryHold {
-  id              String    @id @default(cuid())
-  store_id        String
-  item_id         String
-  customer_id     String?
-  staff_id        String
+  id           String    @id @default(cuid())
+  store_id     String
+  item_id      String
+  customer_id  String?
+  staff_id     String
   /// Optional event link — when set, this hold reserves prize-pool inventory
   /// for an event/tournament. Released back to general stock if the event is
   /// cancelled, allocated to winners on event completion.
-  event_id        String?
-  quantity        Int       @default(1)
-  reason          String?   // "Customer request", "Phone order", "Prize pool", etc.
-  status          String    @default("active") // active | fulfilled | released | expired
-  held_at         DateTime  @default(now()) @db.Timestamptz()
-  expires_at      DateTime  @db.Timestamptz()
-  fulfilled_at    DateTime? @db.Timestamptz()
-  released_at     DateTime? @db.Timestamptz()
+  event_id     String?
+  quantity     Int       @default(1)
+  reason       String? // "Customer request", "Phone order", "Prize pool", etc.
+  status       String    @default("active") // active | fulfilled | released | expired
+  held_at      DateTime  @default(now()) @db.Timestamptz()
+  expires_at   DateTime  @db.Timestamptz()
+  fulfilled_at DateTime? @db.Timestamptz()
+  released_at  DateTime? @db.Timestamptz()
 
   store    PosStore         @relation(fields: [store_id], references: [id], onDelete: Cascade)
   item     PosInventoryItem @relation(fields: [item_id], references: [id], onDelete: Cascade)
@@ -1644,16 +1706,16 @@ model PosCostHistory {
 /// case into booster boxes, or a booster box into individual packs. Cost is
 /// allocated proportionally on break (see /api/inventory/break).
 model PosBreakRecipe {
-  id                  String   @id @default(cuid())
-  store_id            String
-  parent_inventory_id String
-  child_inventory_id  String
+  id                   String   @id @default(cuid())
+  store_id             String
+  parent_inventory_id  String
+  child_inventory_id   String
   /// How many child units one parent unit produces (case → 6 boxes = 6).
   child_qty_per_parent Int
   /// Optional human-readable name (e.g. "Booster Box → Packs").
-  name                String?
-  active              Boolean  @default(true)
-  created_at          DateTime @default(now()) @db.Timestamptz()
+  name                 String?
+  active               Boolean  @default(true)
+  created_at           DateTime @default(now()) @db.Timestamptz()
 
   store  PosStore         @relation(fields: [store_id], references: [id], onDelete: Cascade)
   parent PosInventoryItem @relation("BreakRecipeParent", fields: [parent_inventory_id], references: [id], onDelete: Cascade)
@@ -1705,9 +1767,9 @@ model PosEvent {
   created_at         DateTime  @default(now()) @db.Timestamptz()
   updated_at         DateTime  @default(now()) @db.Timestamptz()
 
-  store          PosStore          @relation(fields: [store_id], references: [id], onDelete: Cascade)
-  checkins       PosEventCheckin[]
-  ledger_entries PosLedgerEntry[]
+  store            PosStore             @relation(fields: [store_id], references: [id], onDelete: Cascade)
+  checkins         PosEventCheckin[]
+  ledger_entries   PosLedgerEntry[]
   tournaments      PosTournament[]
   allocation_pools PosAllocationPool[]
   tabs             PosTab[]
@@ -1730,9 +1792,9 @@ model PosEventCheckin {
   ticket_tier_id    String?
   amount_paid_cents Int      @default(0)
 
-  event       PosEvent             @relation(fields: [event_id], references: [id], onDelete: Cascade)
-  customer    PosCustomer          @relation(fields: [customer_id], references: [id])
-  ticket_tier PosEventTicketTier?  @relation(fields: [ticket_tier_id], references: [id])
+  event       PosEvent            @relation(fields: [event_id], references: [id], onDelete: Cascade)
+  customer    PosCustomer         @relation(fields: [customer_id], references: [id])
+  ticket_tier PosEventTicketTier? @relation(fields: [ticket_tier_id], references: [id])
 
   @@unique([event_id, customer_id])
   @@map("pos_event_checkins")
@@ -1779,39 +1841,39 @@ model PosEventTicketTier {
 // gift purchases, etc. Email/name captured at sale time so we can re-send.
 // ============================================================
 model PosEventTicket {
-  id                  String    @id @default(cuid())
-  store_id            String
-  event_id            String
-  ticket_tier_id      String
-  customer_id         String?
+  id                   String    @id @default(cuid())
+  store_id             String
+  event_id             String
+  ticket_tier_id       String
+  customer_id          String?
   /// Free-form identity for guest tickets (no customer_id). We capture this
   /// at sale time so the ticket can be re-sent / refund issued by name+email.
-  guest_name          String?
-  guest_email         String?
-  guest_phone         String?
+  guest_name           String?
+  guest_email          String?
+  guest_phone          String?
   /// Scannable serial. Unique per ticket. Encoded as QR for door check-in.
-  serial              String    @unique
-  status              String    @default("sold") // sold | redeemed | refunded | cancelled
-  amount_paid_cents   Int       @default(0)
+  serial               String    @unique
+  status               String    @default("sold") // sold | redeemed | refunded | cancelled
+  amount_paid_cents    Int       @default(0)
   /// Sale-side ledger entry (nullable for comp tickets and during refunds).
-  ledger_entry_id     String?
-  sold_at             DateTime  @default(now()) @db.Timestamptz()
-  redeemed_at         DateTime? @db.Timestamptz()
+  ledger_entry_id      String?
+  sold_at              DateTime  @default(now()) @db.Timestamptz()
+  redeemed_at          DateTime? @db.Timestamptz()
   /// Staff who scanned/checked in this ticket.
   redeemed_by_staff_id String?
-  refunded_at         DateTime? @db.Timestamptz()
-  refund_amount_cents Int?
-  refund_reason       String?
+  refunded_at          DateTime? @db.Timestamptz()
+  refund_amount_cents  Int?
+  refund_reason        String?
   /// Used to mark the ticket as already converted into a check-in row.
   /// When redeemed, we also create a PosEventCheckin so the existing event
   /// reporting flows pick it up. This is the link.
-  checkin_id          String?
+  checkin_id           String?
 
-  store              PosStore           @relation(fields: [store_id], references: [id], onDelete: Cascade)
-  event              PosEvent           @relation(fields: [event_id], references: [id], onDelete: Cascade)
-  tier               PosEventTicketTier @relation(fields: [ticket_tier_id], references: [id])
-  customer           PosCustomer?       @relation(fields: [customer_id], references: [id])
-  redeemed_by_staff  PosStaff?          @relation(fields: [redeemed_by_staff_id], references: [id])
+  store             PosStore           @relation(fields: [store_id], references: [id], onDelete: Cascade)
+  event             PosEvent           @relation(fields: [event_id], references: [id], onDelete: Cascade)
+  tier              PosEventTicketTier @relation(fields: [ticket_tier_id], references: [id])
+  customer          PosCustomer?       @relation(fields: [customer_id], references: [id])
+  redeemed_by_staff PosStaff?          @relation(fields: [redeemed_by_staff_id], references: [id])
 
   @@index([store_id])
   @@index([event_id])
@@ -1838,11 +1900,11 @@ model PosLedgerEntry {
   metadata            Json     @default("{}")
   created_at          DateTime @default(now()) @db.Timestamptz()
 
-  store            PosStore     @relation(fields: [store_id], references: [id], onDelete: Cascade)
-  customer         PosCustomer? @relation(fields: [customer_id], references: [id])
-  staff            PosStaff?    @relation(fields: [staff_id], references: [id])
-  event            PosEvent?    @relation(fields: [event_id], references: [id])
-  returns_from_sale PosReturn[] @relation("OriginalSale")
+  store             PosStore     @relation(fields: [store_id], references: [id], onDelete: Cascade)
+  customer          PosCustomer? @relation(fields: [customer_id], references: [id])
+  staff             PosStaff?    @relation(fields: [staff_id], references: [id])
+  event             PosEvent?    @relation(fields: [event_id], references: [id])
+  returns_from_sale PosReturn[]  @relation("OriginalSale")
 
   @@index([store_id])
   @@index([customer_id])
@@ -1971,8 +2033,8 @@ model PosImportJob {
   created_at        DateTime  @default(now()) @db.Timestamptz()
   updated_at        DateTime  @default(now()) @db.Timestamptz()
 
-  store   PosStore         @relation(fields: [store_id], references: [id], onDelete: Cascade)
-  staff   PosStaff         @relation(fields: [staff_id], references: [id])
+  store   PosStore          @relation(fields: [store_id], references: [id], onDelete: Cascade)
+  staff   PosStaff          @relation(fields: [staff_id], references: [id])
   records PosImportRecord[]
 
   @@index([store_id])
@@ -2042,21 +2104,21 @@ model PosGiftCard {
 // POS GAME CHECKOUTS (lending/rental tracking)
 // ============================================================
 model PosGameCheckout {
-  id                String    @id @default(cuid())
-  store_id          String
-  inventory_item_id String
-  customer_id       String?
-  staff_id          String?
-  table_number      String?
-  checked_out_at    DateTime  @default(now()) @db.Timestamptz()
+  id                 String    @id @default(cuid())
+  store_id           String
+  inventory_item_id  String
+  customer_id        String?
+  staff_id           String?
+  table_number       String?
+  checked_out_at     DateTime  @default(now()) @db.Timestamptz()
   expected_return_at DateTime? @db.Timestamptz()
-  returned_at       DateTime? @db.Timestamptz()
-  return_condition  String?
-  return_notes      String?
-  status            String    @default("out") // out, returned, overdue
-  due_back_at       DateTime? @db.Timestamptz()
-  fee_cents         Int       @default(0)
-  created_at        DateTime  @default(now()) @db.Timestamptz()
+  returned_at        DateTime? @db.Timestamptz()
+  return_condition   String?
+  return_notes       String?
+  status             String    @default("out") // out, returned, overdue
+  due_back_at        DateTime? @db.Timestamptz()
+  fee_cents          Int       @default(0)
+  created_at         DateTime  @default(now()) @db.Timestamptz()
 
   store          PosStore         @relation(fields: [store_id], references: [id], onDelete: Cascade)
   inventory_item PosInventoryItem @relation(fields: [inventory_item_id], references: [id])
@@ -2084,25 +2146,25 @@ model PosGameCheckout {
 //   - expired  → window passed without claim
 // ============================================================
 model PosGameReservation {
-  id                   String    @id @default(cuid())
-  store_id             String
-  inventory_item_id    String
-  customer_id          String
-  staff_id             String?
-  status               String    @default("active") // active | notified | claimed | released | expired
+  id                      String    @id @default(cuid())
+  store_id                String
+  inventory_item_id       String
+  customer_id             String
+  staff_id                String?
+  status                  String    @default("active") // active | notified | claimed | released | expired
   /// Free-text note from staff: "wants for Saturday", "first time customer", etc.
-  notes                String?
+  notes                   String?
   /// Timestamp the customer was contacted that the copy is available.
-  notified_at          DateTime? @db.Timestamptz()
+  notified_at             DateTime? @db.Timestamptz()
   /// When notified, how long they have to come pick it up before the
   /// reservation auto-expires and the next person in queue is notified.
   notification_expires_at DateTime? @db.Timestamptz()
   /// When the reservation became a checkout (terminal state for the happy path).
-  claimed_checkout_id  String?
-  released_at          DateTime? @db.Timestamptz()
-  release_reason       String?
-  created_at           DateTime  @default(now()) @db.Timestamptz()
-  updated_at           DateTime  @default(now()) @updatedAt @db.Timestamptz()
+  claimed_checkout_id     String?
+  released_at             DateTime? @db.Timestamptz()
+  release_reason          String?
+  created_at              DateTime  @default(now()) @db.Timestamptz()
+  updated_at              DateTime  @default(now()) @updatedAt @db.Timestamptz()
 
   store          PosStore         @relation(fields: [store_id], references: [id], onDelete: Cascade)
   inventory_item PosInventoryItem @relation(fields: [inventory_item_id], references: [id], onDelete: Cascade)
@@ -2144,8 +2206,8 @@ model PosPurchaseOrder {
   created_at        DateTime  @default(now()) @db.Timestamptz()
   updated_at        DateTime  @default(now()) @db.Timestamptz()
 
-  store    PosStore                @relation(fields: [store_id], references: [id], onDelete: Cascade)
-  supplier PosSupplier?            @relation(fields: [supplier_id], references: [id])
+  store    PosStore               @relation(fields: [store_id], references: [id], onDelete: Cascade)
+  supplier PosSupplier?           @relation(fields: [supplier_id], references: [id])
   items    PosPurchaseOrderItem[]
 
   @@index([store_id])
@@ -2164,7 +2226,7 @@ model PosPurchaseOrderItem {
   cost_cents        Int
   created_at        DateTime @default(now()) @db.Timestamptz()
 
-  purchase_order PosPurchaseOrder @relation(fields: [purchase_order_id], references: [id], onDelete: Cascade)
+  purchase_order PosPurchaseOrder  @relation(fields: [purchase_order_id], references: [id], onDelete: Cascade)
   inventory_item PosInventoryItem? @relation(fields: [inventory_item_id], references: [id])
 
   @@map("pos_purchase_order_items")
@@ -2186,8 +2248,8 @@ model PosStockCount {
   variances       Int       @default(0)
   notes           String?
 
-  store PosStore          @relation(fields: [store_id], references: [id], onDelete: Cascade)
-  staff PosStaff?         @relation(fields: [staff_id], references: [id])
+  store PosStore            @relation(fields: [store_id], references: [id], onDelete: Cascade)
+  staff PosStaff?           @relation(fields: [staff_id], references: [id])
   items PosStockCountItem[]
 
   @@index([store_id])
@@ -2250,11 +2312,11 @@ model PosTournamentPlayer {
   standing      Int?
   created_at    DateTime @default(now()) @db.Timestamptz()
 
-  tournament      PosTournament       @relation(fields: [tournament_id], references: [id], onDelete: Cascade)
-  customer        PosCustomer?        @relation(fields: [customer_id], references: [id])
-  matches_as_p1   PosTournamentMatch[] @relation("MatchPlayer1")
-  matches_as_p2   PosTournamentMatch[] @relation("MatchPlayer2")
-  matches_won     PosTournamentMatch[] @relation("MatchWinner")
+  tournament    PosTournament        @relation(fields: [tournament_id], references: [id], onDelete: Cascade)
+  customer      PosCustomer?         @relation(fields: [customer_id], references: [id])
+  matches_as_p1 PosTournamentMatch[] @relation("MatchPlayer1")
+  matches_as_p2 PosTournamentMatch[] @relation("MatchPlayer2")
+  matches_won   PosTournamentMatch[] @relation("MatchWinner")
 
   @@map("pos_tournament_players")
 }
@@ -2285,58 +2347,58 @@ model PosTournamentMatch {
 // POS CATALOG: Federated Product Catalog
 // ============================================================
 model PosCatalogProduct {
-  id                    String   @id @default(cuid())
-  name                  String
-  category              String
-  subcategory           String?
-  game                  String?
-  product_type          String?
-  set_name              String?
-  set_code              String?
-  attributes            Json     @default("{}")
-  external_ids          Json     @default("{}")
-  image_url             String?
-  description           String?
+  id                      String   @id @default(cuid())
+  name                    String
+  category                String
+  subcategory             String?
+  game                    String?
+  product_type            String?
+  set_name                String?
+  set_code                String?
+  attributes              Json     @default("{}")
+  external_ids            Json     @default("{}")
+  image_url               String?
+  description             String?
   contributed_by_store_id String?
-  verified              Boolean  @default(false)
-  created_at            DateTime @default(now()) @db.Timestamptz()
-  updated_at            DateTime @default(now()) @db.Timestamptz()
+  verified                Boolean  @default(false)
+  created_at              DateTime @default(now()) @db.Timestamptz()
+  updated_at              DateTime @default(now()) @db.Timestamptz()
 
   // Scryfall bulk sync fields
-  oracle_id             String?
-  scryfall_id           String?
-  mana_cost             String?
-  type_line             String?
-  oracle_text           String?
-  keywords              String?  // comma-separated
-  color_identity        String?  // comma-separated: W,U,B,R,G
-  cmc                   Decimal? @db.Decimal(4, 1)
-  rarity                String?
-  legalities            Json?
-  prices                Json?
-  image_uri             String?
-  last_synced_at        DateTime? @db.Timestamptz()
+  oracle_id      String?
+  scryfall_id    String?
+  mana_cost      String?
+  type_line      String?
+  oracle_text    String?
+  keywords       String? // comma-separated
+  color_identity String? // comma-separated: W,U,B,R,G
+  cmc            Decimal?  @db.Decimal(4, 1)
+  rarity         String?
+  legalities     Json?
+  prices         Json?
+  image_uri      String?
+  last_synced_at DateTime? @db.Timestamptz()
 
   // Universal product metadata (shared across network)
-  publisher             String?
-  distributor           String?
-  release_year          Int?
-  msrp_cents            Int?
-  bgg_id                String?   // BoardGameGeek ID
-  bgg_rating            Decimal?  @db.Decimal(3, 1)
-  bgg_weight            Decimal?  @db.Decimal(3, 2)
-  min_players           Int?
-  max_players           Int?
-  min_play_time         Int?      // minutes
-  max_play_time         Int?
-  min_age               Int?
-  mechanics             String?   // comma-separated
-  themes                String?   // comma-separated
+  publisher     String?
+  distributor   String?
+  release_year  Int?
+  msrp_cents    Int?
+  bgg_id        String? // BoardGameGeek ID
+  bgg_rating    Decimal? @db.Decimal(3, 1)
+  bgg_weight    Decimal? @db.Decimal(3, 2)
+  min_players   Int?
+  max_players   Int?
+  min_play_time Int? // minutes
+  max_play_time Int?
+  min_age       Int?
+  mechanics     String? // comma-separated
+  themes        String? // comma-separated
 
   // Sealed product fields
-  contents_description  String?   // e.g., "36 packs, 15 cards per pack"
-  cards_per_pack        Int?
-  packs_per_box         Int?
+  contents_description String? // e.g., "36 packs, 15 cards per pack"
+  cards_per_pack       Int?
+  packs_per_box        Int?
 
   inventory_items PosInventoryItem[]
   pricing         PosCatalogPricing[]
@@ -2369,14 +2431,14 @@ model PosCatalogCategory {
 }
 
 model PosCatalogPricing {
-  id                   String    @id @default(cuid())
-  catalog_product_id   String
-  store_id             String
+  id                    String    @id @default(cuid())
+  catalog_product_id    String
+  store_id              String
   last_sale_price_cents Int?
-  last_sale_date       DateTime? @db.Timestamptz()
-  avg_sale_price_cents Int?
-  velocity_per_week    Decimal   @default(0) @db.Decimal(10, 2)
-  updated_at           DateTime  @default(now()) @db.Timestamptz()
+  last_sale_date        DateTime? @db.Timestamptz()
+  avg_sale_price_cents  Int?
+  velocity_per_week     Decimal   @default(0) @db.Decimal(10, 2)
+  updated_at            DateTime  @default(now()) @db.Timestamptz()
 
   catalog_product PosCatalogProduct @relation(fields: [catalog_product_id], references: [id], onDelete: Cascade)
   store           PosStore          @relation(fields: [store_id], references: [id], onDelete: Cascade)
@@ -2424,8 +2486,8 @@ model PosOrder {
   created_at         DateTime  @default(now()) @db.Timestamptz()
   updated_at         DateTime  @default(now()) @db.Timestamptz()
 
-  store           PosStore          @relation(fields: [store_id], references: [id], onDelete: Cascade)
-  customer        PosCustomer?      @relation(fields: [customer_id], references: [id])
+  store           PosStore           @relation(fields: [store_id], references: [id], onDelete: Cascade)
+  customer        PosCustomer?       @relation(fields: [customer_id], references: [id])
   items           PosOrderItem[]
   shipping_labels PosShippingLabel[]
 
@@ -2437,16 +2499,16 @@ model PosOrder {
 }
 
 model PosOrderItem {
-  id                String   @id @default(cuid())
-  order_id          String
-  inventory_item_id String?
-  name              String
-  quantity          Int      @default(1)
-  price_cents       Int
-  total_cents       Int
+  id                   String   @id @default(cuid())
+  order_id             String
+  inventory_item_id    String?
+  name                 String
+  quantity             Int      @default(1)
+  price_cents          Int
+  total_cents          Int
   fulfilled            Boolean  @default(false)
   fulfillment_type     String   @default("merchant") // merchant, pod, 3pl
-  fulfillment_provider String?  // e.g. "printful", "shipbob"
+  fulfillment_provider String? // e.g. "printful", "shipbob"
   created_at           DateTime @default(now()) @db.Timestamptz()
 
   order          PosOrder          @relation(fields: [order_id], references: [id], onDelete: Cascade)
@@ -2465,7 +2527,7 @@ model PosShippingLabel {
   service_code            String
   tracking_number         String?
   tracking_url            String?
-  label_data              String?   // base64 PDF
+  label_data              String? // base64 PDF
   label_format            String    @default("pdf")
   shipment_cost_cents     Int       @default(0)
   other_cost_cents        Int       @default(0)
@@ -2488,16 +2550,16 @@ model PosShippingLabel {
 }
 
 model PosPackagingType {
-  id        String   @id @default(cuid())
-  store_id  String
-  name      String
-  sku       String?
-  length_in Decimal  @db.Decimal(5, 1)
-  width_in  Decimal  @db.Decimal(5, 1)
-  height_in Decimal  @db.Decimal(5, 1)
-  material  String   @default("cardboard")
-  weight_oz Int      @default(0)
-  active    Boolean  @default(true)
+  id         String   @id @default(cuid())
+  store_id   String
+  name       String
+  sku        String?
+  length_in  Decimal  @db.Decimal(5, 1)
+  width_in   Decimal  @db.Decimal(5, 1)
+  height_in  Decimal  @db.Decimal(5, 1)
+  material   String   @default("cardboard")
+  weight_oz  Int      @default(0)
+  active     Boolean  @default(true)
   created_at DateTime @default(now()) @db.Timestamptz()
 
   store PosStore @relation(fields: [store_id], references: [id], onDelete: Cascade)
@@ -2511,34 +2573,34 @@ model PosPackagingType {
 // ============================================================
 
 model PosNetworkTournament {
-  id                    String    @id @default(cuid())
-  name                  String
-  format                String?
-  game                  String    @default("MTG")
-  host_store_id         String
-  starts_at             DateTime  @db.Timestamptz()
-  ends_at               DateTime? @db.Timestamptz()
-  entry_fee_cents       Int       @default(0)
-  max_players_per_store Int?
+  id                     String    @id @default(cuid())
+  name                   String
+  format                 String?
+  game                   String    @default("MTG")
+  host_store_id          String
+  starts_at              DateTime  @db.Timestamptz()
+  ends_at                DateTime? @db.Timestamptz()
+  entry_fee_cents        Int       @default(0)
+  max_players_per_store  Int?
   prize_pool_description String?
-  status                String    @default("upcoming") // upcoming, active, completed, cancelled
-  settings              Json      @default("{}")
-  created_at            DateTime  @default(now()) @db.Timestamptz()
+  status                 String    @default("upcoming") // upcoming, active, completed, cancelled
+  settings               Json      @default("{}")
+  created_at             DateTime  @default(now()) @db.Timestamptz()
 
-  host_store            PosStore  @relation(fields: [host_store_id], references: [id])
-  participating_stores  PosNetworkTournamentStore[]
+  host_store           PosStore                    @relation(fields: [host_store_id], references: [id])
+  participating_stores PosNetworkTournamentStore[]
 
   @@index([status])
   @@map("pos_network_tournaments")
 }
 
 model PosNetworkTournamentStore {
-  id                     String   @id @default(cuid())
-  network_tournament_id  String
-  store_id               String
-  local_tournament_id    String?
-  player_count           Int      @default(0)
-  joined_at              DateTime @default(now()) @db.Timestamptz()
+  id                    String   @id @default(cuid())
+  network_tournament_id String
+  store_id              String
+  local_tournament_id   String?
+  player_count          Int      @default(0)
+  joined_at             DateTime @default(now()) @db.Timestamptz()
 
   network_tournament PosNetworkTournament @relation(fields: [network_tournament_id], references: [id], onDelete: Cascade)
   store              PosStore             @relation(fields: [store_id], references: [id])
@@ -2577,29 +2639,29 @@ model PosNetworkPlayerRating {
 // ============================================================
 
 model ApiKey {
-  id           String    @id @default(cuid())
+  id          String    @id @default(cuid())
   /// Display prefix shown in admin UIs. Format: ar_live_xxxxxxxx (8 chars after ar_live_)
   /// Full key is never stored — only the prefix + sha256 hash.
-  keyPrefix    String    @unique
+  keyPrefix   String    @unique
   /// SHA-256 hash of the full key. Lookup is by hash, not by prefix.
-  keyHash      String    @unique
-  name         String
+  keyHash     String    @unique
+  name        String
   /// Permission scopes — array of strings like 'read:users', 'read:venues:inventory'.
   /// Scope checks happen in the API middleware before the route runs.
-  scopes       String[]
+  scopes      String[]
   /// User who minted the key. Mostly informational — keys are tied to scopes, not a user identity.
-  createdById  String?
-  createdBy    User?     @relation(fields: [createdById], references: [id], onDelete: SetNull)
-  createdAt    DateTime  @default(now())
-  lastUsedAt   DateTime?
-  expiresAt    DateTime?
-  revokedAt    DateTime?
-  revokedBy    String?
+  createdById String?
+  createdBy   User?     @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime  @default(now())
+  lastUsedAt  DateTime?
+  expiresAt   DateTime?
+  revokedAt   DateTime?
+  revokedBy   String?
   /// Usage counter (denormalized — exact source-of-truth is ApiUsageLog).
   /// Cheap monitoring badge in the admin UI.
-  usageCount   Int       @default(0)
+  usageCount  Int       @default(0)
 
-  usageLogs    ApiUsageLog[]
+  usageLogs ApiUsageLog[]
 
   @@index([keyHash])
   @@index([createdById])
@@ -2607,20 +2669,20 @@ model ApiKey {
 }
 
 model ApiUsageLog {
-  id          String   @id @default(cuid())
-  apiKeyId    String?
-  apiKey      ApiKey?  @relation(fields: [apiKeyId], references: [id], onDelete: SetNull)
+  id        String   @id @default(cuid())
+  apiKeyId  String?
+  apiKey    ApiKey?  @relation(fields: [apiKeyId], references: [id], onDelete: SetNull)
   /// e.g. "/api/v1/users/lookup". Stored as raw path; do not include query string.
-  endpoint    String
-  method      String
-  status      Int
+  endpoint  String
+  method    String
+  status    Int
   /// Latency in ms — request received → response sent.
-  latencyMs   Int
+  latencyMs Int
   /// Best-effort. Reads X-Forwarded-For first, falls back to remoteAddress.
-  ip          String?
+  ip        String?
   /// Optional error code for fast filtering (e.g. "rate_limited", "scope_denied", "not_found").
-  errorCode   String?
-  timestamp   DateTime @default(now())
+  errorCode String?
+  timestamp DateTime @default(now())
 
   @@index([timestamp(sort: Desc)])
   @@index([apiKeyId, timestamp(sort: Desc)])
@@ -2641,38 +2703,38 @@ model RegisterEvent {
   /// Client-generated UUID. Idempotency primary — a retry of the same
   /// event must be a no-op. Combined with deviceId in the unique
   /// constraint to guarantee no double-apply across devices.
-  id           String   @id
+  id String @id
 
-  storeId      String
+  storeId  String
   /// Device identifier — typically a per-tablet UUID generated on first
   /// boot and persisted in Capacitor Preferences. Stable across app
   /// restarts; rotates only when the tablet's local data is wiped.
-  deviceId     String
+  deviceId String
 
   /// Lamport count for ordering. Each device increments per event.
   /// Server orders events by (lamport ASC, deviceId) when replaying.
   /// Wall clock is for humans; this is for causality.
-  lamport      Int
+  lamport Int
 
   /// Wall clock from the device when the event was created. Used for
   /// audit + display, NOT for ordering. Tablet clocks drift; trust
   /// Lamport for causality, this for "what time did the cashier ring
   /// this up."
-  wallTime     DateTime
+  wallTime DateTime
 
   /// Event type — sale, return, credit_apply, loyalty_redeem, etc.
   /// Server has a per-type handler that mutates pos_* tables.
-  type         String
+  type String
 
   /// Event-specific payload. Validated against per-type schema by the
   /// /api/sync endpoint. Free-form here so adding new event types
   /// doesn't require migrations.
-  payload      Json
+  payload Json
 
   /// Server-side outcome: applied | conflict | duplicate | rejected.
   /// 'duplicate' means the (deviceId, id) pair was seen before — sync
   /// retries hit this and treat it as success.
-  status       String   @default("applied")
+  status String @default("applied")
 
   /// When `status='conflict'`, structured info about why and what to
   /// surface in the reconciliation queue.
@@ -2680,10 +2742,10 @@ model RegisterEvent {
 
   /// When the server received and processed this event. Lags wallTime
   /// by however long the device was offline.
-  receivedAt   DateTime @default(now())
+  receivedAt DateTime @default(now())
 
   /// FK to PosStore — store-scoped event log; cascade with store.
-  store        PosStore @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  store PosStore @relation(fields: [storeId], references: [id], onDelete: Cascade)
 
   @@unique([deviceId, id], name: "RegisterEvent_idempotency")
   @@index([storeId, wallTime(sort: Desc)])
@@ -2714,30 +2776,30 @@ model RegisterEvent {
 // integrations / partner tools) — RegisterDevice is the human-facing path.
 // ============================================================
 model RegisterDevice {
-  id           String    @id @default(cuid())
-  store_id     String
+  id            String    @id @default(cuid())
+  store_id      String
   /// User.id of the Passport user who paired this device.
-  paired_by    String
+  paired_by     String
   /// Cashier-readable label: "Counter 1", "Mobile sale runner", "Mike's iPad".
-  display_name String
+  display_name  String
   /// sha256(plaintext_token). Plaintext is shown ONCE on pair, never stored.
-  token_hash   String    @unique
+  token_hash    String    @unique
   /// Stable per-tablet UUID generated by the device on first boot.
-  device_id    String
+  device_id     String
   /// Capability summary — informational. The actual scope is "register:write"
   /// equivalent and is enforced at the middleware layer.
-  scopes       String[]  @default(["register:write"])
-  last_seen_at DateTime?
+  scopes        String[]  @default(["register:write"])
+  last_seen_at  DateTime?
   /// Ops-side inventory: e.g. android model + capacitor version, captured on pair.
-  device_meta  Json?
-  revoked_at   DateTime?
+  device_meta   Json?
+  revoked_at    DateTime?
   /// Why it was revoked: 'manual' | 'staff_removed' | 'expired' | 'rotated'.
   revoke_reason String?
-  created_at   DateTime  @default(now()) @db.Timestamptz()
-  updated_at   DateTime  @default(now()) @updatedAt @db.Timestamptz()
+  created_at    DateTime  @default(now()) @db.Timestamptz()
+  updated_at    DateTime  @default(now()) @updatedAt @db.Timestamptz()
 
-  store         PosStore @relation(fields: [store_id], references: [id], onDelete: Cascade)
-  paired_by_user User    @relation(fields: [paired_by], references: [id])
+  store          PosStore @relation(fields: [store_id], references: [id], onDelete: Cascade)
+  paired_by_user User     @relation(fields: [paired_by], references: [id])
 
   @@index([store_id])
   @@index([store_id, revoked_at])
@@ -2770,7 +2832,7 @@ model RegisterPairingCode {
   claimed_device_id String?
   created_at        DateTime  @default(now()) @db.Timestamptz()
 
-  paired_by_user    User      @relation(fields: [paired_by], references: [id])
+  paired_by_user User @relation(fields: [paired_by], references: [id])
 
   @@index([store_id, expires_at])
   @@map("register_pairing_codes")
