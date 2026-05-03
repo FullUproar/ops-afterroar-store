@@ -142,6 +142,38 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   },
   callbacks: {
     /**
+     * Cross-origin redirect whitelist.
+     *
+     * NextAuth v5's default redirect() callback strips cross-origin
+     * callbackUrl values and bounces the user to baseUrl. That breaks
+     * every Afterroar → Full Uproar handoff (venue claim, OAuth
+     * handshake into HQ): callbackUrl=https://hq.fulluproar.com/...
+     * was being silently dropped, leaving signed-in users stranded on
+     * the Passport profile with no obvious way back to the venue
+     * claim flow.
+     *
+     * Whitelist the trusted Full Uproar properties. HTTPS only;
+     * exact-match hostnames only.
+     */
+    async redirect({ url, baseUrl }) {
+      if (url.startsWith('/')) return `${baseUrl}${url}`;
+      try {
+        const target = new URL(url);
+        if (target.origin === baseUrl) return url;
+        const trustedHosts = new Set([
+          'hq.fulluproar.com',
+          'www.fulluproar.com',
+          'fulluproar.com',
+        ]);
+        if (target.protocol === 'https:' && trustedHosts.has(target.hostname)) {
+          return url;
+        }
+      } catch {
+        // not a valid URL — fall through
+      }
+      return baseUrl;
+    },
+    /**
      * Age-gate enforcement on OAuth sign-up (distillery model).
      *
      * Existing users (have a User row already) bypass the gate; they're
