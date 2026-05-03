@@ -198,7 +198,7 @@ function LoginContent() {
         </button>
       </p>
 
-      <p className="mt-8 text-xs text-zinc-400/70">Afterroar Store Ops &mdash; by Full Uproar Games</p>
+      <p className="mt-8 text-xs text-zinc-400/80">Afterroar Store Ops &mdash; by Full Uproar Games</p>
     </div>
   );
 }
