@@ -1,0 +1,38 @@
+{
+  "version": "1.0.0",
+  "source": "Manus AI Tabletop Recommendation Profiler v1.0 (21 dimensions); extended by Mimir engineering with EMO_TENSION, EMO_HUMOR, CTX_PLAYER_COUNT (24 total)",
+  "clusters": {
+    "PSY": "Psychological & Motivational",
+    "SOC": "Social Dynamics",
+    "MEC": "Mechanical & Structural",
+    "AES": "Aesthetic & Experiential",
+    "CTX": "Contextual",
+    "EMO": "Emotional Palette"
+  },
+  "dimensions": [
+    { "id": "PSY_ACHIEVEMENT",     "cluster": "PSY", "low": "Casual/Social", "high": "Mastery/Optimization" },
+    { "id": "PSY_EXPLORATION",     "cluster": "PSY", "low": "Predictable/Scripted", "high": "Emergent/Sandbox" },
+    { "id": "PSY_SOCIAL",          "cluster": "PSY", "low": "Solitaire/Focused", "high": "Chatty/Interactive" },
+    { "id": "PSY_KILLER",          "cluster": "PSY", "low": "Pacifist/Builder", "high": "Aggressive/Dominant" },
+    { "id": "PSY_OPENNESS",        "cluster": "PSY", "low": "Traditional/Familiar", "high": "Avant-garde/Novel" },
+    { "id": "PSY_CONSCIENTIOUSNESS","cluster": "PSY", "low": "Spontaneous/Chaotic", "high": "Planner/Methodical" },
+    { "id": "PSY_EXTRAVERSION",    "cluster": "PSY", "low": "Introverted/Quiet", "high": "Extraverted/Loud" },
+    { "id": "PSY_AGREEABLENESS",   "cluster": "PSY", "low": "Cutthroat/Selfish", "high": "Cooperative/Empathetic" },
+    { "id": "PSY_NEUROTICISM",     "cluster": "PSY", "low": "Resilient/Calm", "high": "Anxious/Frustrated by loss" },
+    { "id": "SOC_COOP_COMP",       "cluster": "SOC", "low": "Pure Cooperative", "high": "Pure Competitive" },
+    { "id": "SOC_DIRECT_INDIRECT", "cluster": "SOC", "low": "Indirect/Multiplayer Solitaire", "high": "Direct Attack/Take-That" },
+    { "id": "SOC_TRUST_BETRAYAL",  "cluster": "SOC", "low": "Low Tolerance for Betrayal", "high": "High Enjoyment of Bluffing/Deception" },
+    { "id": "MEC_LUCK_SKILL",      "cluster": "MEC", "low": "Pure Luck/Randomness", "high": "Pure Deterministic Skill" },
+    { "id": "MEC_COMPLEXITY",      "cluster": "MEC", "low": "Very Light/Gateway", "high": "Extremely Heavy/Opaque" },
+    { "id": "MEC_STRATEGY",        "cluster": "MEC", "low": "Shallow/Tactical", "high": "Deep/Long-term Strategic" },
+    { "id": "MEC_ASYMMETRY",       "cluster": "MEC", "low": "Purely Symmetric", "high": "Highly Asymmetric Roles" },
+    { "id": "AES_THEME_MECH",      "cluster": "AES", "low": "Pure Abstract/Mechanics First", "high": "Pure Thematic/Ameritrash" },
+    { "id": "AES_NARRATIVE",       "cluster": "AES", "low": "No Story/Flavor Only", "high": "Deep Campaign/Story-Driven" },
+    { "id": "AES_COMPONENT",       "cluster": "AES", "low": "Minimalist/Cardboard", "high": "Premium/Miniatures/Overproduced" },
+    { "id": "CTX_TIME",            "cluster": "CTX", "low": "Micro/Filler", "high": "Epic/All-Day" },
+    { "id": "CTX_NOSTALGIA",       "cluster": "CTX", "low": "Original IP/New", "high": "Familiar Franchise/Nostalgic" },
+    { "id": "CTX_PLAYER_COUNT",    "cluster": "CTX", "low": "Solo/2P-preferring", "high": "Large-group-preferring" },
+    { "id": "EMO_TENSION",         "cluster": "EMO", "low": "Calm/Relaxed", "high": "High-stakes/Tense" },
+    { "id": "EMO_HUMOR",           "cluster": "EMO", "low": "Serious-tone-seeking", "high": "Humor/Levity-seeking" }
+  ]
+}
