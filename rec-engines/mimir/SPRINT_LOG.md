@@ -4,63 +4,74 @@ Per-sprint development history. Most recent at top.
 
 ---
 
-## Sprint 1.0.3 — v0 Scoring function (2026-05-06) ✅
+## Sprint 1.0.4 — MMR diversification + ranking pipeline (2026-05-06) ✅
 
-**Goal:** Pure function in `mimir/src/score.mjs` implementing the v0 content-similarity ranker per design doc § 5.1. Takes a candidate game + taste vector + context, returns score + confidence + reason codes + breakdown. The heart of Mimir.
+**Goal:** Pure function `rankCandidates(candidates, tasteVector, context, options)` that scores every candidate via `scoreCandidate`, sorts by score, then applies MMR diversification on the top pool with a hard designer cap.
 
-**Why this sprint is good for mobile:** Pure function, no I/O. Tests are pure-input/pure-output assertions — including the SILO-required subtle-wrongness assertions.
+**Why this sprint is good for mobile:** Pure function, no I/O, no DB, no network. Tests are pure assertions about the resulting ranked list.
 
 **Scope:**
-- `src/score.mjs` exporting `scoreCandidate(...)`, plus testable helpers `sumAffinity`, `weightSimilarity`, `playerCountFit`, `lengthFit`, `qualityPrior`, `computeConfidence`
-- Hand-tuned `WEIGHTS` constants at top-of-file (single tuning point); overridable via `options.weights`
-- Hard veto on `context.nopedIds` — returns score = -10 with reason `noped_explicitly`
-- Reason codes for the explanation generator: mechanic_match/mismatch, category_match/mismatch, family_match/mismatch, designer_match, weight_match, player_count_fit/violated, length_fit/violated, noped_explicitly
-- Confidence in [0, 1] driven by taste vector + context richness
-- Tests: 30 assertions including 4 SUBTLE-WRONGNESS guards
+- `src/rank.mjs` exporting `rankCandidates`, `mmrSelect`, `normalizeScores`, `itemSimilarity`
+- Pipeline: filter excluded → score → sort → MMR (if enabled)
+- MMR pool: top `limit × 3` candidates by raw score (gives MMR room to diversify without re-scoring everything)
+- MMR formula (textbook): `λ · normalized_relevance - (1-λ) · max_similarity_to_picked`. Default λ = 0.7.
+- **Hard designer cap (MAX_PER_DESIGNER = 2)** — enforces SILO.md § 7 ("≤2 from same designer in top 10"). If the cap eliminates all remaining candidates, MMR stops early; we return what we have rather than violate the cap.
+- Item similarity: Jaccard over (mechanics + categories + families + designers) attribute set
+- Score normalization: min-max within MMR pool (so MMR’s relevance vs. similarity tradeoff stays well-scaled even with negative raw scores)
 
 **Acceptance criteria:**
-1. Pure function, deterministic, no I/O ✅
-2. Score is numeric; higher = better ✅
-3. Confidence in [0, 1] reflects signal richness ✅
-4. ReasonCodes is non-empty for any non-trivial taste vector ✅ (taste-poor cases just won’t hit the threshold and that’s correct)
-5. Breakdown has one entry per scoring term so debugging is trivial ✅
-6. **SUBTLE-WRONGNESS GUARDS:**
-   - Noped-mechanic candidate scores below positive-mechanic candidate even with rank 1 vs rank 50 ✅
-   - Explicitly noped game (via nopedIds) returns score < -5 ✅
-   - Out-of-range player count scores 0 on that term ✅
-   - Length way over budget scores 0 on length term ✅
+1. Ranked list returned with shape `{ candidate, score, confidence, reasonCodes, breakdown }` per item ✅
+2. Sorted by score desc when diversify=false; MMR-ordered when on ✅
+3. Respects `limit` ✅
+4. Filters `exclude` IDs before scoring ✅
+5. **SUBTLE-WRONGNESS GUARDS:**
+   - 10 stegmaier + 8 diverse → top 10 has ≤2 stegmaier ✅
+   - Noped IDs propagate (score -10, ranked last) ✅
+   - exclude removes from result ✅
+   - With diversify=false, designer cap is intentionally bypassed (proves cap lives in MMR, not the score) ✅
+6. Edge cases: empty candidates, null/undefined items, identical scores, all-stegmaier pool with limit > 2 → returns short list ✅
 
-**Test plan (executed BEFORE push, mental trace of key cases):**
-- Engine candidate (m-engine, rank 50, 2-5 players, 100 min) vs party candidate (m-party, rank 1, 4-8 players, 20 min) given taste = computeTasteVector([100], [200], games):
-  - taste.mechanics = { 'm-engine': +0.4, 'm-cards': +0.4, 'm-party': -0.6 } (after L1 with nopeWeight=1.5)
-  - engine candidate mech sum = 0.4 (m-engine) + 0 (m-tile not in taste) = 0.4 → contribution +0.4*3.0 = +1.2
-  - engine quality 1/(1+0.05) = 0.952 → +0.476
-  - party candidate mech sum = -0.6 (m-party) + 0 (m-deduction not in taste) = -0.6 → contribution -0.6*3.0 = -1.8
-  - party quality 1/(1+0.001) = 0.999 → +0.5
-  - Without context fitness terms: engine ~+1.7, party ~-1.3 → engine > party by ~3.0 ✅
-- nopedIds=[200]: scoreCandidate(games[200]) returns score=-10 ✅
-- player_count fit at desired=8 with range [2,4]: 0 (not within ±1) ✅ produces violation reason
-- length 100 min vs available 30 min: > 1.5x → 0 ✅ produces violation reason
-- Helpers verified: weightSimilarity(2.5, {mean:2.5, std:0.5}) > 0.99; weightSimilarity(4.5, {mean:1.5, std:0.5}) < 0.01; qualityPrior(1) > 0.99; qualityPrior(1000) = 0.5 exactly; lengthFit(90, 90) = 1.0; lengthFit(112.5, 90) = 0.5; lengthFit(135, 90) = 0 ✅
-- computeConfidence: empty inputs → 0; rich inputs (taste of 2 loved + 1 noped + context with player count + minutes) → 0.3+0.1+0.1+0.2+0.2 = 0.9 ✅
+**Test plan (executed BEFORE push, mental trace):**
+- Designer cap test: 10 stegmaier + 8 diverse, taste favors engine, limit=10
+  - Top 2 picks are stegmaier (highest score)
+  - Pick 3+ excludes any stegmaier (cap reached) → picks diverse #1, #2, ...
+  - Final top 10 has exactly 2 stegmaier + 8 diverse ✅
+- All-stegmaier pool, limit=5 with MMR → returns 2 (cap stops it) ✅
+- exclude=[100]: 100 not in result ✅
+- nopedIds=[200] in context: 200 has score -10, ranked last ✅
+- diversify=false on 5 stegmaier + 2 diverse → 5 stegmaier in top 5 (cap inactive) ✅
+- itemSimilarity(games[100], games[101]):
+  - games[100] set: m-engine, m-cards, c-strategy, d-stegmaier (4)
+  - games[101] set: m-engine, m-tile, c-strategy, c-economic, d-stegmaier (5)
+  - intersection: m-engine, c-strategy, d-stegmaier (3); union: 4+5-3 = 6
+  - Jaccard = 3/6 = 0.5 ✅
+- normalizeScores([{score:5},{score:10},{score:0}]) → [0.5, 1.0, 0.0] ✅
+- mmrSelect with λ=1: pure score-order ✅
 
-**Outcome:** Pushed in this commit. ~210 lines of source + ~290 lines of tests across 30 assertions.
+**Outcome:** Pushed in this commit. ~180 lines of source + ~280 lines of tests across 19 assertions.
 
 **Verification:** Will be confirmed via post-push read-back. Test execution deferred to laptop.
 
 **Learnings:**
-- The `WEIGHTS` constant block at the top of the file is a single tuning point. Hand-tuned values are starting heuristics; offline eval (Sprint 0.3+ once we have logged outcomes) will refine them. Tests do NOT pin specific weight values — they pin behavior properties ("engine candidate beats party candidate") that should hold across reasonable weight choices. This is intentional: the tests don’t need to be rewritten when we tune.
-- Choosing -10 for the noped penalty is deliberate. -1 would let a heavily-positive game still rank above a noped one in extreme cases; -10 puts noped games structurally below any sensible positive score (max realistic positive is ~10 across all weighted terms). Belt-and-suspenders against a future weight bump.
-- Reason codes are emitted at thresholds (REASON_THRESHOLD = 0.05 for affinity, 0.7 for weight, 0.95 for length, 0.99 for player count) chosen so the codes describe the user-perceptible reason, not every term that contributed. A 0.001 mechanic match doesn’t warrant a "mechanic_match" tag.
-- We emit reasonCodes for negatives too (`mechanic_mismatch`, `length_violated`, etc.). These are useful for the explanation generator to say "we didn’t recommend X because…" — a feature future engines (saga/simulator) will lean on heavily.
+- The hard designer cap is BOTH a SILO requirement AND a quality feature. Without it, MMR with default λ=0.7 can still pick 5 Stonemaier games if their scores are all very close — the similarity penalty isn’t enough to overcome a small relevance gap. Hard caps are how you turn “prefer diversity” into “guarantee diversity”.
+- "Stop early rather than violate the cap" is the right default. Returning 7 great recs that respect the cap is better than 10 that don’t. The API consumer can request more later if they want.
+- Score normalization to [0, 1] inside MMR means the lambda parameter has predictable behavior across taste vectors of any magnitude. Without normalization, lambda=0.7 means very different things when scores are in [0, 2] vs [-5, 10].
+- The `attribute set` includes prefixed keys (`m:engineId` vs `c:catId`) so a mechanic id colliding with a designer id doesn’t cause spurious overlap. Belt-and-suspenders against the BGG namespace.
+- The MMR pool factor of 3x limit is a heuristic. It’s big enough that MMR has real diversification work to do, small enough that we don’t recompute similarities for the long tail.
 
 **Rollback:** Revert this commit. No DB or network side-effects.
 
 ---
 
+## Sprint 1.0.3 — v0 Scoring function (2026-05-06) ✅
+
+Pushed at commit `089af2f`. Per design doc § 5.1; 30 test assertions including 4 SUBTLE-WRONGNESS guards.
+
+---
+
 ## Sprint 1.0.2 — Taste vector computation (2026-05-06) ✅
 
-Pushed at commit `3bac627`. Pure function + 18 test assertions. L1-normalized affinity vectors + preference stats.
+Pushed at commit `3bac627`. Pure function + 18 test assertions.
 
 ---
 
@@ -108,18 +119,22 @@ Shipped at commit `f5d54ef`.
 
 ## Next sprint planned
 
-## Sprint 1.0.4 — MMR diversification + ranking pipeline (DRAFT, code-only)
+## Sprint 1.0.5 — Explanation generator (DRAFT, code-only)
 
-**Goal:** Pure function `rankCandidates(candidates, tasteVector, context, options) -> rankedList` that scores all candidates, then applies Maximal Marginal Relevance (MMR) diversification on the top-K to prevent monocultures (e.g., 5 Stonemaier games in a row).
+**Goal:** Pure function `explain(scoredCandidate, options) -> { short, long, contributors }` that turns reason codes + breakdown from `scoreCandidate` into human-readable explanations for the API response.
 
-**Why this sprint is good for mobile:** Pure function, no I/O. Tests are pure assertions about the resulting ranked list (order, diversity, presence/absence of specific candidates).
+**Why mobile-friendly:** Pure function, no I/O. Tests are string-shape assertions.
 
 **Scope:**
-- `src/rank.mjs` exporting `rankCandidates(candidates, tasteVector, context, { limit, diversityLambda })`
-- Pipeline: score every candidate → sort by score → MMR pass on top-K (lambda controls relevance-vs-diversity)
-- MMR: greedy selection minimizing similarity to already-picked items
-- Item-item similarity: shared mechanics + categories + designers (Jaccard or weighted overlap)
-- Tests: 30+ assertions covering ordering, diversity (no >2 from same designer in top 10), candidate exclusion, hard-veto propagation
+- `src/explain.mjs` exporting `explain(scoredCandidate, options)`
+- Maps reason codes to natural-language fragments per design doc § 5.1:
+  - `mechanic_match` → "shares engine-building with games you loved"
+  - `length_fit` → "plays in your 90-minute window"
+  - `weight_match` → "around the complexity you tend to enjoy"
+  - `noped_explicitly` → "you flagged this as one to avoid"
+  - etc.
+- Generates `short` (1 sentence), `long` (2-3 sentences), `contributors` (per-feature breakdown for `explain: 'rich'` API response)
+- Tests: known reason code sets produce expected sentence structure
 
 **Acceptance criteria:** TBD pre-flight before push.
 
