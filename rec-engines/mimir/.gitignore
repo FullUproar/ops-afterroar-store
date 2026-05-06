@@ -1,0 +1,17 @@
+# Mimir engine local artifacts (not committed)
+
+# Fetched BGG metadata (per-game JSON files). Re-fetchable from BGG;
+# no need to bloat the repo with thousands of XML payloads.
+tmp/
+
+# Node deps
+node_modules/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Env (should never end up here, but defense in depth)
+.env
+.env.local
+.env.*.local

@@ -7,9 +7,11 @@
   "scripts": {
     "migrate:dry-run": "node scripts/apply-migrations.mjs --dry-run",
     "migrate": "node scripts/apply-migrations.mjs",
+    "fetch-bgg": "node scripts/fetch-bgg.mjs",
     "test": "node --test tests/"
   },
   "dependencies": {
+    "fast-xml-parser": "^4.3.0",
     "pg": "^8.11.0"
   }
 }
