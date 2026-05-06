@@ -182,6 +182,9 @@ test('recommend: explain="short" omits diagnostics + contributors', () => {
 // ----------------------------------------------------------------------------
 
 test('SUBTLE WRONGNESS: noped game has hard-veto score (-10) end-to-end', () => {
+  // Use exclude_seeds=false to keep the noped seed in results so we can
+  // verify the hard-veto score path (default exclude_seeds=true would
+  // filter it out before scoring).
   const response = recommend(
     {
       surface: 'hq_picker',
@@ -190,16 +193,14 @@ test('SUBTLE WRONGNESS: noped game has hard-veto score (-10) end-to-end', () => 
         seed_loved: [100],
         seed_noped: [200],
       },
-      options: { limit: 10 },
+      options: { limit: 10, exclude_seeds: false },
     },
     games
   );
-  // 200 is in catalog and seed_noped → hard veto
   const partyResult = response.results.find(r => r.game_id === 200);
-  if (partyResult) {
-    assert.ok(partyResult.score < -5, `Noped game should have penalty score, got ${partyResult.score}`);
-    assert.ok(partyResult.explanation.reason_codes.includes('noped_explicitly'));
-  }
+  assert.ok(partyResult, 'With exclude_seeds=false, seed_noped should appear in results');
+  assert.ok(partyResult.score < -5, `Noped game should have penalty score, got ${partyResult.score}`);
+  assert.ok(partyResult.explanation.reason_codes.includes('noped_explicitly'));
 });
 
 test('SUBTLE WRONGNESS: end-to-end designer cap (≤2 stegmaier in top 10)', () => {
@@ -260,13 +261,15 @@ test('SUBTLE WRONGNESS: player_count constraint propagates end-to-end', () => {
 });
 
 test('SUBTLE WRONGNESS: noped game absent when also passed in noped_ids', () => {
+  // noped_ids is independent of seed_noped, so exclude_seeds doesn't filter
+  // these. Hard-veto path should still apply.
   const response = recommend(
     {
       surface: 'hq_picker',
       caller: {},
       context: {
         seed_loved: [100],
-        noped_ids: [101], // not in seed_noped, but also vetoed
+        noped_ids: [101],
       },
       options: { limit: 10 },
     },
@@ -305,7 +308,6 @@ test('recommend: empty seed list returns low-confidence results', () => {
     },
     games
   );
-  // Without any seed signal, confidence should be low (or zero)
   for (const r of response.results) {
     assert.ok(r.confidence < 0.5);
   }
@@ -321,7 +323,6 @@ test('recommend: include_low_confidence=false filters low-confidence results', (
     },
     games
   );
-  // No seed, no context → all confidence near 0 → all filtered
   assert.equal(response.results.length, 0);
 });
 
@@ -344,8 +345,87 @@ test('recommend: deterministic when requestId supplied', () => {
 
 test('recommend: missing context handled gracefully', () => {
   const response = recommend(
-    { surface: 'hq_picker', caller: {} }, // no context, no options
+    { surface: 'hq_picker', caller: {} },
     games
   );
   assert.ok(Array.isArray(response.results));
+});
+
+// ----------------------------------------------------------------------------
+// exclude_seeds (Sprint 1.0.11): default true filters seed games from results
+// ----------------------------------------------------------------------------
+
+test('exclude_seeds: default true filters seed_loved games from results', () => {
+  const response = recommend(
+    {
+      surface: 'hq_picker',
+      caller: {},
+      context: { seed_loved: [100, 101] },
+      options: { limit: 10 },
+    },
+    games
+  );
+  assert.equal(response.results.find(r => r.game_id === 100), undefined);
+  assert.equal(response.results.find(r => r.game_id === 101), undefined);
+});
+
+test('exclude_seeds: default true filters seed_noped games from results', () => {
+  const response = recommend(
+    {
+      surface: 'hq_picker',
+      caller: {},
+      context: { seed_loved: [100], seed_noped: [200] },
+      options: { limit: 10 },
+    },
+    games
+  );
+  assert.equal(response.results.find(r => r.game_id === 200), undefined);
+});
+
+test('exclude_seeds: false opts out, seed_loved appears (legacy behavior)', () => {
+  const response = recommend(
+    {
+      surface: 'hq_picker',
+      caller: {},
+      context: { seed_loved: [100] },
+      options: { limit: 10, exclude_seeds: false },
+    },
+    games
+  );
+  assert.ok(
+    response.results.find(r => r.game_id === 100),
+    'With exclude_seeds=false, seed_loved should appear in results'
+  );
+});
+
+test('exclude_seeds: false opts out, seed_noped gets hard-veto end-to-end', () => {
+  const response = recommend(
+    {
+      surface: 'hq_picker',
+      caller: {},
+      context: { seed_loved: [100], seed_noped: [200] },
+      options: { limit: 10, exclude_seeds: false },
+    },
+    games
+  );
+  const noped = response.results.find(r => r.game_id === 200);
+  assert.ok(noped, 'With exclude_seeds=false, seed_noped should appear in results');
+  assert.ok(noped.score < -5);
+  assert.ok(noped.explanation.reason_codes.includes('noped_explicitly'));
+});
+
+test('exclude_seeds: explicit exclude takes precedence over seeds', () => {
+  // Even with exclude_seeds=true (default), context.exclude items are filtered.
+  // This test confirms the combined exclude set works when both sources contribute.
+  const response = recommend(
+    {
+      surface: 'hq_picker',
+      caller: {},
+      context: { seed_loved: [100] },
+      options: { limit: 10, exclude: [101] },
+    },
+    games
+  );
+  assert.equal(response.results.find(r => r.game_id === 100), undefined);
+  assert.equal(response.results.find(r => r.game_id === 101), undefined);
 });

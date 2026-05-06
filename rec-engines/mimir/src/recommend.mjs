@@ -56,10 +56,18 @@ export function recommend(request, gameMetadata, options = {}) {
     nopedIds,
   };
 
+  // exclude_seeds defaults to true: don't recommend games the player just
+  // told us they love or hate. Set to false to opt out (e.g. eval harness).
+  const excludeSeeds = reqOptions.exclude_seeds !== false;
+  const exclude = [...(reqOptions.exclude || [])];
+  if (excludeSeeds) {
+    exclude.push(...seedLoved, ...seedNoped);
+  }
+
   const ranked = rankCandidates(candidatePool, tasteVector, scorerContext, {
     limit: reqOptions.limit ?? DEFAULT_LIMIT,
     diversify: reqOptions.diversify !== false,
-    exclude: reqOptions.exclude || [],
+    exclude,
   });
 
   // Confidence filter: low-confidence requests should optionally return
