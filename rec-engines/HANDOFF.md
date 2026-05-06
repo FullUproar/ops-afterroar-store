@@ -2,7 +2,7 @@
 
 **Purpose:** Cross-session context restoration. When you sit down at a laptop after working on mobile (or vice versa), read this + the active engine's `SPRINT_LOG.md` to restore full context.
 
-**Last updated:** 2026-05-06 (post Sprint 1.0.19, seidr cosine matcher + subtle-wrongness suite)
+**Last updated:** 2026-05-06 (post Sprint 1.0.20, seidr explanation generator + offline CLI runner; end-to-end flow works)
 
 ---
 
@@ -22,7 +22,7 @@ Full architectural rationale: [`mimir/docs/recommendation-engine-design.md`](./m
 |---|---|---|---|
 | `mimir` | Phase 0 | **End-to-end validated against local Postgres + real fixture data.** 168/168 tests pass. Code-side Sprint 0.3 done in sandbox; user-side Sprint 0.3 (apply against own Neon) is the only remaining blocker. | Sprint 1.0.15 — schema extension for dimension framework |
 | `huginn` | Phase 0 | Scaffold-only. Implementation deferred to Phase 1+ (≥50 active users with real edges). | Sprint 1.0.12 |
-| `seidr` | Phase 0 | Research + quiz UI + LLM pipeline + 7 reference profiles + schema + cosine matcher with subtle-wrongness suite. 131/131 seidr tests pass. Pipeline runs end-to-end (player profile from quiz UI → match() → ranked recommendations). Awaiting top-500 LLM run for full corpus. | Sprint 1.0.19 |
+| `seidr` | Phase 0 | Research + quiz UI + LLM pipeline + 7 reference profiles + schema + cosine matcher + explanation generator + offline CLI runner. **154/154 seidr tests pass.** End-to-end flow works (player profile → match → explanations); CLI runnable today (`scripts/run-rec.mjs --archetype heavy-strategist --bgg-dir ../mimir/tests/fixtures/bgg`). Awaiting top-500 LLM run for full corpus. | Sprint 1.0.20 |
 | `saga` | Phase 0 | Scaffold + architecture locked in 3 design docs. Implementation deferred until graduation thresholds met (≥3000 recap records, ≥200 active players with ≥10 recaps each, ≥6mo corpus). Estimate 12–18 months post-launch. | Sprint 1.0.17 (current) |
 
 ## What’s in mimir/ right now
@@ -186,6 +186,7 @@ The next mimir-side sprint planned is **1.0.18 — Game-profiling v0** (LLM-gene
 - Sprint 1.0.16: seidr scaffold + research artifacts + deployable quiz UI (5 commits, `c60771e` → `62f0279`)
 - Sprint 1.0.17: saga scaffold + 3 architecture docs (`4b4520a`)
 - Sprint 1.0.18: seidr game-profiling pipeline + 7 reference profiles + schema (`45ec173`)
-- Sprint 1.0.19: seidr cosine matcher + 8 subtle-wrongness assertions + 2 integration tests (current)
+- Sprint 1.0.19: seidr cosine matcher + 8 subtle-wrongness assertions + 2 integration tests (`b745c5a`)
+- Sprint 1.0.20: seidr explanation generator + offline CLI runner (current)
 
-~4.5k lines of source code, ~8k+ lines of tests + docs. End-state: mimir 168/168, seidr 131/131; migration runners validated against real Postgres; four engines registered (mimir running, huginn scaffold, seidr matcher-ready, saga architecture-locked); 22 rec_* tables in schema (sandbox-validated, not yet on user's Neon).
+~5k lines of source code, ~9k+ lines of tests + docs. End-state: mimir 168/168, seidr 154/154; migration runners validated against real Postgres; four engines registered (mimir running, huginn scaffold, seidr end-to-end, saga architecture-locked); 22 rec_* tables in schema (sandbox-validated, not yet on user's Neon). **Seidr is fully runnable end-to-end via `scripts/run-rec.mjs`.**

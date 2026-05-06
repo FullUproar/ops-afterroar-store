@@ -4,6 +4,19 @@ Per-sprint development history. Most recent at top.
 
 ---
 
+## Sprint 1.0.20 — Seidr explanation generator + offline CLI runner (2026-05-06) ✅
+
+Closes the seidr loop end-to-end. Pure-function `explain()` produces natural-language explanations from matcher output; `scripts/run-rec.mjs` is an offline CLI that bridges quiz UI exports to recommendations with explanations. **Mimir 168/168 unchanged.** seidr now 154/154 (was 131; +23).
+
+- `seidr/src/explain.mjs`: pure-function explanation generator with short/rich detail modes, pole-descriptor framing from real taxonomy
+- `seidr/scripts/run-rec.mjs`: CLI with built-in archetypes + quiz JSON loading + BGG metadata enrichment
+- `seidr/tests/explain.test.mjs`: 23 tests including integration against real reference profiles
+- All 3 built-in archetypes (heavy-strategist, party-extravert, coop-puzzler) produce sensible top-3 recommendations, hand-verified
+
+Full sprint detail in `seidr/SPRINT_LOG.md` § Sprint 1.0.20.
+
+---
+
 ## Sprint 1.0.19 — Seidr cosine similarity matcher + subtle-wrongness suite (2026-05-06) ✅
 
 Closes the seidr matching loop. With game profiles writeable (1.0.18) and player profiles emitted by the quiz UI (1.0.16), the matcher converts both into a ranked recommendation list. **No mimir code changed; mimir 168/168 still pass.** Pure additive work in `seidr/src/match.mjs` + `seidr/tests/match.test.mjs`.

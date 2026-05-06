@@ -4,6 +4,83 @@ Per-sprint development history.
 
 ---
 
+## Sprint 1.0.20 — Explanation generator + offline CLI runner (2026-05-06) ✅
+
+**Why:** Per Credo's "no black-box rankings" principle, every recommendation must be defensible in plain English. Sprint 1.0.19 produced ranked recommendations with `contributingDims` diagnostics; Sprint 1.0.20 turns those diagnostics into natural-language explanations. Plus an offline CLI runner that closes the seidr loop end-to-end (player profile JSON → recommendations + explanations) for demos and pre-launch validation.
+
+**Goal:** Pure-function `explain(recommendation, dimensionsJson, options) -> string` with 'short' and 'rich' detail modes. Plus `scripts/run-rec.mjs` that loads a player profile (or built-in archetype) + reference profiles + optional BGG metadata → invokes match() → prints ranked recommendations with explanations.
+
+**What landed:**
+- `src/explain.mjs` (~140 lines, pure function):
+  * `explain(rec, dimensions, options)` — short or rich detail
+  * `explainAll(matchResult, dimensions, options)` — batch wrapper
+  * Frames negative contributions as "Note: you lean X but this game leans Y"
+  * Uses real low/high pole descriptors from dimensions.json when player+game profiles provided
+  * Score buckets: solid (>0.5) / moderate (>0.2) / weak (>0) / poor (<=0)
+  * Filters dims with |contribution| < 0.05 (noise floor)
+  * Cold-start fallback message for empty contributingDims + low cosine
+- `scripts/run-rec.mjs` (~250 lines): offline CLI runner. Modes:
+  * `--player-profile <path>` for quiz UI exports
+  * `--archetype heavy-strategist|party-extravert|coop-puzzler` for built-in test archetypes
+  * `--bgg-dir <path>` to enable designer cap + player-count filter + game-name display
+  * `--player-count <n>`, `--exclude <id,id>`, `--limit <n>`, `--no-diversify`, `--detail short|rich`, `--json`
+- `tests/explain.test.mjs` — 23 tests:
+  * Happy path for both detail levels
+  * Negative-contribution surfacing as "Note:" line
+  * Player+game pole-descriptor framing (uses real dimensions.json descriptors)
+  * Score-bucket framing (solid/moderate/weak/poor)
+  * Noise-floor filtering at |contribution| < 0.05
+  * Cold-start messaging
+  * Input validation
+  * Integration test against real reference profiles + heavy-strategist player
+
+**Smoke tests of CLI (executed in this sprint):**
+```
+$ node scripts/run-rec.mjs --archetype heavy-strategist --bgg-dir ../mimir/tests/fixtures/bgg --limit 5
+1. Terraforming Mars  score=0.979  -- aligned on MEC_STRATEGY, PSY_ACHIEVEMENT, PSY_CONSCIENTIOUSNESS
+2. Ark Nova           score=0.953  -- aligned on PSY_CONSCIENTIOUSNESS, MEC_STRATEGY, PSY_ACHIEVEMENT
+3. Twilight Imperium  score=0.450  -- aligned on MEC_STRATEGY + MEC_COMPLEXITY + CTX_TIME
+   (lower-than-expected because heavy-strategist archetype has PSY_KILLER=-0.3
+   but TI4 has PSY_KILLER=0.7 -- the conflict-aversion drags it down. Correct.)
+
+$ node scripts/run-rec.mjs --archetype party-extravert ...
+1. Codenames          score=0.954  -- the only party game in the corpus, correctly #1
+
+$ node scripts/run-rec.mjs --archetype coop-puzzler ...
+1. Pandemic           score=0.918  -- the only coop game, correctly #1
+2. Wingspan           score=0.578  -- peaceful low-conflict
+3. Cascadia           score=0.581  -- peaceful low-conflict
+```
+
+All three archetypes produce sensible, ordering-correct, well-explained recommendations.
+
+**Acceptance criteria:**
+1. Pure function explain() — no I/O, no side effects ✅
+2. Both 'short' and 'rich' detail modes produce different outputs ✅
+3. Pole-descriptor framing uses real dimension taxonomy strings ✅
+4. CLI runner works with --archetype mode (no input file needed) ✅
+5. CLI runner accepts a player profile JSON via --player-profile ✅
+6. CLI integrates with --bgg-dir for designer cap + player-count + game names ✅
+7. seidr 154/154 tests pass (was 131; +23) ✅
+8. Mimir 168/168 regression-clean ✅
+
+**Test plan (executed BEFORE push):**
+- `npm test` in seidr → 154/154 ✅
+- `cd ../mimir && npm test` → 168/168 ✅
+- CLI smoke for all 3 archetypes ✅ (results above)
+
+**Outcome:** Pushed in this commit. Seidr can now produce end-to-end recommendations with natural-language explanations, runnable from a shell with no DB / LLM / network. The CLI is the artifact the user can use to demo seidr at a game night the moment they get back to a laptop.
+
+**Learnings:**
+- **Pole-descriptor framing reveals dimension taxonomy quality.** The integration test of "you both lean deep/long-term strategic on MEC_STRATEGY" reads naturally because the dimension taxonomy in `data/dimensions.json` was carefully written with prose-friendly low/high pole descriptors. This pays off here: explanations are good because the upstream taxonomy was good. Validates the time spent on dimension naming in Sprint 1.0.16.
+- **Built-in archetypes are diagnostic gold.** The 3 archetypes (heavy-strategist, party-extravert, coop-puzzler) cover the dimension space well enough that running the CLI with each immediately reveals if any dimension's effect is broken. They're the equivalent of golden-master tests at the human-readable level. Should add 2-3 more (high-killer, narrative-seeker, casual-family) in a future iteration.
+- **The CLI runner bridges the offline-development gap.** With it, the user can take the deployed quiz UI, export a profile JSON, hand it to this CLI, and see what would happen — without any production wiring. That's the pre-launch validation surface I've been working toward without explicitly naming. Low-risk, high-information loop.
+- **Discipline note: held the line on quiz UI not pivoting.** The temptation to wire `match()` into the quiz UI is real — it'd produce something visually impressive. But the user explicitly said no recommendations in the quiz UI until game profiling completes. A separate CLI runner satisfies the demo need without violating that boundary. (When the user is ready to integrate into the quiz UI, doing so is now a 50-line surface-level change, since the matcher + explainer are already pure functions.)
+
+**Rollback:** Revert this sprint's commit. Pure additive code; no schema changes; no other engines affected.
+
+---
+
 ## Sprint 1.0.19 — Cosine similarity matcher + subtle-wrongness suite (2026-05-06) ✅
 
 **Why:** With the 24-dim player profile coming out of the quiz UI (1.0.16) and game profiles writeable to `rec_seidr_game_profile` (1.0.18), the matching layer is the next durable step. A pure-function cosine matcher closes the loop — for any (player, game-corpus) pair, seidr can now rank candidates.
