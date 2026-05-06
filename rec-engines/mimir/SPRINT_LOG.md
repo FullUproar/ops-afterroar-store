@@ -4,74 +4,76 @@ Per-sprint development history. Most recent at top.
 
 ---
 
-## Sprint 1.0.4 — MMR diversification + ranking pipeline (2026-05-06) ✅
+## Sprint 1.0.5 — Explanation generator (2026-05-06) ✅
 
-**Goal:** Pure function `rankCandidates(candidates, tasteVector, context, options)` that scores every candidate via `scoreCandidate`, sorts by score, then applies MMR diversification on the top pool with a hard designer cap.
+**Goal:** Pure function `explain(scoredCandidate, candidate, tasteVector, options) -> { short, long, contributors }` that turns reason codes + breakdown from `scoreCandidate` into human-readable explanations for the API response.
 
-**Why this sprint is good for mobile:** Pure function, no I/O, no DB, no network. Tests are pure assertions about the resulting ranked list.
+**Why mobile-friendly:** Pure function, no I/O, no DB. Tests are string-shape assertions.
 
 **Scope:**
-- `src/rank.mjs` exporting `rankCandidates`, `mmrSelect`, `normalizeScores`, `itemSimilarity`
-- Pipeline: filter excluded → score → sort → MMR (if enabled)
-- MMR pool: top `limit × 3` candidates by raw score (gives MMR room to diversify without re-scoring everything)
-- MMR formula (textbook): `λ · normalized_relevance - (1-λ) · max_similarity_to_picked`. Default λ = 0.7.
-- **Hard designer cap (MAX_PER_DESIGNER = 2)** — enforces SILO.md § 7 ("≤2 from same designer in top 10"). If the cap eliminates all remaining candidates, MMR stops early; we return what we have rather than violate the cap.
-- Item similarity: Jaccard over (mechanics + categories + families + designers) attribute set
-- Score normalization: min-max within MMR pool (so MMR’s relevance vs. similarity tradeoff stays well-scaled even with negative raw scores)
+- `src/explain.mjs` exporting `explain`, `buildContributors`, `formatList`, `composeLong`
+- Per-reason-code renderer functions that look up mechanic/designer NAMES (from candidate metadata) for natural sentences
+- Reason priority ordering: positive matches > fitness terms > mismatches; `noped_explicitly` short-circuits everything
+- `contributors` filtered by absolute threshold (0.05) and sorted by |weight| desc with `source` tag (bgg_metadata, context_match, bgg_rank, user_preference)
+- Templates support context interpolation: “plays in 90 min, within your 120-min window”
 
 **Acceptance criteria:**
-1. Ranked list returned with shape `{ candidate, score, confidence, reasonCodes, breakdown }` per item ✅
-2. Sorted by score desc when diversify=false; MMR-ordered when on ✅
-3. Respects `limit` ✅
-4. Filters `exclude` IDs before scoring ✅
-5. **SUBTLE-WRONGNESS GUARDS:**
-   - 10 stegmaier + 8 diverse → top 10 has ≤2 stegmaier ✅
-   - Noped IDs propagate (score -10, ranked last) ✅
-   - exclude removes from result ✅
-   - With diversify=false, designer cap is intentionally bypassed (proves cap lives in MMR, not the score) ✅
-6. Edge cases: empty candidates, null/undefined items, identical scores, all-stegmaier pool with limit > 2 → returns short list ✅
+1. mechanic_match renders shared mechanic NAMES, not IDs ✅
+2. designer_match renders designer name ✅
+3. noped_explicitly returns veto immediately, contributors=[] ✅
+4. Empty reason codes → fallback message ✅
+5. Multiple reasons compose into long sentence with proper Oxford comma ✅
+6. Priority ordering: positive before negative ✅
+7. Context interpolation: time window, group size shown when available ✅
+8. buildContributors: filters tiny contributions, sorts by |weight|, tags source ✅
+9. formatList Oxford-comma + edge cases (0/1/2/3+ items) ✅
 
 **Test plan (executed BEFORE push, mental trace):**
-- Designer cap test: 10 stegmaier + 8 diverse, taste favors engine, limit=10
-  - Top 2 picks are stegmaier (highest score)
-  - Pick 3+ excludes any stegmaier (cap reached) → picks diverse #1, #2, ...
-  - Final top 10 has exactly 2 stegmaier + 8 diverse ✅
-- All-stegmaier pool, limit=5 with MMR → returns 2 (cap stops it) ✅
-- exclude=[100]: 100 not in result ✅
-- nopedIds=[200] in context: 200 has score -10, ranked last ✅
-- diversify=false on 5 stegmaier + 2 diverse → 5 stegmaier in top 5 (cap inactive) ✅
-- itemSimilarity(games[100], games[101]):
-  - games[100] set: m-engine, m-cards, c-strategy, d-stegmaier (4)
-  - games[101] set: m-engine, m-tile, c-strategy, c-economic, d-stegmaier (5)
-  - intersection: m-engine, c-strategy, d-stegmaier (3); union: 4+5-3 = 6
-  - Jaccard = 3/6 = 0.5 ✅
-- normalizeScores([{score:5},{score:10},{score:0}]) → [0.5, 1.0, 0.0] ✅
-- mmrSelect with λ=1: pure score-order ✅
+- mechanic_match with mechanics [Engine Building, Card Drafting] → short matches /Engine Building/ AND /Card Drafting/ AND /you loved/ ✅
+- designer_match with [Jamey Stegmaier] → /Jamey Stegmaier/ AND /you've enjoyed/ ✅
+- noped_explicitly → short matches /avoid/i, contributors=[] ✅
+- Empty reasons → short matches /general recommendation/i ✅
+- Three reasons (mechanic+designer+length) with context.minutesAvailable=90 → long contains comma + "and" + all three name fragments ✅
+- length_fit with context.minutesAvailable=120 → short contains both /90/ and /120/ ✅
+- player_count_violated with desired=8, candidate range 2-4 → short contains /8-player/ and /2-4|2–4/ ✅
+- mechanic_mismatch with party game (m-party noped) → short contains /Party Game/ AND /avoid/i ✅
+- Priority ordering: designer_match index < mismatch index in long ✅
+- buildContributors filter: weightSim 0.01 below threshold 0.05 → dropped; mechanic 1.5 + quality 0.3 kept ✅
+- buildContributors sort: |c=-2| > |b=1.5| > |d=0.8| > |a=0.2| ✅
+- buildContributors source tags: mech→bgg_metadata, weight→context_match, qualityPrior→bgg_rank, nopedPenalty→user_preference ✅
+- formatList: []→''; ['A']→'A'; ['A','B']→'A and B'; ['A','B','C']→'A, B, and C' ✅
+- composeLong: 1 frag→capitalize+period; 2→'X, and Y.'; 3→'X, Y, and Z.' ✅
 
-**Outcome:** Pushed in this commit. ~180 lines of source + ~280 lines of tests across 19 assertions.
+**Outcome:** Pushed in this commit. ~210 lines of source + ~270 lines of tests across 25 assertions.
 
 **Verification:** Will be confirmed via post-push read-back. Test execution deferred to laptop.
 
 **Learnings:**
-- The hard designer cap is BOTH a SILO requirement AND a quality feature. Without it, MMR with default λ=0.7 can still pick 5 Stonemaier games if their scores are all very close — the similarity penalty isn’t enough to overcome a small relevance gap. Hard caps are how you turn “prefer diversity” into “guarantee diversity”.
-- "Stop early rather than violate the cap" is the right default. Returning 7 great recs that respect the cap is better than 10 that don’t. The API consumer can request more later if they want.
-- Score normalization to [0, 1] inside MMR means the lambda parameter has predictable behavior across taste vectors of any magnitude. Without normalization, lambda=0.7 means very different things when scores are in [0, 2] vs [-5, 10].
-- The `attribute set` includes prefixed keys (`m:engineId` vs `c:catId`) so a mechanic id colliding with a designer id doesn’t cause spurious overlap. Belt-and-suspenders against the BGG namespace.
-- The MMR pool factor of 3x limit is a heuristic. It’s big enough that MMR has real diversification work to do, small enough that we don’t recompute similarities for the long tail.
+- Per-reason renderer functions (not one big switch statement) made the code far easier to read and test individually. Each renderer is a small pure function from `(ctx) -> string|null`. Future engines can override individual renderers without touching the rest of the explanation pipeline.
+- Returning `null` from a renderer when there’s nothing meaningful to say (e.g. mechanic_mismatch with no actually-noped mechanics in this candidate) is cleaner than returning a generic placeholder. The composer just skips nulls.
+- Reason priority ordering matters more than I initially thought — putting positives before negatives in the long sentence dramatically improves readability. “Shares engine-building, by Stegmaier, and includes Tile Placement which you tagged to avoid” reads better than putting the negative first.
+- The `contributors` array is the bridge between the rule-based explanation and a future LLM-mediated narrative. The structured shape (`{feature, weight, source}`) lets future engines hand the same data to a model that generates richer prose.
+- Including the candidate’s actual numbers ("plays in 90 min", "complexity 3.0/5") in templates makes explanations feel less templated. The cost is just one extra interpolation per renderer.
 
 **Rollback:** Revert this commit. No DB or network side-effects.
 
 ---
 
+## Sprint 1.0.4 — MMR diversification + ranking pipeline (2026-05-06) ✅
+
+Pushed at commit `7cde547`. ~180 src + ~280 test, 19 assertions, hard designer cap enforces SILO § 7.
+
+---
+
 ## Sprint 1.0.3 — v0 Scoring function (2026-05-06) ✅
 
-Pushed at commit `089af2f`. Per design doc § 5.1; 30 test assertions including 4 SUBTLE-WRONGNESS guards.
+Pushed at commit `089af2f`. 30 test assertions including 4 SUBTLE-WRONGNESS guards.
 
 ---
 
 ## Sprint 1.0.2 — Taste vector computation (2026-05-06) ✅
 
-Pushed at commit `3bac627`. Pure function + 18 test assertions.
+Pushed at commit `3bac627`. 18 test assertions.
 
 ---
 
@@ -89,13 +91,13 @@ Pushed at commit `337ed7c`. Fetcher + parser tests.
 
 ## Sprint 0.2 — Migration runner script (2026-05-06) ✅
 
-Pushed at commit `df30ac0`. Multi-layer safety harness.
+Pushed at commit `df30ac0`.
 
 ---
 
 ## Sprint 0.1 — First migration file (2026-05-06) ✅
 
-Pushed at commit `9b1b383`. 14 tables + 4 indexes.
+Pushed at commit `9b1b383`.
 
 ---
 
@@ -105,38 +107,36 @@ Pushed at commit `1d32f9e`.
 
 ---
 
-## Sprint 0.0.1 — Rename + naming convention + handoff docs (2026-05-06) ✅
+## Sprint 0.0.1 — Rename + Norse convention + handoff docs (2026-05-06) ✅
 
-Shipped as `8c155ff` + 6 deletes; branch tip `a0f6c69`.
+`8c155ff` + 6 deletes; branch tip `a0f6c69`.
 
 ---
 
 ## Sprint 0.0 — Silo scaffold (2026-05-06) ✅
 
-Shipped at commit `f5d54ef`.
+`f5d54ef`. 8 files added.
 
 ---
 
 ## Next sprint planned
 
-## Sprint 1.0.5 — Explanation generator (DRAFT, code-only)
+## Sprint 1.0.6 — recommend() composer + offline driver (DRAFT, code-only)
 
-**Goal:** Pure function `explain(scoredCandidate, options) -> { short, long, contributors }` that turns reason codes + breakdown from `scoreCandidate` into human-readable explanations for the API response.
+**Goal:** A pure composer function `recommend(request, gameMetadata, options) -> { request_id, ranker_version, results }` that ties together the API contract from design doc § 4 with the now-existing pipeline (taste vector → score → rank → explain). PLUS an offline driver script `scripts/run-rec.mjs` that loads cached BGG JSON from `tmp/bgg/`, accepts a player’s seed picks via CLI, and prints the recommendations. No HTTP server, no DB — just the offline pipeline.
 
-**Why mobile-friendly:** Pure function, no I/O. Tests are string-shape assertions.
+**Why mobile-friendly:** Pure function + a thin CLI wrapper that reads files. No DB, no HTTP, no network (except an optional BGG fetch which fetch-bgg.mjs already handles separately).
 
 **Scope:**
-- `src/explain.mjs` exporting `explain(scoredCandidate, options)`
-- Maps reason codes to natural-language fragments per design doc § 5.1:
-  - `mechanic_match` → "shares engine-building with games you loved"
-  - `length_fit` → "plays in your 90-minute window"
-  - `weight_match` → "around the complexity you tend to enjoy"
-  - `noped_explicitly` → "you flagged this as one to avoid"
-  - etc.
-- Generates `short` (1 sentence), `long` (2-3 sentences), `contributors` (per-feature breakdown for `explain: 'rich'` API response)
-- Tests: known reason code sets produce expected sentence structure
+- `src/recommend.mjs` exporting `recommend(request, gameMetadata, options)` matching the design doc§ 4 RecommendRequest/RecommendResponse contract
+- `scripts/run-rec.mjs` CLI that:
+  - Loads all JSON files from `tmp/bgg/` into a metadata Map
+  - Accepts `--loved 100,101 --noped 200 --players 4 --minutes 90`
+  - Constructs the request, calls `recommend`, prints results
+  - Useful for offline eval: ship a few requests, eyeball the output
+- Tests: known fixtures → known top recommendation
 
-**Acceptance criteria:** TBD pre-flight before push.
+**Acceptance criteria:** TBD pre-flight before push. Includes the SUBTLE-WRONGNESS pass-through assertions: noped → absent, designer cap holds, etc.
 
 ---
 
