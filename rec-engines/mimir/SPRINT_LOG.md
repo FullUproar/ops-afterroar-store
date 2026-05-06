@@ -4,6 +4,70 @@ Per-sprint development history. Most recent at top.
 
 ---
 
+## Sprint 1.0.16 — Seidr engine scaffold + research artifacts + deployable quiz UI (2026-05-06) ✅
+
+Pushed in three parts: `c60771e` (research + scaffold), `2e70d795` (question bank + structural files), `19390742` (quiz UI), plus this sprint's `f77d18c` (quiz-ui question-bank copy) and the SILO/README/SPRINT_LOG updates.
+
+**Why:** Manus AI delivered a 4-page algorithm doc and a 118-question bank for a "this vs that" tabletop profiler. User direction was explicit: "I trust you to make the editorial pass necessary on the questions and the algorithm — what he gave us was just a start. I'm not ready to launch Afterroar to users but we could put this into a test UI and I might get real users to try it." That maps cleanly onto a third engine in the silo — a profile-driven recommender complementary to mimir's metadata-based scoring.
+
+**Goal:** Land the seidr engine scaffold under silo discipline. Real research artifacts (algorithm spec, dimension taxonomy, game-profiling strategy, source critique). Curated 50-question bank from Manus's 118. Self-contained deployable quiz UI for pre-launch real-user testing. **No production code, no DB writes, no recommendations** — quiz emits a 24-dim profile JSON and stops.
+
+**Why this sprint is good for mobile:** Pure documentation, JSON data files, and a static HTML/CSS/JS app. No production imports, no DB migrations applied, no test changes to mimir. Mimir's 168/168 stays unchanged.
+
+**Scope:**
+- `rec-engines/seidr/` directory created per SILO.md § "Adding a new engine"
+- `seidr/README.md` — engine context, phase activation criteria, how seidr complements mimir
+- `seidr/SPRINT_LOG.md` — own sprint log seeded with this scaffold sprint
+- `seidr/docs/algorithm.md` — Manus's 5-step deterministic algorithm with my critiques + improvements
+- `seidr/docs/dimension-taxonomy.md` — 24 dimensions explained
+- `seidr/docs/game-profiling-strategy.md` — the missing piece in Manus's design (how games get vectors): LLM-generated profiles for top ~500 games, validated, refined via play outcomes
+- `seidr/docs/manus-source-critique.md` — honest editorial pass of Manus's deliverables
+- `seidr/data/dimensions.json` — 24 dimensions with descriptions, ranges, source citations
+- `seidr/data/question-bank.json` — 50 curated questions (38 from Manus edited; 12 new) covering this-or-that, Likert, multiple-choice, and game-vs-game forced choices
+- `seidr/quiz-ui/index.html` — self-contained static quiz app (~580 lines, embedded CSS+JS, mobile-first, dark theme, #FF8200 accent)
+- `seidr/quiz-ui/dimensions.json` + `seidr/quiz-ui/question-bank.json` — copies the static HTML loads at runtime
+- `seidr/quiz-ui/README.md` — deployment instructions
+- `seidr/package.json`, `seidr/.gitignore`, `seidr/{migrations,src,tests}/.gitkeep` — independent package scaffolding per silo rule § 8
+- `rec-engines/SILO.md` — engines table updated with seidr row; naming-convention list updated
+- `rec-engines/README.md` — engines list updated with seidr entry; mimir test count corrected to 168
+
+**Editorial pass over Manus's deliverables (per user mandate):**
+- Cut 80 redundant tournament-style questions from Manus's 118 → 38 retained
+- Tuned several Likert weight assignments where the inference was a stretch (e.g., Q06 had MEC_COMPLEXITY weight removed; Q11 PSY_ACHIEVEMENT weakened)
+- Added 12 new questions: 5 game-vs-game forced choices using BGG IDs from the seed pool, 2 emotion preference questions, 2 cognitive comfort questions, 3 covering player count / party-vs-hobby / rules-lawyer
+- Expanded Manus's 21 dimensions to 24: added EMO_TENSION, EMO_HUMOR, CTX_PLAYER_COUNT
+- Specified the missing piece in Manus's design — how games get their dimension vectors. Strategy: LLM-generated profiles for top 500 BGG games, manually validated for ~50 reference games, refined via post-play outcomes. Documented in `docs/game-profiling-strategy.md`.
+
+**Quiz UI design choices:**
+- Loads `./question-bank.json` and `./dimensions.json` from the same directory (works on Vercel, Netlify, GitHub Pages, or `python -m http.server`)
+- Samples 18 of 50 questions per session with cluster constraints (≥2 each from PSY/SOC/MEC/AES/CTX/EMO) and format constraints (≥1 game-vs-game, ≥2 this-or-that, ≥2 Likert, ≥1 multiple-choice)
+- Implements Manus's algorithm exactly: `Profile[d] = V_user[d] / max(1, sum(|weights|))`, `Confidence[d] = min(1, count/3)`
+- Generates a plain-English narrative from the top 5 most salient dimensions
+- Renders dimensional bars grouped by cluster; low-confidence dims at reduced opacity
+- Exports profile JSON via copy-to-clipboard or download
+- **No recommendations.** Quiz emits the profile and stops. Per user discipline: "let's not pivot on anything to serve my impatience... proper steps despite my poking."
+
+**Acceptance criteria:**
+1. Seidr directory exists with required structure per SILO.md § "Adding a new engine" ✅
+2. No imports from any sibling engine (mimir, huginn) per SILO.md § 8 ✅ (no source code yet)
+3. No new rec_* tables or migrations — seidr is research+UI only this sprint ✅
+4. Mimir tests still 168/168 — seidr changes don't touch mimir code ✅ (verified post-state)
+5. SILO.md and README.md updated to register seidr in engines tables ✅
+6. Quiz UI is genuinely deployable (works opening index.html locally, works on a static host) ✅ (manually verified by walking through 18-question flow)
+
+**Outcome:** Five commits land the engine. Mimir's 168/168 unchanged (seidr added no test files affecting mimir). The quiz UI is deployable to any static host today. Question bank and dimension taxonomy are the durable artifacts — even if the algorithm or UI is rewritten later, the curated questions and the 24-dim framework remain valuable.
+
+**Learnings:**
+- "Editorial authority over Manus, treat as suggestion" was the right call. Manus's question bank had ~70% redundancy in tournament-style "out of these 4, which is your favorite" questions that produced no new dimensional signal beyond a single this-or-that. Cut ratio was steep (118 → 50) but every retained question pulls weight on at least one dimension.
+- Manus's algorithm is fine; the missing piece was **how games get vectors**. Without that, a player profile has nothing to match against. Solving the player half is comparatively easy (15 minutes of quiz); solving the game half requires either domain experts OR LLM generation OR play-outcome inference. The strategy doc commits to LLM generation as v0 because it's the only path that works pre-launch.
+- Discipline win: caught myself proposing to wire mimir into the quiz UI for "real recommendations now" and pushed back per user direction. The quiz UI shipped as profile-only. Recommendations come AFTER the game-profiling sprint, when there's something coherent to match against. "Subtly wrong is worse than absent" applies here.
+- Splitting into 3 commits (research, data, UI) made the diffs reviewable. The HTML quiz-ui commit alone was ~580 lines; bundling it with everything else would have buried the editorial-pass logic.
+- Self-contained static HTML is the right shape for "I might get real users to try it." Drop-in deployable, no auth, no DB, profile JSON copy/download. Real users can take the quiz on their phones during a game night and send Shawn the JSON.
+
+**Rollback:** Revert the 5 commits. Seidr leaves no schema, no production wiring, no cross-engine references. Pure additive, mechanical to remove.
+
+---
+
 ## Sprint 1.0.15 — Schema extension for dimension framework (4 new node types) (2026-05-06) ✅
 
 **Why:** Manus AI delivered a 24-page research synthesis on tabletop recommendation graph dimensions — well-grounded, well-cited, largely complementary to our work. Surfaces four real gaps in our current schema: Personality Profile, Emotion, Cognitive Profile, and Context Type as first-class node types.
@@ -88,9 +152,7 @@ Pushed at commit `524e774`.
 
 ---
 
-## Sprint 1.0.9 — HOTFIX: explain.mjs + npm test glob (2026-05-06) ✅
-
-`7b3e85e`.
+## Sprint 1.0.9 — HOTFIX: explain.mjs + npm test glob (2026-05-06) ✅ (`7b3e85e`)
 
 ---
 
@@ -113,9 +175,13 @@ Pushed at commit `524e774`.
 
 ## Next sprint planned
 
-## Sprint 1.0.16 — Saga scaffold (incorporating dimension framework) (DRAFT)
+## Sprint 1.0.17 — Saga scaffold (incorporating dimension framework) (DRAFT)
 
-Now that 1.0.15 has landed the new node types, saga’s scaffold can incorporate them from day one. Will mirror huginn (Sprint 1.0.12) but with substantively richer design notes given saga is the breakthrough engine.
+Sprint 1.0.16 took the slot originally pencilled for saga (seidr's research + quiz UI was the higher-value next step given Manus's deliverables landing). Saga's scaffold is the next planned sprint. Will mirror huginn (Sprint 1.0.12) but with substantively richer design notes given saga is the breakthrough engine, and will incorporate the four new node types from Sprint 1.0.15.
+
+## Sprint 1.0.18 — Game-profiling v0 (LLM-generated profiles for top 500 games) (DRAFT)
+
+The missing piece in seidr's design (per `seidr/docs/game-profiling-strategy.md`). Generate 24-dim vectors for the top ~500 BGG games via LLM, validate manually for ~50 reference games, store in a new `rec_seidr_game_profile` table. Required before seidr can produce any recommendation.
 
 ## Sprint 0.3 — Apply 0001 + 0002 migrations to user’s Neon branch (REQUIRES LAPTOP)
 

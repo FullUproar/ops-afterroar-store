@@ -61,6 +61,7 @@ Engines in this directory are named after figures in Norse / Aesir mythology, ma
 
 - **`mimir`** — god of wisdom; well of all knowledge. Foundation engine, knowledge-graph based content similarity.
 - **`huginn`** (Phase 1+) — Odin's raven of *thought*. Graph-traversal engine (Personalized PageRank). **Scaffold landed in Mimir Sprint 1.0.12.**
+- **`seidr`** — Old Norse magic / divination. Profile-driven engine: a quiz extracts a 21–24-dim player vector, cosine-matched against game profiles. **Scaffold + research artifacts + deployable quiz UI landed in Sprint 1.0.16.**
 - **`muninn`** (future) — Odin's raven of *memory*. Learned-representation engine (embeddings).
 - **`saga`** (future) — goddess of stories. Narrative simulator engine (Monte Carlo + per-player fun model).
 - **`norns`** (future) — fates who weave destiny. Emergent-dimensionality gene-graph engine.
@@ -118,7 +119,8 @@ Multiple engines may share the `rec_*` schema namespace. Migrations that affect 
 
 | Engine | Phase | Status | Notes |
 |---|---|---|---|
-| `mimir` | Phase 0 | **End-to-end validated.** 164 tests green. Migration runner + safety harness sandbox-validated against local Postgres 16. Mobile-buildable Phase 0 work complete. | Foundation engine; pure metadata-based scoring; the always-available cold-start baseline |
+| `mimir` | Phase 0 | **End-to-end validated.** 168 tests green. Migration runner + safety harness sandbox-validated against local Postgres 16. Mobile-buildable Phase 0 work complete. | Foundation engine; pure metadata-based scoring; the always-available cold-start baseline |
 | `huginn` | Phase 0 (scaffold) | Scaffold-only. Implementation begins when platform has ≅50 active users with real edges. | Personalized PageRank over typed multi-relational graph |
+| `seidr` | Phase 0 (research + UI) | Research artifacts + 24-dim taxonomy + 50-question bank + deployable static quiz UI shipped (Sprint 1.0.16). No DB writes, no recommendations yet — quiz emits a profile JSON only. Production code lands when game profiling completes (top-500 LLM-generated profiles). | Profile-driven; quiz → 24-dim vector → cosine match to game profiles. Complementary to mimir, not a replacement |
 
 (Update this table as engines are added, graduated, or removed.)

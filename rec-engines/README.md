@@ -10,8 +10,9 @@ Experimental recommendation engines built under silo discipline. The platform's 
 
 ## Engines
 
-- [`mimir/`](./mimir/) — Norse god of wisdom. **Foundation engine, mobile-buildable Phase 0 work complete.** Pure BGG metadata-based scoring. 164 tests green; migration runner + safety harness empirically validated against local Postgres.
+- [`mimir/`](./mimir/) — Norse god of wisdom. **Foundation engine, mobile-buildable Phase 0 work complete.** Pure BGG metadata-based scoring. 168 tests green; migration runner + safety harness empirically validated against local Postgres.
 - [`huginn/`](./huginn/) — Odin's raven of *thought*. **Phase 0 scaffold only.** Personalized PageRank over the typed multi-relational graph. Implementation begins when the platform has ≅50 active users with real edges (Phase 1+ of the platform roadmap).
+- [`seidr/`](./seidr/) — Old Norse magic and divination. **Phase 0 research + deployable static quiz UI.** Profile-driven engine: 18-question quiz emits a 24-dim player vector, cosine-matched against game profiles. Built atop Manus AI's research with editorial pass; 50 curated questions, 24 dimensions, deployable HTML quiz at `seidr/quiz-ui/` for pre-launch real-user testing. No recommendations yet — game profiling sprint comes next.
 
 ## Adding a new engine
 
