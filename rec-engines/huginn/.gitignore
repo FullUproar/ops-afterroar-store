@@ -1,0 +1,9 @@
+# Huginn engine local artifacts (not committed)
+
+tmp/
+node_modules/
+*.log
+npm-debug.log*
+.env
+.env.local
+.env.*.local

@@ -1,6 +1,6 @@
 # Rec Engine Silo Rules
 
-This directory contains experimental recommendation engines under construction. Each subdirectory (`mimir/`, future `huginn/`, `muninn/`, `saga/`, `norns/`, etc.) is a single engine implementation in isolation.
+This directory contains experimental recommendation engines under construction. Each subdirectory (`mimir/`, `huginn/`, future `muninn/`, `saga/`, `norns/`, `yggdrasil/`, etc.) is a single engine implementation in isolation.
 
 ## Why silos exist
 
@@ -49,12 +49,18 @@ Every engine's test suite must include assertions that catch the recommendation-
 
 These are required, not aspirational. An engine cannot graduate without them passing.
 
+### 8. Engines do not import from each other
+
+Mimir does not import from huginn. Huginn does not import from mimir. Future engines (muninn, saga, norns, yggdrasil) do not import from any sibling. **Engines are independent.** They share the `rec_*` schema namespace; nothing else.
+
+This rule is what lets us add and remove engines without coordinating builds. The architectural design doc applies to all engines (it lives in `mimir/docs/` because mimir is the foundation that authored it), but runtime code does not cross engine boundaries.
+
 ## Naming convention
 
 Engines in this directory are named after figures in Norse / Aesir mythology, matching the existing platform pattern (Garmr the watchdog, Afterroar the post-roar). The mythological role hints at the engine's function:
 
 - **`mimir`** — god of wisdom; well of all knowledge. Foundation engine, knowledge-graph based content similarity.
-- **`huginn`** (future) — Odin's raven of *thought*. Graph-traversal engine (Personalized PageRank).
+- **`huginn`** (Phase 1+) — Odin's raven of *thought*. Graph-traversal engine (Personalized PageRank). **Scaffold landed in Mimir Sprint 1.0.12.**
 - **`muninn`** (future) — Odin's raven of *memory*. Learned-representation engine (embeddings).
 - **`saga`** (future) — goddess of stories. Narrative simulator engine (Monte Carlo + per-player fun model).
 - **`norns`** (future) — fates who weave destiny. Emergent-dimensionality gene-graph engine.
@@ -75,9 +81,9 @@ Engines under construction follow strict sprint cadence:
 1. **Pre-flight** in chat AND committed to the engine's `SPRINT_LOG.md`: goal, scope, acceptance criteria, test plan, rollback recipe.
 2. **Test plan written before implementation.** Test or test plan must exist before the implementation push.
 3. **Build.**
-4. **Verify** by executing the test plan. Failures block the push.
+4. **Verify** by executing the test plan. Failures block the push. **"Executed" ≠ "verified" — verification means actually running the code (npm test, smoke test, etc.), not just rereading it.**
 5. **Push** with a commit message that includes context (not just "fix" or "update").
-6. **Post-state verification** — read back from the repo to confirm the change actually landed. "Executed" ≠ "verified."
+6. **Post-state verification** — read back from the repo to confirm the change actually landed.
 7. **Post-mortem** in `SPRINT_LOG.md`: outcome, learnings, what's next.
 
 A sprint is one PR / one observable change / one shippable state. Could be 30 minutes; could be a day. Each engine maintains its own `SPRINT_LOG.md` documenting its history.
@@ -112,6 +118,7 @@ Multiple engines may share the `rec_*` schema namespace. Migrations that affect 
 
 | Engine | Phase | Status | Notes |
 |---|---|---|---|
-| `mimir` | Phase 0 | Scaffolding | Foundation engine; pure metadata-based scoring; the always-available cold-start baseline |
+| `mimir` | Phase 0 | **End-to-end validated.** 164 tests green. Migration runner + safety harness sandbox-validated against local Postgres 16. Mobile-buildable Phase 0 work complete. | Foundation engine; pure metadata-based scoring; the always-available cold-start baseline |
+| `huginn` | Phase 0 (scaffold) | Scaffold-only. Implementation begins when platform has ≅50 active users with real edges. | Personalized PageRank over typed multi-relational graph |
 
 (Update this table as engines are added, graduated, or removed.)

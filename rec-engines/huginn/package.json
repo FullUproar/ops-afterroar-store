@@ -1,0 +1,11 @@
+{
+  "name": "@afterroar/rec-engine-huginn",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Huginn — Personalized PageRank recommendation engine. Phase 1+ companion to Mimir. Phase 0 scaffold only; activates when platform has ≅50 active users with real edges. See README.md and docs/design-notes.md.",
+  "scripts": {
+    "test": "echo 'huginn has no tests yet — scaffold only. See SPRINT_LOG.md for activation triggers.' && exit 0"
+  },
+  "dependencies": {}
+}

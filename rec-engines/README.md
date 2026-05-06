@@ -10,7 +10,8 @@ Experimental recommendation engines built under silo discipline. The platform's 
 
 ## Engines
 
-- [`mimir/`](./mimir/) — Norse god of wisdom. Foundation engine. Pure BGG metadata-based scoring. Phase 0 scaffolding.
+- [`mimir/`](./mimir/) — Norse god of wisdom. **Foundation engine, mobile-buildable Phase 0 work complete.** Pure BGG metadata-based scoring. 164 tests green; migration runner + safety harness empirically validated against local Postgres.
+- [`huginn/`](./huginn/) — Odin's raven of *thought*. **Phase 0 scaffold only.** Personalized PageRank over the typed multi-relational graph. Implementation begins when the platform has ≅50 active users with real edges (Phase 1+ of the platform roadmap).
 
 ## Adding a new engine
 
@@ -20,7 +21,7 @@ See [`SILO.md`](./SILO.md) § "Adding a new engine" and § "Naming convention".
 
 Production code never imports from this directory. Integration happens via HTTP only (the rec engines expose endpoints under `/api/recs/<engine-name>/...`). A production-side "rec router" (not yet built; lives in `apps/me` or a dedicated package) is responsible for:
 
-- Routing recommendation requests to the appropriate engine(s) based on A/B configuration
+- Routing recommendation requests to the appropriate engine(s) based on A/B configuration (mimir for cold callers, huginn for callers with sufficient edges, future engines for richer scenarios)
 - Aggregating results when running shadow mode (multiple engines on same request, log all, return one)
 - Feature-flag enforcement
 - Caller authentication (which production app is asking)
