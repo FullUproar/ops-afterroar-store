@@ -4,63 +4,84 @@ Per-sprint development history. Most recent at top.
 
 ---
 
-## Sprint 1.0.12 — Scaffold huginn (second engine, validates silo pattern) (2026-05-06) ✅
+## Sprint 1.0.13 — Recap data spec for HQ recap UI v1 (2026-05-06) ✅
 
-**Why:** With mimir's mobile-buildable Phase 0 work complete (164 tests green), it was worth proving the silo pattern actually scales to multiple engines. SILO.md claims engines are independent, share only the `rec_*` schema namespace, and never import each other. **Scaffolding `huginn/` is the test of those claims.**
+**Why:** The saga engine (the recommendation breakthrough; Monte Carlo simulator with per-player fun model) trains on structured recap data. Without that data captured AT THE TIME each game-night happens, saga has nothing to learn from when it activates 18–30 months from now. **Retrofitting structured fields onto recaps that already happened is impossible** — players don’t accurately remember whether they had fun three months ago.
 
-**Goal:** Add a complete scaffold for `huginn/` (the future Personalized PageRank engine) that mirrors mimir's structure, update SILO.md and the rec-engines README to register it, and confirm mimir's tests still pass (proves silo isolation).
+The trade-off:
+1. Spend ~2 weeks of HQ engineering now to ship the recap UI with structured fields per this spec.
+2. Or accept that saga can’t ship until 12+ months AFTER the recap UI is rebuilt later — and the data captured before the rebuild is unusable for training.
 
-**Why this sprint is good for mobile:** Documentation + scaffolding only. No new code. No DB.
+Option 1 dominates. This sprint authors the contract for option 1.
+
+**Goal:** Formal spec for HQ’s recap UI v1 — the structured fields, schema mapping, validation rules, API shape, privacy boundaries, edge cases, and UI guidance. The contract between mimir (recommender) and HQ (data producer).
+
+**Why this sprint is good for mobile:** Pure docs.
 
 **Scope:**
-- `rec-engines/huginn/README.md` — engine description, why-it-exists, phase activation criteria, graduation criteria
-- `rec-engines/huginn/SPRINT_LOG.md` — empty log with future-sprint drafts (Sprint 0.0 through 0.4)
-- `rec-engines/huginn/docs/design-notes.md` — algorithmic specifics: PPR formulation, personalization vector construction, negative-edge handling, decay handling, convergence criteria, path-based explanation, open questions
-- `rec-engines/huginn/package.json` — minimal stub, no dependencies, no source
-- `rec-engines/huginn/.gitignore` — standard exclusions
-- `rec-engines/huginn/migrations/.gitkeep`, `src/.gitkeep`, `tests/.gitkeep` — directory placeholders
-- `rec-engines/SILO.md` — register huginn in engines table; add explicit "engines do not import from each other" rule (§ 8); update naming convention to mark huginn as scaffolded
-- `rec-engines/README.md` — register huginn in engines list
+- `mimir/docs/recap-data-spec.md` — ~370-line spec covering:
+  - Hard requirements + MUST-NOTs for the UI
+  - Per-game fields (8) and per-player-per-game fields (8)
+  - Schema mapping to existing `rec_recap_outcome` + proposed `rec_recap_game` table for follow-up migration
+  - Suggested API endpoint signature with TypeScript request shape
+  - Validation rules (warn-not-block discipline)
+  - Privacy boundaries per Credo § 1
+  - Edit-after-publish (30-day window + history table)
+  - Late-arriving recap data handling
+  - Multi-game-night handling
+  - What NOT to capture (and why)
+  - UI guidance (non-prescriptive)
+  - Open questions for HQ team to resolve
+  - Versioning + backwards compatibility plan
+- SPRINT_LOG entry capturing the rationale and contract
 
 **Acceptance criteria:**
-1. `rec-engines/huginn/` exists with full scaffold (README, SPRINT_LOG, docs, package, .gitignore, .gitkeeps) ✅
-2. SILO.md updated with engines table row + new § 8 rule about no cross-engine imports ✅
-3. rec-engines/README.md updated with engines list ✅
-4. mimir tests still pass (164/164) — proves silo isolation ✅ (verified post-push)
-5. No imports between huginn and mimir, period ✅ (huginn package.json has no deps; src/ is empty)
+1. Spec is self-contained — HQ team can implement v1 from this doc alone, no follow-up needed ✅
+2. Every field in design doc § 9 is covered + extended with saga-driven additions (engagement_level, learned_today, taught_today) ✅
+3. Schema mapping is concrete (which existing column, which proposed-new column) ✅
+4. Privacy boundaries match Credo § 1 (player owns own data; aggregation requires k≥5 + cell\_size≥3) ✅
+5. Validation discipline articulated: warn, don’t block, accept incomplete data ✅
+6. Versioned (v1.0.0) with explicit upgrade path ✅
 
-**Test plan (executed BEFORE push):**
-- mimir test suite still green: `npm test` in mimir/ reports 164/164 (no shared imports = no breakage)
-- huginn package.json has empty deps; only `test` script is a no-op echo + exit 0
-- All required files committed under huginn/
+**Test plan:**
+- N/A (pure docs)
+- Cross-reference against Mimir design doc § 9: extends + operationalizes, no contradictions ✅
+- Verify all fields have type, required-status, semantics, and "why it matters" ✅
+- Spot-check that the spec is HQ-actionable (no "TBD" on any required behavior) ✅
 
-**Outcome:** Pushed in this commit. ~280 lines of huginn README + SPRINT_LOG + design-notes + package.json; ~30 lines of SILO + README updates.
+**Outcome:** Pushed in this commit. Single ~370-line spec doc.
 
-**Verification:** Will be confirmed via post-push fresh-clone read-back + mimir npm test.
+**Verification:** Will be confirmed via post-push fresh-clone + visual read.
 
 **Learnings:**
-- The silo pattern is real. Adding huginn was mechanical: copy the structure, write the docs, register in SILO. Zero coordination with mimir's code. Zero risk to mimir's tests. **The structure validates.**
-- Naming convention pays off: "huginn" tells you (a) what role it plays in the platform pantheon, (b) that it's a sibling of mimir, (c) that the broader Norse pattern continues. "PPR-rec-engine-v1" would have communicated none of that.
-- Drafting Sprint 0.0–0.4 in advance (in huginn's SPRINT_LOG) gives future-Claude a clear runway. When the platform hits the activation trigger (≅50 users with real edges), huginn's first sprint can fire immediately without re-deriving the plan.
-- Adding the explicit "engines do not import from each other" rule (SILO § 8) was overdue. Implicit until now; explicit now.
+- The spec went from "6 fields per design doc § 9" to **16 fields total (8 per-game + 8 per-player-per-game)** when stress-tested against saga’s actual modeling needs. Two of the new fields (`learned_today`, `taught_today`) come directly from saga’s group-dynamics simulator (rules-teacher fatigue, learning-game pattern).
+- Authoring the spec surfaces operational details that the design doc skipped: edit-after-publish window, late-arriving recap weighting, multi-game-night handling, validation discipline. These are HQ-team-facing details that don’t belong in an architectural doc but very much belong in an implementation contract.
+- Privacy boundaries needed an explicit aggregation floor (k≥5 attributing players + cell-size≥3) for the data co-op model to be honest. Per Credo § 1, players own their data; aggregation that could re-identify is therefore prohibited.
+- The "warn, don’t block" validation discipline is critical and underappreciated. A recap UI that refuses to submit because `fun_rating` is missing collapses capture rate to near-zero. A recap UI that accepts everything and validates after gets 5–10x more data, with imperfections that the rec engine can accommodate.
 
-**Rollback:** Revert this commit. Pure additive (new directory + doc updates). Mimir untouched.
+**Rollback:** Revert this commit. Pure additive doc.
+
+---
+
+## Sprint 1.0.12 — Scaffold huginn (second engine, validates silo pattern) (2026-05-06) ✅
+
+Pushed at commit `524e774`. Huginn engine scaffolded with full README + SPRINT_LOG + design notes + .gitignore + package.json. SILO.md § 8 added ("engines do not import from each other"). Mimir tests still pass (164/164) — silo isolation confirmed.
 
 ---
 
 ## Sprint 1.0.11 — exclude_seeds option (UX fix from smoke test) (2026-05-06) ✅
 
-Pushed at commit `790426c`. Default-true filter for seed_loved + seed_noped from results. 159 → 164 tests.
+`790426c`. 159 → 164 tests.
 
 ---
 
 ## Sprint 1.0.10 — Sandbox e2e validation + fixtures + integration tests (2026-05-06) ✅
 
-`45b584a`. Local Postgres validation + 7 BGG fixtures + 6 integration tests.
+`45b584a`.
 
 ---
 
-## Sprint 1.0.9 — HOTFIX: explain.mjs syntax + npm test glob (2026-05-06) ✅
+## Sprint 1.0.9 — HOTFIX: explain.mjs + npm test glob (2026-05-06) ✅
 
 `7b3e85e`.
 
@@ -85,14 +106,18 @@ Pushed at commit `790426c`. Default-true filter for seed_loved + seed_noped from
 
 ## Next sprint planned
 
+## Sprint 1.0.14 — Scaffold saga (the breakthrough engine) (DRAFT)
+
+**Goal:** Like huginn (Sprint 1.0.12), scaffold `saga/` with README + SPRINT_LOG + design-notes for the Monte Carlo simulator engine. Pure docs + structure.
+
+**Why mobile-friendly:** Documentation only.
+
+**Scope:** Same shape as huginn scaffold. Saga’s design notes are richer because saga IS the breakthrough — should cover the per-player fun model (training data shape, target loss), the soft-min aggregator (CES form, learned variant), stochastic events, Monte Carlo convergence, narrative generation, counterfactual evaluation, federated learning Phase 4 path.
+
 ## Sprint 0.3 — Apply 0001 migration to user’s Neon branch (REQUIRES LAPTOP, but EMPIRICALLY VALIDATED in sandbox)
 
-Reiterated. See HANDOFF.md.
+Reiterated.
 
 ## Sprint 1.1 — BGG JSON → rec_* writer (DRAFT, depends on 0.3)
 
 ## Sprint 1.2 — HTTP API surface for recommend() (Phase 1, depends on 0.3 + 1.1)
-
----
-
-*Note: huginn now has its own SPRINT_LOG.md for its independent sprints. This file remains mimir's log.*
