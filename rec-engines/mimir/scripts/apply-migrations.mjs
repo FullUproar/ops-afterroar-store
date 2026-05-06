@@ -69,6 +69,24 @@ export function parseMigrationOps(sql) {
       re: /truncate\s+(?:table\s+)?(?:only\s+)?([a-zA-Z_][\w]*)/gi,
       op: 'truncate',
     },
+    {
+      // insert into <table> ...
+      // Detect INSERT targets so seed-data migrations can't sneak past the
+      // rec_* namespace check. Without this rule a migration containing
+      // `INSERT INTO users (...) VALUES (...)` would silently pass.
+      re: /insert\s+into\s+(?:only\s+)?([a-zA-Z_][\w]*)/gi,
+      op: 'insert',
+    },
+    {
+      // delete from <table>
+      re: /delete\s+from\s+(?:only\s+)?([a-zA-Z_][\w]*)/gi,
+      op: 'delete',
+    },
+    {
+      // update <table> set ...
+      re: /update\s+(?:only\s+)?([a-zA-Z_][\w]*)\s+set\s/gi,
+      op: 'update',
+    },
   ];
 
   for (const { re, op } of patterns) {

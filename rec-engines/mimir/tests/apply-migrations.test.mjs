@@ -44,6 +44,52 @@ test('parseMigrationOps: detects TRUNCATE', () => {
   assert.deepEqual(ops, [{ op: 'truncate', target: 'users' }]);
 });
 
+test('parseMigrationOps: detects INSERT INTO', () => {
+  const ops = parseMigrationOps("insert into rec_taxonomy (id, name) values (1, 'foo');");
+  assert.deepEqual(ops, [{ op: 'insert', target: 'rec_taxonomy' }]);
+});
+
+test('parseMigrationOps: detects DELETE FROM', () => {
+  const ops = parseMigrationOps('delete from users where id = 5;');
+  assert.deepEqual(ops, [{ op: 'delete', target: 'users' }]);
+});
+
+test('parseMigrationOps: detects UPDATE ... SET', () => {
+  const ops = parseMigrationOps('update users set name = \'foo\' where id = 1;');
+  assert.deepEqual(ops, [{ op: 'update', target: 'users' }]);
+});
+
+test('parseMigrationOps: detects INSERT with ONLY keyword', () => {
+  const ops = parseMigrationOps('insert into only rec_foo values (1);');
+  assert.deepEqual(ops, [{ op: 'insert', target: 'rec_foo' }]);
+});
+
+test('validateMigrationSafety: rejects INSERT into non-rec_ table', () => {
+  assert.throws(
+    () => validateMigrationSafety("insert into users (id) values (1);"),
+    /Safety check failed.*insert.*users/
+  );
+});
+
+test('validateMigrationSafety: accepts INSERT into rec_* table', () => {
+  // Should not throw
+  validateMigrationSafety("insert into rec_taxonomy (id, name) values (1, 'foo');");
+});
+
+test('validateMigrationSafety: rejects DELETE FROM non-rec_ table', () => {
+  assert.throws(
+    () => validateMigrationSafety('delete from accounts where id = 1;'),
+    /Safety check failed.*delete.*accounts/
+  );
+});
+
+test('validateMigrationSafety: rejects UPDATE on non-rec_ table', () => {
+  assert.throws(
+    () => validateMigrationSafety("update users set name = 'x' where id = 1;"),
+    /Safety check failed.*update.*users/
+  );
+});
+
 test('parseMigrationOps: ignores SQL in line comments', () => {
   const ops = parseMigrationOps('-- drop table users;\ncreate table rec_foo (id int);');
   assert.deepEqual(ops, [{ op: 'create', target: 'rec_foo' }]);
@@ -263,4 +309,80 @@ test('integration: listMigrationFiles finds both 0001 and 0002', () => {
     files,
     'Migration files should be in lex order'
   );
+});
+
+// ----------------------------------------------------------------------------
+// Integration: 0003 migration (Sprint 1.0.22 — seed taxonomies)
+// ----------------------------------------------------------------------------
+
+test('integration: 0003 migration parses cleanly and is safe', () => {
+  const sql = readFileSync(
+    join(__dirname, '..', 'migrations', '0003_seed_taxonomies.sql'),
+    'utf8'
+  );
+  assert.doesNotThrow(() => validateMigrationSafety(sql));
+});
+
+test('integration: 0003 migration is data-only (zero CREATE/ALTER/DROP)', () => {
+  const sql = readFileSync(
+    join(__dirname, '..', 'migrations', '0003_seed_taxonomies.sql'),
+    'utf8'
+  );
+  const ops = parseMigrationOps(sql);
+  const schemaOps = ops.filter(o => ['create', 'alter', 'drop', 'truncate'].includes(o.op));
+  assert.equal(schemaOps.length, 0,
+    `Expected 0 schema-modifying ops in 0003 (data-only migration); got ${JSON.stringify(schemaOps)}`);
+});
+
+test('integration: 0003 migration has expected number of INSERT statements', () => {
+  const sql = readFileSync(
+    join(__dirname, '..', 'migrations', '0003_seed_taxonomies.sql'),
+    'utf8'
+  );
+  const ops = parseMigrationOps(sql);
+  const inserts = ops.filter(o => o.op === 'insert');
+  // Each table is populated by ONE INSERT statement (with multi-row VALUES);
+  // 4 tables = 4 INSERTs. BUT: rec_personality_profile is populated by 3 separate
+  // INSERTs (Bartle, OCEAN, SDT). And rec_emotion has 2 (MDA, palette).
+  // Total: 3 + 2 + 1 + 1 = 7 INSERT statements.
+  assert.equal(inserts.length, 7,
+    `Expected 7 INSERT statements in 0003, got ${inserts.length}: ${JSON.stringify(inserts)}`);
+});
+
+test('integration: 0003 migration every INSERT targets a rec_*-prefixed table', () => {
+  const sql = readFileSync(
+    join(__dirname, '..', 'migrations', '0003_seed_taxonomies.sql'),
+    'utf8'
+  );
+  const ops = parseMigrationOps(sql);
+  const inserts = ops.filter(o => o.op === 'insert');
+  for (const i of inserts) {
+    assert.match(i.target, /^rec_/, `INSERT target ${i.target} is not rec_*-prefixed`);
+  }
+});
+
+test('integration: 0003 migration targets exactly 4 tables (one per node type added in 0002)', () => {
+  const sql = readFileSync(
+    join(__dirname, '..', 'migrations', '0003_seed_taxonomies.sql'),
+    'utf8'
+  );
+  const ops = parseMigrationOps(sql);
+  const inserts = ops.filter(o => o.op === 'insert');
+  const distinctTargets = new Set(inserts.map(i => i.target));
+  assert.equal(distinctTargets.size, 4);
+  assert.ok(distinctTargets.has('rec_personality_profile'));
+  assert.ok(distinctTargets.has('rec_emotion'));
+  assert.ok(distinctTargets.has('rec_cognitive_profile'));
+  assert.ok(distinctTargets.has('rec_context_type'));
+});
+
+test('integration: listMigrationFiles finds 0001, 0002, and 0003 in lex order', () => {
+  const files = listMigrationFiles();
+  assert.ok(files.includes('0001_create_rec_tables.sql'));
+  assert.ok(files.includes('0002_extend_rec_tables.sql'));
+  assert.ok(files.includes('0003_seed_taxonomies.sql'));
+  // Adjacent files should be in non-decreasing lex order
+  for (let i = 1; i < files.length; i++) {
+    assert.ok(files[i - 1] <= files[i], `${files[i - 1]} should sort before ${files[i]}`);
+  }
 });

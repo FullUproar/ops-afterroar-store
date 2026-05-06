@@ -2,7 +2,7 @@
 
 **Purpose:** Cross-session context restoration. When you sit down at a laptop after working on mobile (or vice versa), read this + the active engine's `SPRINT_LOG.md` to restore full context.
 
-**Last updated:** 2026-05-06 (post Sprint 1.0.21, seidr quiz-UI-export interop; offline demo loop closed)
+**Last updated:** 2026-05-06 (post Sprint 1.0.22, seed taxonomy data + INSERT/DELETE/UPDATE in safety harness)
 
 ---
 
@@ -20,7 +20,7 @@ Full architectural rationale: [`mimir/docs/recommendation-engine-design.md`](./m
 
 | Engine | Phase | Status | Last sprint |
 |---|---|---|---|
-| `mimir` | Phase 0 | **End-to-end validated against local Postgres + real fixture data.** 168/168 tests pass. Code-side Sprint 0.3 done in sandbox; user-side Sprint 0.3 (apply against own Neon) is the only remaining blocker. | Sprint 1.0.15 — schema extension for dimension framework |
+| `mimir` | Phase 0 | **End-to-end validated against local Postgres + real fixture data.** 182/182 tests pass. Schema migrations: 0001 + 0002 + 0003. Total 23 rec_* tables, 42 seed-taxonomy rows. Code-side Sprint 0.3 done in sandbox; user-side Sprint 0.3 (apply against own Neon) is the only remaining blocker. | Sprint 1.0.22 — seed taxonomies + parser extended for INSERT/DELETE/UPDATE |
 | `huginn` | Phase 0 | Scaffold-only. Implementation deferred to Phase 1+ (≥50 active users with real edges). | Sprint 1.0.12 |
 | `seidr` | Phase 0 | Research + quiz UI + LLM pipeline + 7 reference profiles + schema + cosine matcher + explanation generator + offline CLI runner + quiz-UI-export interop. **169/169 seidr tests pass.** Offline demo loop closed: real quiz UI export JSON pipes directly into `scripts/run-rec.mjs --player-profile`. Awaiting only top-500 LLM run for full corpus. | Sprint 1.0.21 |
 | `saga` | Phase 0 | Scaffold + architecture locked in 3 design docs. Implementation deferred until graduation thresholds met (≥3000 recap records, ≥200 active players with ≥10 recaps each, ≥6mo corpus). Estimate 12–18 months post-launch. | Sprint 1.0.17 (current) |
@@ -77,16 +77,19 @@ npm test
 DATABASE_URL=postgres://... npm run migrate:dry-run   # safety check first
 DATABASE_URL=postgres://... npm run migrate           # apply 0001
 
-# 4. Verify schema lands as expected:
+# 4. Verify schema + seed data lands as expected:
 #    SELECT count(*) FROM information_schema.tables WHERE table_name LIKE 'rec_%';
-#       → 19 (14 from 0001 + 4 from 0002 + rec_migrations from runner)
-#    SELECT indexname FROM pg_indexes WHERE tablename = 'rec_edge';
-#       → 6 indexes (pkey, the unique constraint, _src, _dst, _type_ts, _context_gin)
+#       → 19 from mimir's 0001 + 0002, plus seidr's 3 = 22 (or 23 with rec_migrations counted)
+#    SELECT (SELECT count(*) FROM rec_personality_profile) AS personality,
+#           (SELECT count(*) FROM rec_emotion) AS emotion,
+#           (SELECT count(*) FROM rec_cognitive_profile) AS cognitive,
+#           (SELECT count(*) FROM rec_context_type) AS context_type;
+#       → 12 / 14 / 6 / 10  (after 0003 applies seed taxonomy data)
 #    SELECT * FROM rec_migrations;
-#       → two rows: 0001_create_rec_tables.sql AND 0002_extend_rec_tables.sql
+#       → 0001_create_rec_tables.sql, 0002_extend_rec_tables.sql, 0003_seed_taxonomies.sql
 
 # 5. Confirm idempotency:
-DATABASE_URL=postgres://... npm run migrate            # should print "already applied; skipping" for both
+DATABASE_URL=postgres://... npm run migrate            # should print "already applied; skipping" for all three
 
 # 6. (Optional) Fetch BGG metadata + run an offline rec
 #    BGG should work from your laptop’s IP; it 403’d the sandbox.
@@ -127,7 +130,7 @@ Details in [`SILO.md`](./SILO.md) § "Sprint discipline".
 2. Read [`SILO.md`](./SILO.md) for the rules.
 3. Read `mimir/SPRINT_LOG.md` for detailed history.
 4. Read `mimir/README.md` for engine-specific context.
-5. Run `npm test` first thing — expect 168/168 pass. If not, debug before proceeding.
+5. Run `npm test` first thing — expect 182/182 pass in mimir, 173/173 in seidr. If not, debug before proceeding.
 
 ## Active engines
 
@@ -188,6 +191,7 @@ The next mimir-side sprint planned is **1.0.18 — Game-profiling v0** (LLM-gene
 - Sprint 1.0.18: seidr game-profiling pipeline + 7 reference profiles + schema (`45ec173`)
 - Sprint 1.0.19: seidr cosine matcher + 8 subtle-wrongness assertions + 2 integration tests (`b745c5a`)
 - Sprint 1.0.20: seidr explanation generator + offline CLI runner (`a2dab2b`)
-- Sprint 1.0.21: seidr quiz-UI-export interop in CLI loader (current)
+- Sprint 1.0.21: seidr quiz-UI-export interop in CLI loader (`587a603`)
+- Sprint 1.0.22: mimir 0003 seed taxonomies + parser detects INSERT/DELETE/UPDATE (current)
 
-~5.3k lines of source code, ~9.5k+ lines of tests + docs. End-state: mimir 168/168, seidr 169/169; migration runners validated against real Postgres; four engines registered (mimir running, huginn scaffold, seidr end-to-end with offline demo loop, saga architecture-locked); 22 rec_* tables in schema (sandbox-validated, not yet on user's Neon). **Seidr is fully runnable end-to-end** — quiz UI exports drop directly into `scripts/run-rec.mjs --player-profile` to produce ranked recommendations with explanations.
+~5.5k lines of source code, ~10k+ lines of tests + docs. End-state: mimir **182/182**, seidr **173/173**; migration runners validated against real Postgres; four engines registered (mimir running with seeded taxonomies, huginn scaffold, seidr end-to-end with offline demo loop, saga architecture-locked); **23 rec_* tables in schema with 42 seed-taxonomy rows**, sandbox-validated, not yet on user's Neon. **Seidr fully runnable end-to-end via `scripts/run-rec.mjs`.**

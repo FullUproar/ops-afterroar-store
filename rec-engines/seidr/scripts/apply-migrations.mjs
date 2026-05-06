@@ -78,6 +78,18 @@ export function parseMigrationOps(sql) {
       re: /truncate\s+(?:table\s+)?(?:only\s+)?([a-zA-Z_][\w]*)/gi,
       op: 'truncate',
     },
+    {
+      re: /insert\s+into\s+(?:only\s+)?([a-zA-Z_][\w]*)/gi,
+      op: 'insert',
+    },
+    {
+      re: /delete\s+from\s+(?:only\s+)?([a-zA-Z_][\w]*)/gi,
+      op: 'delete',
+    },
+    {
+      re: /update\s+(?:only\s+)?([a-zA-Z_][\w]*)\s+set\s/gi,
+      op: 'update',
+    },
   ];
 
   for (const { re, op } of patterns) {

@@ -154,3 +154,34 @@ test('safety harness rejects mixed: rec_* allowed but non-rec_ also present', ()
   `;
   assert.throws(() => validateMigrationSafety(sql), /Safety check failed/);
 });
+
+// ----------------------------------------------------------------------------
+// Sprint 1.0.22: parser extended to detect INSERT/DELETE/UPDATE.
+// Mirrors mimir's tests for the same enforcement.
+// ----------------------------------------------------------------------------
+
+test('parser detects INSERT into rec_seidr_*', () => {
+  const ops = parseMigrationOps("insert into rec_seidr_player_profile values (1);");
+  assert.deepEqual(ops, [{ op: 'insert', target: 'rec_seidr_player_profile' }]);
+});
+
+test('safety rejects INSERT into non-rec_ table', () => {
+  assert.throws(
+    () => validateMigrationSafety("insert into users values (1);"),
+    /Safety check failed.*insert.*users/
+  );
+});
+
+test('safety rejects DELETE FROM non-rec_ table', () => {
+  assert.throws(
+    () => validateMigrationSafety('delete from accounts;'),
+    /Safety check failed.*delete.*accounts/
+  );
+});
+
+test('safety rejects UPDATE on non-rec_ table', () => {
+  assert.throws(
+    () => validateMigrationSafety("update users set x = 1;"),
+    /Safety check failed.*update.*users/
+  );
+});

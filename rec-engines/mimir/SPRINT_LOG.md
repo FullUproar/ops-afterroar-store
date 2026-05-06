@@ -4,6 +4,65 @@ Per-sprint development history. Most recent at top.
 
 ---
 
+## Sprint 1.0.22 — Seed taxonomy data + INSERT/DELETE/UPDATE detection in safety harness (2026-05-06) ✅
+
+**Why:** Two interlocking goals:
+1. Sprint 1.0.15 added 4 dimension-framework node tables (rec_personality_profile, rec_emotion, rec_cognitive_profile, rec_context_type) but they're empty. Saga and seidr both consume these node types; populating them with the canonical taxonomy entries gives downstream engines a concrete substrate.
+2. The migration runner's `parseMigrationOps` parser only detected CREATE/ALTER/DROP/TRUNCATE. INSERT/DELETE/UPDATE statements going to non-rec_* tables would have silently passed the safety check. A seed-data migration is exactly the kind of work that exposes this gap, so closing it as part of the same sprint is the right discipline.
+
+**Goal:**
+- Extend mimir's + seidr's parsers to detect INSERT/DELETE/UPDATE
+- Add safety-harness rejection tests for non-rec_* targets
+- Write mimir migration 0003 that seeds the 4 tables with canonical taxonomies
+- Sandbox-validate end-to-end (apply, verify row counts, idempotent re-apply, adversarial rejection)
+
+**What landed:**
+- `mimir/scripts/apply-migrations.mjs` + `seidr/scripts/apply-migrations.mjs`: parser extended with INSERT, DELETE, UPDATE patterns. Per silo § 8 the change is duplicated, not shared via import.
+- `mimir/migrations/0003_seed_taxonomies.sql` (~115 lines):
+  * 12 personality entries (4 Bartle archetypes + 5 OCEAN traits + 3 SDT needs)
+  * 14 emotion entries (8 MDA aesthetics + 6 emotional palette)
+  * 6 cognitive dimensions (per Manus § 1.4)
+  * 10 named context types
+  * **42 total rows** across 4 tables. Idempotent via `ON CONFLICT DO NOTHING`.
+- `mimir/tests/apply-migrations.test.mjs`: +14 tests (8 parser-extension + 6 0003 integration)
+- `seidr/tests/apply-migrations.test.mjs`: +4 tests (mirror of parser extension)
+
+**Empirical verification (this sprint):**
+- Sandbox apply: 0003 wrote exactly 42 rows (12 + 14 + 6 + 10). ✅
+- Idempotent re-apply: rec_migrations bookkeeping skipped 0003 the second time, AND `ON CONFLICT DO NOTHING` would have caught any escapes. Row counts unchanged. ✅
+- Adversarial: feeding `INSERT INTO users (...) VALUES (...);` to `validateMigrationSafety()` is now rejected with `Safety check failed: migration attempts to insert non-rec_ object "users"`. ✅
+- mimir tests: 182/182 (was 168, +14). seidr tests: 173/173 (was 169, +4 from parser mirror).
+
+**Acceptance criteria:**
+1. Parser detects INSERT/DELETE/UPDATE and identifies the target table ✅
+2. Safety harness rejects INSERT/DELETE/UPDATE targeting non-rec_* tables ✅
+3. 0003 is data-only — zero CREATE/ALTER/DROP/TRUNCATE ops ✅
+4. Every INSERT in 0003 targets a rec_*-prefixed table ✅
+5. INSERTs span exactly the 4 dimension-framework tables from 0002 ✅
+6. Total row count after 0003 apply matches expected (42 rows) ✅
+7. Idempotency verified (re-apply produces identical state) ✅
+8. Mimir + seidr tests both green ✅
+
+**Test plan (executed BEFORE push):**
+- mimir `npm test` → 182/182 ✅
+- seidr `npm test` → 173/173 ✅
+- mimir `npm run migrate:dry-run` against sandbox → all 3 files pass safety ✅
+- mimir `npm run migrate` → 0003 applied, 42 rows visible ✅
+- mimir `npm run migrate` again → 0003 skipped (already applied) ✅
+- adversarial: malicious INSERT INTO users rejected ✅
+
+**Outcome:** Pushed in this commit. 23 rec_* tables in schema (was 22), 42 rows of canonical taxonomy data. Saga's eventual training pipeline can now reference the personality/emotion/cognitive/context vocabularies without inventing them. Seidr can use them as additional join points if/when the matcher evolves to use graph-side features.
+
+**Learnings:**
+- **The parser gap was a real CVE-class issue.** A Phase 0 oversight where `INSERT INTO production_users` would have slipped past the silo namespace check. Caught it before any production migration was authored — closed by extending the parser before touching the migration that needed the new ops. Right order of operations.
+- **Idempotency requires two layers.** The migration runner's `rec_migrations` bookkeeping skips already-applied files. But the SQL itself ALSO needs to be idempotent (via `ON CONFLICT DO NOTHING`) because operators sometimes apply migrations manually outside the runner. Belt + suspenders.
+- **Hand-crafting taxonomy data is the right approach for seed data.** I considered generating it from the docs (parsing dimension-framework-integration.md), but the entries are 4-12 per table — small enough that hand-curation is more reliable and auditable. The source citations (Bartle 1996, OCEAN, MDA 2004, SDT, Manus 2026) are now in the DB rows themselves, so any consumer can trace data lineage.
+- **Sprint scope was right-sized.** Could have been split into "parser extension" + "0003 migration" but they're entangled — the migration validates the parser extension. Keeping them together produced one coherent story.
+
+**Rollback:** Revert this commit. The taxonomy rows can be removed via `DELETE FROM rec_personality_profile WHERE id BETWEEN 1001 AND 3003; DELETE FROM rec_emotion WHERE id BETWEEN 4001 AND 5006;` etc. (would need to be its own migration since rollback ALSO must respect the silo). Parser extension reverts cleanly. No other engines affected.
+
+---
+
 ## Sprint 1.0.21 — Seidr quiz-UI-export interop (closes offline demo loop) (2026-05-06) ✅
 
 Pure-function `normalizePlayerProfile()` translates quiz UI exports (`{profile, confidence, raw, meta}`) into the matcher's canonical shape. CLI runner now accepts real quiz UI export JSON without manual reshaping. **Mimir 168/168 unchanged.** seidr now 169/169 (was 154; +15).
@@ -273,13 +332,13 @@ Pushed at commit `524e774`.
 
 ## Next sprint planned
 
-## Sprint 1.0.20 — Seidr scaling: top-500 LLM-generated profiles (DRAFT, requires laptop)
+## Sprint 1.0.23 — Seidr scaling: top-500 LLM-generated profiles (DRAFT, requires laptop)
 
-The actual top-500 LLM run. Requires ANTHROPIC_API_KEY (laptop-only). The pipeline (1.0.18) is ready; the matcher (1.0.19) is ready. Top-500 just needs the API key + a 500-game BGG corpus pulled (BGG 403'd this datacenter's IP; works from laptop residential IP). Light manual validation pass on ~50 reference games (7 done; +~43 to span weight × mechanic × group-size space).
+The actual top-500 LLM run. Requires ANTHROPIC_API_KEY (laptop-only). The pipeline (1.0.18), the matcher (1.0.19), the explainer + CLI (1.0.20), the quiz-UI interop (1.0.21), and the seed taxonomies (1.0.22) are all ready. Top-500 just needs the API key + a 500-game BGG corpus pulled (BGG 403'd this datacenter's IP; works from laptop residential IP). Light manual validation pass on ~50 reference games (7 done; +~43 to span weight × mechanic × group-size space).
 
-## Sprint 1.0.21 — Recommendations module integration (DRAFT)
+## Sprint 1.0.24 — User-side Sprint 0.3: apply migrations to user's Neon (DRAFT, requires laptop)
 
-A thin module that wraps seidr's matcher with metadata enrichment (game name, designer, BGG link) so a future caller can consume rich recommendation rows without re-fetching BGG metadata. Independent of the rec router (production-side, separate component).
+The only thing standing between mimir + seidr's sandbox-validated state and a real DB-backed deployment. Apply migrations 0001 + 0002 + 0003 (mimir) and 0001_seidr_tables (seidr) against the user's Neon `dev` branch. All migrations are idempotent + sandbox-validated; this is operational, not architectural.
 
 ## Sprint 0.3 — Apply 0001 + 0002 migrations to user’s Neon branch (REQUIRES LAPTOP)
 
