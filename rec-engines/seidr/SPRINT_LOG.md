@@ -4,6 +4,66 @@ Per-sprint development history.
 
 ---
 
+## Sprint 1.0.19 — Cosine similarity matcher + subtle-wrongness suite (2026-05-06) ✅
+
+**Why:** With the 24-dim player profile coming out of the quiz UI (1.0.16) and game profiles writeable to `rec_seidr_game_profile` (1.0.18), the matching layer is the next durable step. A pure-function cosine matcher closes the loop — for any (player, game-corpus) pair, seidr can now rank candidates.
+
+**Goal:** `match(playerProfile, gameProfiles, options) -> { recommendations, filtered, totalConsidered }`. Confidence-weighted cosine similarity + MMR diversification + designer cap + hard filters (excluded games, player-count constraint). Pure function. No I/O. Plus the SILO § 7 subtle-wrongness assertion suite specific to seidr.
+
+**What landed:**
+- `src/match.mjs` (~280 lines):
+  * `similarity(playerProfile, gameProfile, options)` — confidence-weighted cosine in [-1,1] with `unweightedCosine` alongside; returns top-5 contributing dimensions sorted by absolute contribution magnitude
+  * `scoreAll(playerProfile, gameProfiles, options)` — runs similarity over a corpus, returns sorted list
+  * `gameGameSimilarity(g1, g2)` — for MMR diversity term (cosine in dim space, not Jaccard like mimir)
+  * `normalizeScores(scored)` — same shape as mimir's, kept independent per silo § 8
+  * `mmrSelect(pool, profiles, limit, lambda, options)` — greedy MMR with optional designer cap when `bggMetadata` provided
+  * `match(...)` — top-level pipeline: hard filters → score → diversify
+- `tests/match.test.mjs` — 35 tests including:
+  * 9 unit tests for `similarity()`
+  * 3 unit tests for `scoreAll()`
+  * 3 unit tests for `normalizeScores()`
+  * 3 unit tests for `mmrSelect()`
+  * 8 unit tests for `match()` top-level
+  * **8 SUBTLE-WRONGNESS ASSERTIONS** per SILO § 7:
+    1. High-killer player does NOT get pure-coop game as #1
+    2. Low-extraversion player does NOT get loud party games at top
+    3. High-CTX_TIME player does NOT get 15-min filler as #1
+    4. Excluded (noped) game does NOT appear in top-10
+    5. Cold-start (very-low-confidence) input is detectable via contribution magnitudes ≤ confidence²
+    6. Designer cap ≤ 2 in top 10 when bggMetadata present
+    7. Identical scores produce stable diversified output
+    8. Player-count filter excludes games whose [minPlayers, maxPlayers] don't span requested count
+  * **2 integration tests against the 7 real reference profiles** for canonical player archetypes:
+    - heavy-strategist: Terraforming Mars + Twilight Imperium 4 + Ark Nova all rank above Codenames
+    - cooperative-puzzle solver: Pandemic ranks top-3 above TI4 + Codenames
+
+**Acceptance criteria:**
+1. Pure function — no I/O, no DB, no network ✅
+2. No imports from mimir/huginn/saga (silo § 8) ✅
+3. Confidence-weighted cosine returns sensible values for identical/opposite/orthogonal vectors ✅
+4. MMR diversification uses dim-space cosine (not Jaccard); designer cap optional via bggMetadata ✅
+5. All 8 subtle-wrongness assertions pass ✅
+6. Both integration tests against real reference profiles pass ✅
+7. Mimir 168/168 still green (no mimir code touched) ✅
+8. Total seidr tests: 131/131 (was 96; +35 from this sprint)
+
+**Test plan (executed BEFORE push):**
+- `cd seidr && npm test` → 131/131 ✅
+- `cd ../mimir && npm test` → 168/168 ✅ (regression check)
+
+**Outcome:** Pushed in this commit. Seidr can now compute recommendations end-to-end:
+quiz → 24-dim player profile → match() against rec_seidr_game_profile rows → ranked recommendations with confidence-weighted cosine + diversification + designer cap. The only thing missing for production is the top-500 LLM-generated game profiles (Sprint 1.0.20, requires laptop + ANTHROPIC_API_KEY), and a thin HTTP API surface (a future sprint, post-data-accumulation).
+
+**Learnings:**
+- **The subtle-wrongness assertions are the highest-value tests in the suite.** Unit tests for `similarity()` validate math; the subtle-wrongness suite validates **expected dimensional reasoning under canonical input shapes**. A change that preserves the math but breaks the dimensional reasoning (e.g., a sign flip somewhere, an off-by-one in a confidence weight) would pass unit tests and fail subtle-wrongness — exactly the property the silo discipline exists to enforce.
+- **Confidence-weighted cosine is direction-invariant.** This was a mild surprise in test development: weighted cosine and unweighted cosine give the same value when the player and game vectors are perfectly aligned, even when confidences vary widely. The actionable signal for cold-start is therefore not the cosine value itself but the magnitude of `contributingDims` entries — a low-confidence player has tiny contributions in absolute terms regardless of cosine. Encoded this in the cold-start subtle-wrongness assertion.
+- **Game-game similarity in the dim space is the natural diversity measure for seidr.** Mimir uses Jaccard over (mechanic, category, family, designer) attribute sets because that's mimir's feature substrate. Seidr uses cosine in the same 24-dim space its scoring uses — a Cascadia + Wingspan pairing has high game-game cosine (both peaceful animal-themed engine builders) and MMR will avoid clumping them, even though their BGG mechanics overlap is moderate.
+- **The reference profiles paid off immediately.** Both integration tests against real fixture games succeeded on the first run because the reference profiles were carefully calibrated in 1.0.18. Hand-authored references = trustworthy regression anchor.
+
+**Rollback:** Revert this sprint's commit. Pure additive code; no schema changes; no other engines affected.
+
+---
+
 ## Sprint 1.0.18 — Game-profiling pipeline + 7 reference profiles + schema (2026-05-06) ✅
 
 **Why:** Seidr's previous sprints landed the questionnaire side (24-dim taxonomy + 50-question bank + deployable quiz UI). The matching side requires game profiles in the same 24-dim space — without them, the player profile has nothing to cosine-match against. Sprint 1.0.18 lands the schema (rec_seidr_game_profile etc.) and the pipeline that fills it (LLM prompt + validation + DB write), plus 7 hand-authored reference profiles that serve as the validation gold-standard for the eventual top-500 LLM run.

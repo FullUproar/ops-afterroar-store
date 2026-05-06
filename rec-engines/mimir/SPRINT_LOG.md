@@ -4,6 +4,19 @@ Per-sprint development history. Most recent at top.
 
 ---
 
+## Sprint 1.0.19 — Seidr cosine similarity matcher + subtle-wrongness suite (2026-05-06) ✅
+
+Closes the seidr matching loop. With game profiles writeable (1.0.18) and player profiles emitted by the quiz UI (1.0.16), the matcher converts both into a ranked recommendation list. **No mimir code changed; mimir 168/168 still pass.** Pure additive work in `seidr/src/match.mjs` + `seidr/tests/match.test.mjs`.
+
+- 35 new tests, 131/131 total seidr tests pass
+- 8 SUBTLE-WRONGNESS assertions specific to seidr (per SILO § 7)
+- 2 integration tests against real reference profiles (heavy-strategist + cooperative-puzzle archetypes)
+- Confidence-weighted cosine + MMR diversification (game-game cosine in dim space) + designer cap
+
+Full sprint detail in `seidr/SPRINT_LOG.md` § Sprint 1.0.19.
+
+---
+
 ## Sprint 1.0.18 — Game-profiling pipeline + 7 reference profiles (2026-05-06) ✅
 
 Closed the seidr "missing piece" identified in Sprint 1.0.16. Lands the schema, pipeline, and validation set so seidr can produce recommendations once a cosine matcher (Sprint 1.0.19) is implemented. **No mimir code changed; mimir's 168/168 tests still pass.** Pure additive work in `seidr/`. Provenance:
@@ -233,13 +246,13 @@ Pushed at commit `524e774`.
 
 ## Next sprint planned
 
-## Sprint 1.0.19 — Seidr cosine similarity matcher (DRAFT)
-
-With game profiles now writeable to rec_seidr_game_profile (Sprint 1.0.18) and the 24-dim player profile being produced by the quiz UI (Sprint 1.0.16), the matching layer is the next durable step. Pure function: `match(playerProfile, gameProfiles, options) -> rankedList`. Cosine similarity weighted by per-dim confidence + diversification + designer cap (per SILO.md § 7). Tests against the 7 reference profiles + a synthetic player-profile test set. Subtle-wrongness assertions per SILO.md.
-
 ## Sprint 1.0.20 — Seidr scaling: top-500 LLM-generated profiles (DRAFT, requires laptop)
 
-The actual top-500 LLM run. Requires ANTHROPIC_API_KEY (laptop-only). The pipeline (1.0.18) is ready; just needs to be invoked over a 500-game BGG corpus. Light manual validation pass on ~50 reference games (the 7 already done; +~43 to span weight × mechanic × group-size space).
+The actual top-500 LLM run. Requires ANTHROPIC_API_KEY (laptop-only). The pipeline (1.0.18) is ready; the matcher (1.0.19) is ready. Top-500 just needs the API key + a 500-game BGG corpus pulled (BGG 403'd this datacenter's IP; works from laptop residential IP). Light manual validation pass on ~50 reference games (7 done; +~43 to span weight × mechanic × group-size space).
+
+## Sprint 1.0.21 — Recommendations module integration (DRAFT)
+
+A thin module that wraps seidr's matcher with metadata enrichment (game name, designer, BGG link) so a future caller can consume rich recommendation rows without re-fetching BGG metadata. Independent of the rec router (production-side, separate component).
 
 ## Sprint 0.3 — Apply 0001 + 0002 migrations to user’s Neon branch (REQUIRES LAPTOP)
 
