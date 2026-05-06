@@ -1,0 +1,11 @@
+{
+  "name": "@afterroar/rec-engine-seidr",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Seidr — Profile-driven recommendation engine. Consumes player questionnaire output and matches against game profiles via cosine similarity. Phase 0 scaffold + deployable quiz UI.",
+  "scripts": {
+    "test": "echo 'seidr has no implementation tests yet — scaffold + quiz-ui only. See SPRINT_LOG.md.' && exit 0"
+  },
+  "dependencies": {}
+}

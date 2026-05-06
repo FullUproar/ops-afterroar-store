@@ -1,0 +1,527 @@
+{
+  "metadata": {
+    "title": "Seidr Curated Question Bank",
+    "version": "1.0.0",
+    "source": "Manus AI Tabletop Recommendation Profiler v1.0 (118 questions); editorially curated to 50 by Mimir engineering. See ../docs/manus-source-critique.md for full editorial pass.",
+    "total_questions": 50,
+    "sample_size_recommended": 18,
+    "sample_size_min": 12,
+    "sample_size_max": 25
+  },
+  "sampling_rules": {
+    "per_cluster_minimum": 2,
+    "format_minimums": {
+      "game_vs_game": 1,
+      "this_or_that": 2,
+      "likert": 2,
+      "multiple_choice": 1
+    }
+  },
+  "questions": [
+    {
+      "id": "Q01",
+      "source": "manus_Q0001",
+      "text": "You have one hour of free time. Do you:",
+      "type": "this_or_that",
+      "answers": [
+        { "text": "Read the rulebook for a heavy strategy game.", "weights": { "PSY_CONSCIENTIOUSNESS": 1.0, "MEC_COMPLEXITY": 1.0 } },
+        { "text": "Play three quick rounds of a loud party game.", "weights": { "PSY_EXTRAVERSION": 1.0, "CTX_TIME": -1.0 } }
+      ]
+    },
+    {
+      "id": "Q02",
+      "source": "manus_Q0002",
+      "text": "In a cooperative game, the group is about to make a fatal mistake. You know the optimal move. Do you:",
+      "type": "this_or_that",
+      "answers": [
+        { "text": "Take charge and tell everyone exactly what to do.", "weights": { "PSY_ACHIEVEMENT": 1.0, "PSY_AGREEABLENESS": -0.5 } },
+        { "text": "Let the group make the mistake so everyone feels involved.", "weights": { "PSY_SOCIAL": 1.0, "PSY_AGREEABLENESS": 1.0 } }
+      ]
+    },
+    {
+      "id": "Q03",
+      "source": "manus_Q0003",
+      "text": "What's the best part of winning?",
+      "type": "this_or_that",
+      "answers": [
+        { "text": "Knowing my strategy was mathematically superior.", "weights": { "PSY_ACHIEVEMENT": 1.0, "MEC_STRATEGY": 1.0 } },
+        { "text": "Seeing the look of despair on my friend's face.", "weights": { "PSY_KILLER": 1.0, "SOC_DIRECT_INDIRECT": 1.0 } }
+      ]
+    },
+    {
+      "id": "Q04",
+      "source": "manus_Q0004",
+      "text": "You discover a broken, overpowered combo in a game. Do you:",
+      "type": "this_or_that",
+      "answers": [
+        { "text": "Exploit it mercilessly to crush your opponents.", "weights": { "PSY_KILLER": 1.0, "PSY_ACHIEVEMENT": 0.5 } },
+        { "text": "Point it out to the table and agree not to use it.", "weights": { "PSY_AGREEABLENESS": 1.0, "SOC_COOP_COMP": -0.5 } }
+      ]
+    },
+    {
+      "id": "Q05",
+      "source": "manus_Q0005",
+      "text": "A game requires you to lie to your partner's face. How do you feel?",
+      "type": "this_or_that",
+      "answers": [
+        { "text": "Thrilled. I'm a master of deception.", "weights": { "SOC_TRUST_BETRAYAL": 1.0, "PSY_EXTRAVERSION": 0.5 } },
+        { "text": "Anxious. I hate deceiving people I care about.", "weights": { "SOC_TRUST_BETRAYAL": -1.0, "PSY_AGREEABLENESS": 1.0 } }
+      ]
+    },
+    {
+      "id": "Q06",
+      "source": "manus_Q0006_edited",
+      "text": "I play games primarily to hang out with friends; the game itself doesn't matter much.",
+      "type": "likert",
+      "editorial_note": "Removed Manus's MEC_COMPLEXITY weight; the inference 'social-only → simple games' is too thin.",
+      "answers": [
+        { "text": "Strongly Disagree", "weights": { "PSY_SOCIAL": -1.0 } },
+        { "text": "Disagree", "weights": { "PSY_SOCIAL": -0.5 } },
+        { "text": "Neutral", "weights": {} },
+        { "text": "Agree", "weights": { "PSY_SOCIAL": 0.5 } },
+        { "text": "Strongly Agree", "weights": { "PSY_SOCIAL": 1.0 } }
+      ]
+    },
+    {
+      "id": "Q07",
+      "source": "manus_Q0007",
+      "text": "I prefer games where I can build my own engine in peace without people attacking me.",
+      "type": "likert",
+      "answers": [
+        { "text": "Strongly Disagree", "weights": { "SOC_DIRECT_INDIRECT": 1.0, "PSY_CONSCIENTIOUSNESS": -0.5 } },
+        { "text": "Disagree", "weights": { "SOC_DIRECT_INDIRECT": 0.5, "PSY_CONSCIENTIOUSNESS": -0.25 } },
+        { "text": "Neutral", "weights": {} },
+        { "text": "Agree", "weights": { "SOC_DIRECT_INDIRECT": -0.5, "PSY_CONSCIENTIOUSNESS": 0.25 } },
+        { "text": "Strongly Agree", "weights": { "SOC_DIRECT_INDIRECT": -1.0, "PSY_CONSCIENTIOUSNESS": 0.5 } }
+      ]
+    },
+    {
+      "id": "Q08",
+      "source": "manus_Q0008",
+      "text": "I love the adrenaline rush of a high-stakes dice roll.",
+      "type": "likert",
+      "answers": [
+        { "text": "Strongly Disagree", "weights": { "MEC_LUCK_SKILL": 1.0, "EMO_TENSION": -0.5 } },
+        { "text": "Disagree", "weights": { "MEC_LUCK_SKILL": 0.5, "EMO_TENSION": -0.25 } },
+        { "text": "Neutral", "weights": {} },
+        { "text": "Agree", "weights": { "MEC_LUCK_SKILL": -0.5, "EMO_TENSION": 0.25 } },
+        { "text": "Strongly Agree", "weights": { "MEC_LUCK_SKILL": -1.0, "EMO_TENSION": 0.5 } }
+      ]
+    },
+    {
+      "id": "Q09",
+      "source": "manus_Q0009",
+      "text": "If a game takes more than 15 minutes to explain, I lose interest.",
+      "type": "likert",
+      "answers": [
+        { "text": "Strongly Disagree", "weights": { "MEC_COMPLEXITY": 1.0, "PSY_CONSCIENTIOUSNESS": 0.5 } },
+        { "text": "Disagree", "weights": { "MEC_COMPLEXITY": 0.5, "PSY_CONSCIENTIOUSNESS": 0.25 } },
+        { "text": "Neutral", "weights": {} },
+        { "text": "Agree", "weights": { "MEC_COMPLEXITY": -0.5, "PSY_CONSCIENTIOUSNESS": -0.25 } },
+        { "text": "Strongly Agree", "weights": { "MEC_COMPLEXITY": -1.0, "PSY_CONSCIENTIOUSNESS": -0.5 } }
+      ]
+    },
+    {
+      "id": "Q10",
+      "source": "manus_Q0010",
+      "text": "I enjoy games with heavy, dark, or morally ambiguous themes.",
+      "type": "likert",
+      "answers": [
+        { "text": "Strongly Disagree", "weights": { "PSY_OPENNESS": -1.0, "AES_NARRATIVE": -0.5, "EMO_HUMOR": 0.25 } },
+        { "text": "Disagree", "weights": { "PSY_OPENNESS": -0.5, "AES_NARRATIVE": -0.25 } },
+        { "text": "Neutral", "weights": {} },
+        { "text": "Agree", "weights": { "PSY_OPENNESS": 0.5, "AES_NARRATIVE": 0.25 } },
+        { "text": "Strongly Agree", "weights": { "PSY_OPENNESS": 1.0, "AES_NARRATIVE": 0.5, "EMO_HUMOR": -0.25 } }
+      ]
+    },
+    {
+      "id": "Q11",
+      "source": "manus_Q0011_edited",
+      "text": "I get genuinely upset when I lose a game.",
+      "type": "likert",
+      "editorial_note": "Manus had PSY_ACHIEVEMENT weight; reduced because the link is weak (loss-distress can come from neuroticism alone, not necessarily achievement motivation).",
+      "answers": [
+        { "text": "Strongly Disagree", "weights": { "PSY_NEUROTICISM": -1.0 } },
+        { "text": "Disagree", "weights": { "PSY_NEUROTICISM": -0.5 } },
+        { "text": "Neutral", "weights": {} },
+        { "text": "Agree", "weights": { "PSY_NEUROTICISM": 0.5, "PSY_ACHIEVEMENT": 0.25 } },
+        { "text": "Strongly Agree", "weights": { "PSY_NEUROTICISM": 1.0, "PSY_ACHIEVEMENT": 0.25 } }
+      ]
+    },
+    {
+      "id": "Q12",
+      "source": "manus_Q0012",
+      "text": "I prefer playing on a team rather than being a solo competitor.",
+      "type": "likert",
+      "answers": [
+        { "text": "Strongly Disagree", "weights": { "SOC_COOP_COMP": 1.0, "PSY_AGREEABLENESS": -1.0 } },
+        { "text": "Disagree", "weights": { "SOC_COOP_COMP": 0.5, "PSY_AGREEABLENESS": -0.5 } },
+        { "text": "Neutral", "weights": {} },
+        { "text": "Agree", "weights": { "SOC_COOP_COMP": -0.5, "PSY_AGREEABLENESS": 0.5 } },
+        { "text": "Strongly Agree", "weights": { "SOC_COOP_COMP": -1.0, "PSY_AGREEABLENESS": 1.0 } }
+      ]
+    },
+    {
+      "id": "Q13",
+      "source": "manus_Q0013",
+      "text": "I want a game to tell me a rich, immersive story.",
+      "type": "likert",
+      "answers": [
+        { "text": "Strongly Disagree", "weights": { "AES_NARRATIVE": -1.0, "PSY_OPENNESS": -0.5 } },
+        { "text": "Disagree", "weights": { "AES_NARRATIVE": -0.5, "PSY_OPENNESS": -0.25 } },
+        { "text": "Neutral", "weights": {} },
+        { "text": "Agree", "weights": { "AES_NARRATIVE": 0.5, "PSY_OPENNESS": 0.25 } },
+        { "text": "Strongly Agree", "weights": { "AES_NARRATIVE": 1.0, "PSY_OPENNESS": 0.5 } }
+      ]
+    },
+    {
+      "id": "Q14",
+      "source": "manus_Q0014",
+      "text": "I like abstract games (like Chess or Go) with zero theme.",
+      "type": "likert",
+      "answers": [
+        { "text": "Strongly Disagree", "weights": { "AES_THEME_MECH": -1.0 } },
+        { "text": "Disagree", "weights": { "AES_THEME_MECH": -0.5 } },
+        { "text": "Neutral", "weights": {} },
+        { "text": "Agree", "weights": { "AES_THEME_MECH": 0.5 } },
+        { "text": "Strongly Agree", "weights": { "AES_THEME_MECH": 1.0 } }
+      ]
+    },
+    {
+      "id": "Q15",
+      "source": "manus_Q0015",
+      "text": "I am drawn to games based on movies or franchises I grew up with.",
+      "type": "likert",
+      "answers": [
+        { "text": "Strongly Disagree", "weights": { "CTX_NOSTALGIA": -1.0 } },
+        { "text": "Disagree", "weights": { "CTX_NOSTALGIA": -0.5 } },
+        { "text": "Neutral", "weights": {} },
+        { "text": "Agree", "weights": { "CTX_NOSTALGIA": 0.5 } },
+        { "text": "Strongly Agree", "weights": { "CTX_NOSTALGIA": 1.0 } }
+      ]
+    },
+    {
+      "id": "Q16", "source": "manus_settings_pair_war_abstract",
+      "text": "Which setting would you rather play in?",
+      "type": "this_or_that",
+      "answers": [
+        { "text": "A massive intergalactic war", "weights": { "PSY_KILLER": 0.5, "SOC_DIRECT_INDIRECT": 0.5 } },
+        { "text": "An abstract world of pure geometric shapes", "weights": { "AES_THEME_MECH": -1.0, "PSY_OPENNESS": -0.5 } }
+      ]
+    },
+    {
+      "id": "Q17", "source": "manus_settings_pair_war_farming",
+      "text": "Which setting would you rather play in?",
+      "type": "this_or_that",
+      "answers": [
+        { "text": "A massive intergalactic war", "weights": { "PSY_KILLER": 0.5, "SOC_DIRECT_INDIRECT": 0.5 } },
+        { "text": "A peaceful farming village", "weights": { "PSY_AGREEABLENESS": 0.5, "SOC_DIRECT_INDIRECT": -0.5 } }
+      ]
+    },
+    {
+      "id": "Q18", "source": "manus_settings_pair_war_cyberpunk",
+      "text": "Which setting would you rather play in?",
+      "type": "this_or_that",
+      "answers": [
+        { "text": "A massive intergalactic war", "weights": { "PSY_KILLER": 0.5, "SOC_DIRECT_INDIRECT": 0.5 } },
+        { "text": "A gritty cyberpunk dystopia", "weights": { "PSY_OPENNESS": 0.5, "AES_NARRATIVE": 0.5 } }
+      ]
+    },
+    {
+      "id": "Q19", "source": "manus_settings_pair_war_marvel",
+      "text": "Which setting would you rather play in?",
+      "type": "this_or_that",
+      "answers": [
+        { "text": "A massive intergalactic war", "weights": { "PSY_KILLER": 0.5, "SOC_DIRECT_INDIRECT": 0.5 } },
+        { "text": "A licensed Marvel superhero universe", "weights": { "CTX_NOSTALGIA": 1.0, "AES_NARRATIVE": 0.5 } }
+      ]
+    },
+    {
+      "id": "Q20", "source": "manus_settings_pair_abstract_farming",
+      "text": "Which setting would you rather play in?",
+      "type": "this_or_that",
+      "answers": [
+        { "text": "An abstract world of pure geometric shapes", "weights": { "AES_THEME_MECH": -1.0, "PSY_OPENNESS": -0.5 } },
+        { "text": "A peaceful farming village", "weights": { "PSY_AGREEABLENESS": 0.5, "SOC_DIRECT_INDIRECT": -0.5 } }
+      ]
+    },
+    {
+      "id": "Q21", "source": "manus_settings_pair_abstract_cyberpunk",
+      "text": "Which setting would you rather play in?",
+      "type": "this_or_that",
+      "answers": [
+        { "text": "An abstract world of pure geometric shapes", "weights": { "AES_THEME_MECH": -1.0, "PSY_OPENNESS": -0.5 } },
+        { "text": "A gritty cyberpunk dystopia", "weights": { "PSY_OPENNESS": 0.5, "AES_NARRATIVE": 0.5 } }
+      ]
+    },
+    {
+      "id": "Q22", "source": "manus_settings_pair_abstract_marvel",
+      "text": "Which setting would you rather play in?",
+      "type": "this_or_that",
+      "answers": [
+        { "text": "An abstract world of pure geometric shapes", "weights": { "AES_THEME_MECH": -1.0, "PSY_OPENNESS": -0.5 } },
+        { "text": "A licensed Marvel superhero universe", "weights": { "CTX_NOSTALGIA": 1.0, "AES_NARRATIVE": 0.5 } }
+      ]
+    },
+    {
+      "id": "Q23", "source": "manus_settings_pair_farming_cyberpunk",
+      "text": "Which setting would you rather play in?",
+      "type": "this_or_that",
+      "answers": [
+        { "text": "A peaceful farming village", "weights": { "PSY_AGREEABLENESS": 0.5, "SOC_DIRECT_INDIRECT": -0.5 } },
+        { "text": "A gritty cyberpunk dystopia", "weights": { "PSY_OPENNESS": 0.5, "AES_NARRATIVE": 0.5 } }
+      ]
+    },
+    {
+      "id": "Q24", "source": "manus_settings_pair_farming_marvel",
+      "text": "Which setting would you rather play in?",
+      "type": "this_or_that",
+      "answers": [
+        { "text": "A peaceful farming village", "weights": { "PSY_AGREEABLENESS": 0.5, "SOC_DIRECT_INDIRECT": -0.5 } },
+        { "text": "A licensed Marvel superhero universe", "weights": { "CTX_NOSTALGIA": 1.0, "AES_NARRATIVE": 0.5 } }
+      ]
+    },
+    {
+      "id": "Q25", "source": "manus_settings_pair_cyberpunk_marvel",
+      "text": "Which setting would you rather play in?",
+      "type": "this_or_that",
+      "answers": [
+        { "text": "A gritty cyberpunk dystopia", "weights": { "PSY_OPENNESS": 0.5, "AES_NARRATIVE": 0.5 } },
+        { "text": "A licensed Marvel superhero universe", "weights": { "CTX_NOSTALGIA": 1.0, "AES_NARRATIVE": 0.5 } }
+      ]
+    },
+    {
+      "id": "Q26", "source": "manus_actions_pair_drafting_betraying",
+      "text": "Which core action sounds more fun?",
+      "type": "this_or_that",
+      "answers": [
+        { "text": "Drafting cards to build the perfect combo", "weights": { "MEC_STRATEGY": 1.0, "PSY_ACHIEVEMENT": 0.5 } },
+        { "text": "Secretly betraying your friends", "weights": { "SOC_TRUST_BETRAYAL": 1.0, "PSY_AGREEABLENESS": -1.0 } }
+      ]
+    },
+    {
+      "id": "Q27", "source": "manus_actions_pair_drafting_dice",
+      "text": "Which core action sounds more fun?",
+      "type": "this_or_that",
+      "answers": [
+        { "text": "Drafting cards to build the perfect combo", "weights": { "MEC_STRATEGY": 1.0, "PSY_ACHIEVEMENT": 0.5 } },
+        { "text": "Rolling dice to resolve combat", "weights": { "MEC_LUCK_SKILL": -1.0 } }
+      ]
+    },
+    {
+      "id": "Q28", "source": "manus_actions_pair_drafting_spreadsheet",
+      "text": "Which core action sounds more fun?",
+      "type": "this_or_that",
+      "answers": [
+        { "text": "Drafting cards to build the perfect combo", "weights": { "MEC_STRATEGY": 1.0, "PSY_ACHIEVEMENT": 0.5 } },
+        { "text": "Carefully managing a spreadsheet of resources", "weights": { "MEC_COMPLEXITY": 1.0, "PSY_CONSCIENTIOUSNESS": 1.0 } }
+      ]
+    },
+    {
+      "id": "Q29", "source": "manus_actions_pair_drafting_coop",
+      "text": "Which core action sounds more fun?",
+      "type": "this_or_that",
+      "answers": [
+        { "text": "Drafting cards to build the perfect combo", "weights": { "MEC_STRATEGY": 1.0, "PSY_ACHIEVEMENT": 0.5 } },
+        { "text": "Working together to defeat an AI boss", "weights": { "SOC_COOP_COMP": -1.0, "PSY_AGREEABLENESS": 1.0 } }
+      ]
+    },
+    {
+      "id": "Q30", "source": "manus_actions_pair_betraying_dice",
+      "text": "Which core action sounds more fun?",
+      "type": "this_or_that",
+      "answers": [
+        { "text": "Secretly betraying your friends", "weights": { "SOC_TRUST_BETRAYAL": 1.0, "PSY_AGREEABLENESS": -1.0 } },
+        { "text": "Rolling dice to resolve combat", "weights": { "MEC_LUCK_SKILL": -1.0 } }
+      ]
+    },
+    {
+      "id": "Q31", "source": "manus_actions_pair_betraying_spreadsheet",
+      "text": "Which core action sounds more fun?",
+      "type": "this_or_that",
+      "answers": [
+        { "text": "Secretly betraying your friends", "weights": { "SOC_TRUST_BETRAYAL": 1.0, "PSY_AGREEABLENESS": -1.0 } },
+        { "text": "Carefully managing a spreadsheet of resources", "weights": { "MEC_COMPLEXITY": 1.0, "PSY_CONSCIENTIOUSNESS": 1.0 } }
+      ]
+    },
+    {
+      "id": "Q32", "source": "manus_actions_pair_betraying_coop",
+      "text": "Which core action sounds more fun?",
+      "type": "this_or_that",
+      "answers": [
+        { "text": "Secretly betraying your friends", "weights": { "SOC_TRUST_BETRAYAL": 1.0, "PSY_AGREEABLENESS": -1.0 } },
+        { "text": "Working together to defeat an AI boss", "weights": { "SOC_COOP_COMP": -1.0, "PSY_AGREEABLENESS": 1.0 } }
+      ]
+    },
+    {
+      "id": "Q33", "source": "manus_actions_pair_dice_spreadsheet",
+      "text": "Which core action sounds more fun?",
+      "type": "this_or_that",
+      "answers": [
+        { "text": "Rolling dice to resolve combat", "weights": { "MEC_LUCK_SKILL": -1.0 } },
+        { "text": "Carefully managing a spreadsheet of resources", "weights": { "MEC_COMPLEXITY": 1.0, "PSY_CONSCIENTIOUSNESS": 1.0 } }
+      ]
+    },
+    {
+      "id": "Q34", "source": "manus_actions_pair_dice_coop",
+      "text": "Which core action sounds more fun?",
+      "type": "this_or_that",
+      "answers": [
+        { "text": "Rolling dice to resolve combat", "weights": { "MEC_LUCK_SKILL": -1.0 } },
+        { "text": "Working together to defeat an AI boss", "weights": { "SOC_COOP_COMP": -1.0, "PSY_AGREEABLENESS": 1.0 } }
+      ]
+    },
+    {
+      "id": "Q35", "source": "manus_actions_pair_spreadsheet_coop",
+      "text": "Which core action sounds more fun?",
+      "type": "this_or_that",
+      "answers": [
+        { "text": "Carefully managing a spreadsheet of resources", "weights": { "MEC_COMPLEXITY": 1.0, "PSY_CONSCIENTIOUSNESS": 1.0 } },
+        { "text": "Working together to defeat an AI boss", "weights": { "SOC_COOP_COMP": -1.0, "PSY_AGREEABLENESS": 1.0 } }
+      ]
+    },
+    {
+      "id": "Q36", "source": "manus_Q0116",
+      "text": "You are buying a new game. What justifies a $100 price tag?",
+      "type": "multiple_choice",
+      "answers": [
+        { "text": "Dozens of highly detailed plastic miniatures.", "weights": { "AES_COMPONENT": 1.0 } },
+        { "text": "A massive, branching campaign story that takes 50 hours to complete.", "weights": { "AES_NARRATIVE": 1.0, "CTX_TIME": 1.0 } },
+        { "text": "Flawlessly balanced mechanics that I can play competitively for years.", "weights": { "MEC_STRATEGY": 1.0, "PSY_ACHIEVEMENT": 1.0 } },
+        { "text": "It's a collector's edition of a classic game from my childhood.", "weights": { "CTX_NOSTALGIA": 1.0 } }
+      ]
+    },
+    {
+      "id": "Q37", "source": "manus_Q0117",
+      "text": "Your ideal game night lasts:",
+      "type": "multiple_choice",
+      "answers": [
+        { "text": "30 minutes. Quick, loud, and done.", "weights": { "CTX_TIME": -1.0, "PSY_EXTRAVERSION": 1.0 } },
+        { "text": "90 minutes. Enough time for a solid strategy, but not exhausting.", "weights": { "CTX_TIME": 0.0 } },
+        { "text": "4 hours. I want to build an empire from scratch.", "weights": { "CTX_TIME": 1.0, "MEC_COMPLEXITY": 1.0 } },
+        { "text": "All weekend. A sprawling, epic campaign.", "weights": { "CTX_TIME": 1.5, "AES_NARRATIVE": 1.0 } }
+      ]
+    },
+    {
+      "id": "Q38", "source": "manus_Q0118",
+      "text": "When it comes to game rules:",
+      "type": "multiple_choice",
+      "answers": [
+        { "text": "I want them simple enough to teach in 5 minutes.", "weights": { "MEC_COMPLEXITY": -1.0 } },
+        { "text": "I don't mind a 20-page rulebook if the gameplay is deep.", "weights": { "MEC_COMPLEXITY": 1.0, "PSY_CONSCIENTIOUSNESS": 1.0 } },
+        { "text": "I prefer games where the rules evolve and change as you play.", "weights": { "PSY_OPENNESS": 1.0, "MEC_ASYMMETRY": 0.5 } }
+      ]
+    },
+    {
+      "id": "Q39", "source": "mimir_new_game_vs_game",
+      "text": "Pick the game you'd rather play tonight:",
+      "type": "game_vs_game",
+      "editorial_note": "Game-vs-game is the highest-signal question format. Manus's bank had none. We're adding 5 covering different preference axes.",
+      "answers": [
+        { "text": "Twilight Imperium 4 — 8-hour space epic, 3-6 players, deep strategy + negotiation", "bgg_id": 233078, "weights": { "MEC_COMPLEXITY": 1.0, "CTX_TIME": 1.0, "PSY_KILLER": 0.5, "AES_NARRATIVE": 0.5 } },
+        { "text": "Codenames — 15-minute team word game, 4-8+ players", "bgg_id": 178900, "weights": { "PSY_EXTRAVERSION": 1.0, "PSY_SOCIAL": 1.0, "CTX_TIME": -1.0, "CTX_PLAYER_COUNT": 0.5, "EMO_HUMOR": 0.25 } }
+      ]
+    },
+    {
+      "id": "Q40", "source": "mimir_new_game_vs_game",
+      "text": "Pick the game you'd rather play tonight:",
+      "type": "game_vs_game",
+      "answers": [
+        { "text": "Pandemic — cooperative race against disease, 2-4 players, 45 min", "bgg_id": 30549, "weights": { "SOC_COOP_COMP": -1.0, "PSY_AGREEABLENESS": 0.5, "EMO_TENSION": 0.5 } },
+        { "text": "Catan — competitive resource trading, 3-4 players, 90 min", "bgg_id": 13, "weights": { "SOC_COOP_COMP": 1.0, "SOC_DIRECT_INDIRECT": -0.25, "PSY_SOCIAL": 0.5 } }
+      ]
+    },
+    {
+      "id": "Q41", "source": "mimir_new_game_vs_game",
+      "text": "Pick the game you'd rather play tonight:",
+      "type": "game_vs_game",
+      "answers": [
+        { "text": "Wingspan — birds, engine-building, 1-5 players, 70 min", "bgg_id": 266192, "weights": { "SOC_DIRECT_INDIRECT": -0.5, "PSY_CONSCIENTIOUSNESS": 0.5, "AES_THEME_MECH": -0.25, "EMO_TENSION": -0.5 } },
+        { "text": "Twilight Struggle — Cold War, 2-player CDG, 3 hours, brutal", "bgg_id": 12333, "weights": { "PSY_KILLER": 0.5, "SOC_DIRECT_INDIRECT": 1.0, "MEC_STRATEGY": 1.0, "AES_NARRATIVE": 0.5, "EMO_TENSION": 0.5 } }
+      ]
+    },
+    {
+      "id": "Q42", "source": "mimir_new_game_vs_game",
+      "text": "Pick the game you'd rather play tonight:",
+      "type": "game_vs_game",
+      "answers": [
+        { "text": "Sushi Go! — light card drafting, 15 min, 2-5 players", "bgg_id": 133473, "weights": { "CTX_TIME": -1.0, "MEC_COMPLEXITY": -1.0, "EMO_HUMOR": 0.25 } },
+        { "text": "Gloomhaven — 95-scenario dungeon-crawl campaign, 1-4 players, 60-120 min/scenario", "bgg_id": 174430, "weights": { "CTX_TIME": 1.5, "AES_NARRATIVE": 1.0, "MEC_COMPLEXITY": 1.0, "SOC_COOP_COMP": -1.0, "PSY_OPENNESS": 0.5 } }
+      ]
+    },
+    {
+      "id": "Q43", "source": "mimir_new_game_vs_game",
+      "text": "Pick the game you'd rather play tonight:",
+      "type": "game_vs_game",
+      "answers": [
+        { "text": "Hive — abstract 2-player insect chess, 20 min", "bgg_id": 2655, "weights": { "AES_THEME_MECH": -1.0, "MEC_STRATEGY": 1.0, "CTX_PLAYER_COUNT": -1.0 } },
+        { "text": "Spirit Island — cooperative anti-colonial spirit defense, 1-4 players, 90-150 min", "bgg_id": 162886, "weights": { "SOC_COOP_COMP": -1.0, "AES_THEME_MECH": 0.5, "AES_NARRATIVE": 0.5, "MEC_COMPLEXITY": 0.5 } }
+      ]
+    },
+    {
+      "id": "Q44", "source": "mimir_new_emotion",
+      "text": "What's the emotional sweet spot for a great game night?",
+      "type": "this_or_that",
+      "answers": [
+        { "text": "Heart-pounding tension — a tight game on the edge of disaster", "weights": { "EMO_TENSION": 1.0, "PSY_NEUROTICISM": -0.25, "MEC_LUCK_SKILL": -0.25 } },
+        { "text": "Easy laughter — joking, riffing, no one taking it too seriously", "weights": { "EMO_HUMOR": 1.0, "EMO_TENSION": -0.5, "PSY_EXTRAVERSION": 0.5, "PSY_SOCIAL": 0.5 } }
+      ]
+    },
+    {
+      "id": "Q45", "source": "mimir_new_emotion",
+      "text": "After a great game, what feeling do you most want to leave with?",
+      "type": "this_or_that",
+      "answers": [
+        { "text": "The satisfaction of a hard-fought victory — 'I earned this'", "weights": { "PSY_ACHIEVEMENT": 1.0, "EMO_TENSION": 0.25, "MEC_STRATEGY": 0.5 } },
+        { "text": "A sense of awe — 'wait, that was incredible, did you see that move?'", "weights": { "PSY_OPENNESS": 1.0, "AES_NARRATIVE": 0.5, "PSY_EXPLORATION": 0.5 } }
+      ]
+    },
+    {
+      "id": "Q46", "source": "mimir_new_cognitive",
+      "text": "Tonight's headspace:",
+      "type": "this_or_that",
+      "answers": [
+        { "text": "Sharp — give me something complex, I want to think hard", "weights": { "MEC_COMPLEXITY": 1.0, "MEC_STRATEGY": 0.5, "EMO_TENSION": 0.25 } },
+        { "text": "Soft — something easy that doesn't tax my brain", "weights": { "MEC_COMPLEXITY": -1.0, "MEC_STRATEGY": -0.25, "EMO_HUMOR": 0.25 } }
+      ]
+    },
+    {
+      "id": "Q47", "source": "mimir_new_cognitive",
+      "text": "Decision speed: how do you like your turns?",
+      "type": "this_or_that",
+      "answers": [
+        { "text": "Snappy — quick decisions, fast turns, no analysis paralysis", "weights": { "MEC_COMPLEXITY": -0.5, "PSY_EXTRAVERSION": 0.25, "CTX_TIME": -0.25 } },
+        { "text": "Deliberate — take all the time you need, the planning is the fun", "weights": { "MEC_COMPLEXITY": 0.5, "PSY_CONSCIENTIOUSNESS": 1.0, "MEC_STRATEGY": 0.5 } }
+      ]
+    },
+    {
+      "id": "Q48", "source": "mimir_new_context_player_count",
+      "text": "Your favorite game-night size:",
+      "type": "multiple_choice",
+      "answers": [
+        { "text": "Just me — solo or 2-player only", "weights": { "CTX_PLAYER_COUNT": -1.0, "PSY_EXTRAVERSION": -0.5, "PSY_SOCIAL": -0.5 } },
+        { "text": "Tight group — 3 or 4 close friends", "weights": { "CTX_PLAYER_COUNT": -0.25 } },
+        { "text": "Hangout — 5–7, mix of friends, room to chat", "weights": { "CTX_PLAYER_COUNT": 0.5, "PSY_EXTRAVERSION": 0.5, "PSY_SOCIAL": 0.5 } },
+        { "text": "Party — 8+ people, loud, chaotic, the more the better", "weights": { "CTX_PLAYER_COUNT": 1.0, "PSY_EXTRAVERSION": 1.0, "EMO_HUMOR": 0.5, "CTX_TIME": -0.5 } }
+      ]
+    },
+    {
+      "id": "Q49", "source": "mimir_new_context_party_vs_hobby",
+      "text": "Your *real* preferred game night vibe:",
+      "type": "this_or_that",
+      "answers": [
+        { "text": "Party night — snacks, drinks, casual games, talking the whole time", "weights": { "PSY_EXTRAVERSION": 1.0, "PSY_SOCIAL": 1.0, "MEC_COMPLEXITY": -0.5, "EMO_HUMOR": 0.5 } },
+        { "text": "Hobby night — dedicated focus, deep games, the game is the point", "weights": { "MEC_STRATEGY": 0.5, "MEC_COMPLEXITY": 0.5, "PSY_CONSCIENTIOUSNESS": 0.5 } }
+      ]
+    },
+    {
+      "id": "Q50", "source": "mimir_new_group_dynamics",
+      "text": "There's a 'rules lawyer' at your table. How do you feel?",
+      "type": "this_or_that",
+      "answers": [
+        { "text": "Grateful — the rules matter and someone needs to know them", "weights": { "PSY_CONSCIENTIOUSNESS": 0.5, "MEC_COMPLEXITY": 0.5, "PSY_AGREEABLENESS": -0.25 } },
+        { "text": "Annoyed — just play the game, who cares about page 6 footnote 3", "weights": { "MEC_COMPLEXITY": -0.5, "EMO_HUMOR": 0.25, "PSY_OPENNESS": 0.25 } }
+      ]
+    }
+  ]
+}
