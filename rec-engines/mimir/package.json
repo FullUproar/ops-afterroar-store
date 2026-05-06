@@ -8,6 +8,7 @@
     "migrate:dry-run": "node scripts/apply-migrations.mjs --dry-run",
     "migrate": "node scripts/apply-migrations.mjs",
     "fetch-bgg": "node scripts/fetch-bgg.mjs",
+    "run-rec": "node scripts/run-rec.mjs",
     "test": "node --test tests/"
   },
   "dependencies": {

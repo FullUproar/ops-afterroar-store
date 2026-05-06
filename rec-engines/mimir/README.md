@@ -19,14 +19,26 @@ It's deliberately the dumbest possible reasonable engine. **It is not the differ
 
 ## What's inside
 
-- `migrations/` — SQL DDL for `rec_*` tables (foundation schema). Currently: `0001_create_rec_tables.sql`.
-- `scripts/apply-migrations.mjs` — Migration runner with multi-layer safety harness. Refuses non-`rec_*` operations. Refuses production-named DBs.
-- `scripts/fetch-bgg.mjs` — BGG metadata fetcher (writes per-game JSON to gitignored `tmp/bgg/`).
-- `tests/` — Test suites (runner safety + BGG parser).
-- `docs/recommendation-engine-design.md` — The architectural design doc (full spec for all engines in the roadmap).
-- `SPRINT_LOG.md` — Sprint history for this engine. Read this when resuming work.
-- `package.json` — Node ES module package. Deps: `pg`, `fast-xml-parser`.
-- `.gitignore` — excludes `tmp/`, `node_modules/`, `.env`.
+### Schema
+- `migrations/0001_create_rec_tables.sql` — 14 tables + 4 indexes per design doc § 3.5 + § 7.1
+- `scripts/apply-migrations.mjs` — migration runner with multi-layer safety harness (refuses non-rec_* operations; refuses prod-named DBs)
+
+### BGG ingestion
+- `scripts/fetch-bgg.mjs` — fetches BGG XML API metadata, writes per-game JSON to gitignored `tmp/bgg/`
+- `data/seed-bgg-ids.txt` — 60 hand-curated BGG IDs spanning weight tiers + mechanic families for cold-start onboarding
+
+### Pipeline (pure functions)
+- `src/taste-vector.mjs` — `computeTasteVector(loved, noped, gameMetadata)` → multidimensional taste vector
+- `src/score.mjs` — `scoreCandidate(candidate, taste, context)` → score + confidence + reason codes + breakdown
+- `src/rank.mjs` — `rankCandidates(...)` → MMR-diversified ranking with hard designer cap
+- `src/explain.mjs` — `explain(scored, candidate, taste)` → short + long natural-language explanations
+- `src/recommend.mjs` — `recommend(request, gameMetadata)` → RecommendResponse per design doc § 4
+
+### Offline driver
+- `scripts/run-rec.mjs` — CLI that loads `tmp/bgg/`, accepts seed picks, prints recommendations. Use for human-in-loop eval.
+
+### Tests
+- `tests/*.test.mjs` — ~120 assertions across 7 test files, including 12+ SUBTLE-WRONGNESS guards (per SILO.md § 7)
 
 ## Running it
 
@@ -37,38 +49,40 @@ npm install
 # Run the test suite (no DB or network required)
 npm test
 
-# Dry-run migrations (parses + safety-checks all migration files; no DB writes)
-DATABASE_URL=postgres://user:pass@host:5432/your-dev-db npm run migrate:dry-run
-
-# Apply migrations to a non-prod DB
-DATABASE_URL=postgres://user:pass@host:5432/your-dev-db npm run migrate
-
-# Fetch BGG metadata for a list of game IDs
-npm run fetch-bgg -- --ids 167791,30549,1
-
-# Or fetch from a file (one ID per line, comments allowed)
+# Fetch BGG metadata for the seed pool (one-time, ~1 minute)
 npm run fetch-bgg -- --file data/seed-bgg-ids.txt
 
-# Dry-run the BGG fetcher (lists batches without making network calls)
-npm run fetch-bgg -- --ids 167791 --dry-run
+# Run an offline recommendation against the cached BGG data
+npm run run-rec -- --loved 167791,266192 --noped 178900 --players 4 --minutes 90
+
+# Try with rich explanations
+npm run run-rec -- --loved 167791 --explain rich
+
+# Database operations (require DATABASE_URL)
+DATABASE_URL=postgres://... npm run migrate:dry-run
+DATABASE_URL=postgres://... npm run migrate
 ```
 
 **Safety rails (per SILO.md § 3 and the runner's own checks):**
-- The runner refuses to apply any migration that creates/alters/drops/truncates a non-`rec_*` table or index.
+- The migration runner refuses to apply any migration that creates/alters/drops/truncates a non-`rec_*` table or index.
 - The runner refuses to run against a database whose URL contains `prod`, `production`, or `-live` unless `--allow-prod` is passed (do not pass that flag during Mimir Phase 0).
 - Migration progress is tracked in a self-managed `rec_migrations` table; re-running is idempotent.
 
 **BGG fetcher etiquette:**
 - Identifies via `User-Agent: AfterroarRecEngine/0.1 (...)`.
 - Rate limits to ~1 req/sec; batches 20 ids/req.
-- Exponential backoff on 429, 5xx, 202 (queued), and 200-without-items (still processing).
-- Output goes to `tmp/bgg/` (gitignored). Re-fetchable; no need to ever commit fetched data.
+- Exponential backoff on 429, 5xx, 202 (queued), and 200-without-items.
+- Output goes to `tmp/bgg/` (gitignored).
 
 ## Current phase
 
-**Phase 0 — Scaffolding + foundation schema + BGG fetcher.** Schema committed, migration runner ready, BGG fetcher ready. Schema not yet applied to any database (Sprint 0.3 will do that against a Neon branch DB on a laptop session).
+**Phase 0 — Mobile-buildable portion COMPLETE as of Sprint 1.0.6.** Silo holds a runnable end-to-end recommender:
 
-Next: see `SPRINT_LOG.md` § "Next sprint planned".
+```
+seed picks → taste vector → score every candidate → rank with MMR + designer cap → explain → RecommendResponse
+```
+
+Next: laptop session for Sprint 0.3 (apply migration to Neon branch) → Sprint 1.1 (BGG → rec_* writer).
 
 ## Graduation criteria (out of silo)
 
@@ -76,7 +90,7 @@ Mimir graduates from silo when ALL of these are true:
 
 1. **End-to-end execution works.** `recommend(seed_game_id) → ranked list with explanations` returns sensible results for at least 30 distinct seed games.
 2. **Performance.** Latency P99 < 500ms for `limit=10` requests against the full 5000-game dataset.
-3. **Subtle-wrongness suite passes** (per SILO.md § 7).
+3. **Subtle-wrongness suite passes** (per SILO.md § 7) — unit tests are in place; needs validation against real BGG data.
 4. **Logging is complete.** Every request, candidate, score, and outcome captured.
 5. **One canary store has used it for ≥1 week** with feature flag enabled, recommendation acceptance rate ≥60%, no reported quality issues.
 
@@ -94,6 +108,6 @@ Until all five are met, Mimir stays in silo.
 ## Open questions specific to Mimir
 
 - BGG API rate limit posture — 1 req/sec is conservative; can scale up if BGG’s actual limit is more permissive
-- Seed game pool curation (the ~50–100 games shown to new players in onboarding) — Sprint 1.0.1 drafts the list; needs human-in-loop pass
-- Hand-tuned weight values for the scoring function (`w1` through `w9` in design doc § 5.1) — to be set in implementation, refined via offline eval
-- Confidence score calibration — what threshold below which we return "insufficient data" instead of a list
+- Seed game pool curation — needs a human-in-loop pass to validate IDs and adjust based on real-world FLGS feedback
+- Hand-tuned weight values for the scoring function (`WEIGHTS` in `src/score.mjs`) — starting heuristics; offline eval will refine
+- Confidence score calibration — what threshold below which we return "insufficient data" instead of a list (currently `LOW_CONFIDENCE_THRESHOLD = 0.3`)
