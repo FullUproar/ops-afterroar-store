@@ -1,11 +1,15 @@
 {
   "name": "@afterroar/rec-engine-seidr",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Seidr — Profile-driven recommendation engine. Consumes player questionnaire output and matches against game profiles via cosine similarity. Phase 0 scaffold + deployable quiz UI.",
+  "description": "Seidr — Profile-driven recommendation engine. Consumes player questionnaire output and matches against game profiles via cosine similarity. Phase 0: schema + reference profiles + LLM pipeline scaffold + cosine matcher (Sprint 1.0.18+).",
   "scripts": {
-    "test": "echo 'seidr has no implementation tests yet — scaffold + quiz-ui only. See SPRINT_LOG.md.' && exit 0"
+    "migrate:dry-run": "node scripts/apply-migrations.mjs --dry-run",
+    "migrate": "node scripts/apply-migrations.mjs",
+    "test": "node --test tests/*.test.mjs"
   },
-  "dependencies": {}
+  "dependencies": {
+    "pg": "^8.11.0"
+  }
 }

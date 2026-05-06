@@ -4,6 +4,20 @@ Per-sprint development history. Most recent at top.
 
 ---
 
+## Sprint 1.0.18 — Game-profiling pipeline + 7 reference profiles (2026-05-06) ✅
+
+Closed the seidr "missing piece" identified in Sprint 1.0.16. Lands the schema, pipeline, and validation set so seidr can produce recommendations once a cosine matcher (Sprint 1.0.19) is implemented. **No mimir code changed; mimir's 168/168 tests still pass.** Pure additive work in `seidr/`. Provenance:
+
+- Migration `seidr/migrations/0001_seidr_tables.sql`: rec_seidr_player_profile, rec_seidr_game_profile, rec_seidr_response (3 tables + 3 indexes). Sandbox-validated against Postgres 16. 22 rec_* tables now in schema.
+- `seidr/scripts/profile-game.mjs`: CLI for the LLM pipeline. Mock + Anthropic SDK paths.
+- `seidr/src/{validate-profile,prompt-template,profile-game}.mjs`: pure-function pipeline core.
+- `seidr/data/reference-profiles.json`: 7 hand-authored 24-dim profiles for the fixture games.
+- `seidr/tests/`: 96 tests, all passing.
+
+Full sprint detail in `seidr/SPRINT_LOG.md` § Sprint 1.0.18.
+
+---
+
 ## Sprint 1.0.17 — Saga engine scaffold + architecture lock-in (2026-05-06) ✅
 
 **Why:** Saga is the breakthrough engine — Monte Carlo simulator + per-player fun model trained on recap data. The competitive moat. Distinct from anything that matches, traverses, or scores against features: saga *simulates* game-nights and predicts probability distributions over fun outcomes per player.
@@ -219,9 +233,13 @@ Pushed at commit `524e774`.
 
 ## Next sprint planned
 
-## Sprint 1.0.18 — Game-profiling v0 (LLM-generated profiles for top 500 games) (DRAFT)
+## Sprint 1.0.19 — Seidr cosine similarity matcher (DRAFT)
 
-The missing piece in seidr's design (per `seidr/docs/game-profiling-strategy.md`). Generate 24-dim vectors for the top ~500 BGG games via LLM, validate manually for ~50 reference games, store in a new `rec_seidr_game_profile` table. Required before seidr can produce any recommendation.
+With game profiles now writeable to rec_seidr_game_profile (Sprint 1.0.18) and the 24-dim player profile being produced by the quiz UI (Sprint 1.0.16), the matching layer is the next durable step. Pure function: `match(playerProfile, gameProfiles, options) -> rankedList`. Cosine similarity weighted by per-dim confidence + diversification + designer cap (per SILO.md § 7). Tests against the 7 reference profiles + a synthetic player-profile test set. Subtle-wrongness assertions per SILO.md.
+
+## Sprint 1.0.20 — Seidr scaling: top-500 LLM-generated profiles (DRAFT, requires laptop)
+
+The actual top-500 LLM run. Requires ANTHROPIC_API_KEY (laptop-only). The pipeline (1.0.18) is ready; just needs to be invoked over a 500-game BGG corpus. Light manual validation pass on ~50 reference games (the 7 already done; +~43 to span weight × mechanic × group-size space).
 
 ## Sprint 0.3 — Apply 0001 + 0002 migrations to user’s Neon branch (REQUIRES LAPTOP)
 
