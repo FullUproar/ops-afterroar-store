@@ -1,9 +1,0 @@
-{
-  "name": "@afterroar/rec-engine-content-similarity",
-  "version": "0.0.1",
-  "private": true,
-  "description": "Content-similarity recommendation engine. Foundation engine for the platform rec roadmap. See README.md for context. Under silo discipline; see ../SILO.md.",
-  "scripts": {
-    "noop": "echo 'No build configured yet — Phase 0 scaffolding'"
-  }
-}
